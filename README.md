@@ -6,7 +6,7 @@
 
 **movy** is a graphics rendering engine with effects, and animation for the terminal.  
 
-It transforms your terminal into a vibrant, graphical playground — blending pixel-level rendering with structured UI composition and event-driven interaction.
+It transforms your terminal into a vibrant, graphical playground — blending pixel-level rendering with chainable effects, sprite animations and event-driven interaction.
 
 ## A Hacker’s Dream Canvas
 
