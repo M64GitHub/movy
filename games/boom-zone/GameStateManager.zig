@@ -34,17 +34,17 @@ pub const GameStateManager = struct {
 
         switch (self.state) {
             .FadeIn => {
-                if (self.frame_counter > 30) {
+                if (self.frame_counter > 100) {
                     self.transitionTo(.StartingInvincible);
                 }
             },
             .StartingInvincible => {
-                if (self.frame_counter > 90) {
+                if (self.frame_counter > 100) {
                     self.transitionTo(.AlmostVulnerable);
                 }
             },
             .AlmostVulnerable => {
-                if (self.frame_counter > 140) {
+                if (self.frame_counter > 100) {
                     self.transitionTo(.Playing);
                 }
             },
@@ -59,7 +59,7 @@ pub const GameStateManager = struct {
                 }
             },
             .Dying => {
-                if (self.frame_counter > 30) {
+                if (self.frame_counter > 50) {
                     self.transitionTo(.Respawning);
                 }
             },

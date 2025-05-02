@@ -8,11 +8,10 @@ pub const Ship = struct {
     base_y: i32,
     orientation: Orientation = .Up,
     speed: i32,
-
     sprite_ship: *Sprite,
     sprite_thrust: *Sprite,
-    sprite_weapon: *Sprite,
-    sprite_shield: *Sprite,
+    screen: *movy.Screen,
+    visible: bool = false,
 
     pub const Orientation = enum {
         Up,
@@ -25,10 +24,9 @@ pub const Ship = struct {
         allocator: std.mem.Allocator,
         ship: *Sprite,
         thrust: *Sprite,
-        weapon: *Sprite,
-        shield: *Sprite,
         speed: i32,
         orientation: Orientation,
+        screen: *movy.Screen,
     ) !*Ship {
         const s = try allocator.create(Ship);
         s.* = Ship{
@@ -37,10 +35,9 @@ pub const Ship = struct {
             .base_y = 0,
             .sprite_ship = ship,
             .sprite_thrust = thrust,
-            .sprite_weapon = weapon,
-            .sprite_shield = shield,
             .speed = speed,
             .orientation = orientation,
+            .screen = screen,
         };
 
         return s;
@@ -61,8 +58,16 @@ pub const Ship = struct {
             self.sprite_ship.x + 3,
             self.sprite_ship.y + 18,
         );
-        self.sprite_weapon.setXY(x, new_y);
-        self.sprite_shield.setXY(x, new_y);
+    }
+
+    pub fn getCenterCoords(self: *Ship) struct { x: i32, y: i32 } {
+        const s_w: i32 = @as(i32, @intCast(self.sprite_ship.w));
+        const s_h: i32 = @as(i32, @intCast(self.sprite_ship.h));
+
+        const x = self.sprite_ship.x + @divTrunc(s_w, 2);
+        const y = self.sprite_ship.y + @divTrunc(s_h, 2);
+
+        return .{ .x = x, .y = y };
     }
 
     pub fn stepAnimations(self: *Ship) void {
@@ -70,5 +75,17 @@ pub const Ship = struct {
         self.sprite_thrust.stepActiveAnimation();
         // make sure, current frame surface's x/y is updated
         self.setXY(self.x, self.y);
+    }
+
+    pub fn addRenderSurfaces(self: *Ship) !void {
+        if (!self.visible) return;
+
+        try self.screen.addRenderSurface(
+            try self.sprite_ship.getCurrentFrameSurface(),
+        );
+
+        try self.screen.addRenderSurface(
+            try self.sprite_thrust.getCurrentFrameSurface(),
+        );
     }
 };

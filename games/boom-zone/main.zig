@@ -103,15 +103,6 @@ pub fn main() !void {
             try game.update();
             try game.renderFrame();
 
-            // Prepare UI addon rendering
-            screen.output_surfaces.clearRetainingCapacity();
-
-            // add UI surface
-            // try screen.addRenderSurface(status_surface);
-            //
-            // // Render manually
-            // screen.renderOnTop();
-
             var end_time = std.time.nanoTimestamp();
             const render_time_ns = end_time - start_time;
 
