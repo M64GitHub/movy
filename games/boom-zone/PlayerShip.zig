@@ -6,6 +6,7 @@ const WeaponManager = @import("WeaponManager.zig").WeaponManager;
 
 const MovementSpeed: i32 = 2;
 const AnimationSpeed = 1;
+const MaxDamage = 100;
 
 pub const PlayerShip = struct {
     ship: *Ship,
@@ -17,6 +18,7 @@ pub const PlayerShip = struct {
 
     //
     lives: usize = 5,
+    damage: usize = 0,
 
     pub fn init(
         allocator: std.mem.Allocator,
@@ -35,23 +37,9 @@ pub const PlayerShip = struct {
             "thrust",
         );
 
-        const weapon_sprite = try movy.graphic.Sprite.initFromPng(
-            allocator,
-            "games/boom-zone/assets/weapons.png",
-            "weapons",
-        );
-
-        const shield_sprite = try movy.graphic.Sprite.initFromPng(
-            allocator,
-            "games/boom-zone/assets/shield_green.png",
-            "shield",
-        );
-
         // slice sprites
         try ship_sprite.splitByWidth(allocator, 24);
         try thrust_sprite.splitByWidth(allocator, 16);
-        try weapon_sprite.splitByWidth(allocator, 48);
-        try shield_sprite.splitByWidth(allocator, 16);
 
         // define animations
 
@@ -137,11 +125,6 @@ pub const PlayerShip = struct {
 
         try ship_sprite.startAnimation("idle");
         try thrust_sprite.startAnimation("idle");
-        try weapon_sprite.setFrameIndex(1);
-        try shield_sprite.setFrameIndex(1);
-
-        try screen.addSprite(ship_sprite);
-        try screen.addSprite(thrust_sprite);
 
         const x =
             @divTrunc(@as(i32, @intCast(screen.width() - ship_sprite.w)), 2);
@@ -154,10 +137,9 @@ pub const PlayerShip = struct {
             allocator,
             ship_sprite,
             thrust_sprite,
-            weapon_sprite,
-            shield_sprite,
             MovementSpeed,
             .Up,
+            screen,
         );
 
         const ps = PlayerShip{
@@ -177,8 +159,6 @@ pub const PlayerShip = struct {
     pub fn deinit(self: *PlayerShip, allocator: std.mem.Allocator) void {
         self.ship.sprite_ship.deinit(allocator);
         self.ship.sprite_thrust.deinit(allocator);
-        self.ship.sprite_shield.deinit(allocator);
-        self.ship.sprite_weapon.deinit(allocator);
         self.ship.deinit(allocator);
         self.weapon_manager.deinit(allocator);
         allocator.destroy(self.weapon_manager);

@@ -69,12 +69,12 @@ pub const ObstacleManager = struct {
     active_obstacles: [MaxObstacles]Obstacle,
 
     // auto spawn
-    target_count: usize = 8,
+    target_count: usize = 18,
     spawn_cooldown: u8 = 0,
-    spawn_interval: u8 = 50, // spawn every 16 frames
+    spawn_interval: u8 = 75, // spawn every 16 frames
     rng: std.Random.DefaultPrng,
 
-    pub const MaxObstacles = 64;
+    pub const MaxObstacles = 96;
 
     pub fn init(
         allocator: std.mem.Allocator,
@@ -217,8 +217,8 @@ pub const ObstacleManager = struct {
                 const roll = self.rng.random().intRangeLessThan(u8, 0, 10);
 
                 const kind: ObstacleType = switch (roll) {
-                    0...5 => ObstacleType.AsteroidSmall, // 6 out of 10
-                    6...8 => ObstacleType.AsteroidBig, // 3 out of 10
+                    0...4 => ObstacleType.AsteroidSmall, // 5 out of 10
+                    5...8 => ObstacleType.AsteroidBig, // 4 out of 10
                     else => ObstacleType.AsteroidHuge, // 1 out of 10
                 };
 
