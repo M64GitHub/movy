@@ -9,6 +9,8 @@ const ExplosionType = @import("ExplosionManager.zig").ExplosionType;
 const ObstacleManager = @import("ObstacleManager.zig").ObstacleManager;
 const Sprite = movy.graphic.Sprite;
 
+const Lives = 5;
+
 pub const GameManager = struct {
     player: PlayerShip,
     gamestate: GameStateManager,
@@ -27,7 +29,7 @@ pub const GameManager = struct {
         screen: *movy.Screen,
     ) !GameManager {
         return GameManager{
-            .player = try PlayerShip.init(allocator, screen),
+            .player = try PlayerShip.init(allocator, screen, Lives),
             .gamestate = GameStateManager.init(),
             .statuswin = try StatusWindow.init(
                 allocator,
@@ -64,10 +66,6 @@ pub const GameManager = struct {
     }
 
     pub fn update(self: *GameManager) !void {
-        self.frame_counter += 1;
-
-        // Update state transitions or timers
-        self.gamestate.update(self.frame_counter);
 
         // Handle game logic depending on state
         switch (self.gamestate.state) {
@@ -88,22 +86,32 @@ pub const GameManager = struct {
             },
             .Dying,
             => {
-                self.player.ship.visible = false;
-                try self.player.weapon_manager.update(); // for weapons / projectiles
+                if (self.gamestate.justTransitioned()) {
+                    self.player.lives -= 1;
+                    self.player.ship.visible = false;
+                    self.player.controller.reset();
+                }
+                try self.player.weapon_manager.update(); // for projectiles
                 try self.exploder.update();
                 try self.obstacles.update();
                 self.doProjectileCollisions();
             },
             .Respawning,
             => {
-                self.player.ship.visible = false;
-                try self.player.weapon_manager.update(); // for weapons / projectiles
+                // transition start
+                if (self.player.lives == 0) {
+                    self.gamestate.transitionTo(.FadeToGameOver);
+                }
+                try self.player.weapon_manager.update(); // for projectiles
                 try self.exploder.update();
                 try self.obstacles.update();
                 self.doProjectileCollisions();
             },
+            .FadeToGameOver => {},
             .GameOver => {
                 // freeze everything
+                self.gamestate.transitionTo(.FadeIn);
+                self.player.lives = Lives;
             },
             .Paused => {
                 // don't update anything except maybe animations for screen dimming
@@ -111,6 +119,11 @@ pub const GameManager = struct {
             else => {},
         }
         self.visuals.update(self.frame_counter);
+
+        // Update state transitions or timers
+        self.gamestate.update(self.frame_counter);
+
+        self.frame_counter += 1;
     }
 
     // -- render
@@ -126,9 +139,10 @@ pub const GameManager = struct {
 
         self.message = try std.fmt.bufPrint(
             &self.msgbuf,
-            "GameState: {s}",
+            "GameState: {s:>20} Frame: {d}",
             .{
                 @tagName(self.gamestate.state),
+                self.gamestate.frame_counter,
             },
         );
         _ = self.screen.output_surface.putStrXY(
@@ -139,6 +153,7 @@ pub const GameManager = struct {
             movy.color.BLACK,
         );
 
+        try self.player.setMessage();
         if (self.player.message) |msg| {
             _ = self.screen.output_surface.putStrXY(
                 msg,

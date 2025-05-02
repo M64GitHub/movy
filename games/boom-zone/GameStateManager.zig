@@ -3,6 +3,7 @@ const std = @import("std");
 pub const GameStateManager = struct {
     state: GameState = .FadeIn,
     frame_counter: u32 = 0,
+    just_transitioned: bool = true,
 
     pub const GameState = enum {
         FadeIn,
@@ -30,7 +31,11 @@ pub const GameStateManager = struct {
     pub fn update(self: *GameStateManager, global_frame: usize) void {
         _ = global_frame;
 
-        self.frame_counter += 1;
+        if (!self.just_transitioned) {
+            self.frame_counter += 1;
+        } else {
+            self.just_transitioned = false;
+        }
 
         switch (self.state) {
             .FadeIn => {
@@ -69,7 +74,7 @@ pub const GameStateManager = struct {
                 }
             },
             .FadeToGameOver => {
-                if (self.frame_counter > 45) {
+                if (self.frame_counter > 100) {
                     self.transitionTo(.GameOver);
                 }
             },
@@ -85,6 +90,7 @@ pub const GameStateManager = struct {
     pub fn transitionTo(self: *GameStateManager, new_state: GameState) void {
         self.state = new_state;
         self.frame_counter = 0;
+        self.just_transitioned = true;
     }
 
     /// Returns whether game logic should update (ship, obstacles, etc.)
@@ -122,5 +128,9 @@ pub const GameStateManager = struct {
             => true,
             else => false,
         };
+    }
+
+    pub fn justTransitioned(self: *GameStateManager) bool {
+        return self.frame_counter == 0;
     }
 };
