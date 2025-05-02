@@ -4,7 +4,8 @@ const Sprite = movy.graphic.Sprite;
 
 pub const DefaultWeapon = struct {
     screen: *movy.Screen,
-    cooldown: u8 = 0,
+    cooldown: usize = 6,
+    cooldown_ctr: usize = 0,
     ammo: usize = 9999,
     projectiles: [MaxProjectiles]Projectile,
     projectile_sprites: movy.graphic.SpritePool,
@@ -50,7 +51,7 @@ pub const DefaultWeapon = struct {
         const self = try allocator.create(DefaultWeapon);
         self.* = DefaultWeapon{
             .screen = screen,
-            .cooldown = 0,
+            .cooldown_ctr = 0,
             .ammo = 9999,
             .projectiles = [_]Projectile{Projectile{ .active = false }} **
                 MaxProjectiles,
@@ -90,8 +91,8 @@ pub const DefaultWeapon = struct {
     }
 
     pub fn update(self: *DefaultWeapon) !void {
-        if (self.cooldown > 0)
-            self.cooldown -= 1;
+        if (self.cooldown_ctr > 0)
+            self.cooldown_ctr -= 1;
 
         for (&self.projectiles) |*proj| {
             if (proj.active) {
@@ -115,7 +116,7 @@ pub const DefaultWeapon = struct {
     }
 
     pub fn tryFire(self: *DefaultWeapon, x: i32, y: i32) bool {
-        if (self.cooldown > 0 or self.ammo == 0)
+        if (self.cooldown_ctr > 0 or self.ammo == 0)
             return false;
 
         var fired = false;
@@ -131,7 +132,7 @@ pub const DefaultWeapon = struct {
                         .active = true,
                         .sprite_pool = &self.projectile_sprites,
                     };
-                    self.cooldown = 6;
+                    self.cooldown_ctr = self.cooldown;
                     self.ammo -= 1;
                     fired = true;
                 }

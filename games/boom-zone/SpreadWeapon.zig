@@ -6,7 +6,8 @@ pub const SpreadWeapon = struct {
     screen: *movy.Screen,
     projectile_sprites: movy.graphic.SpritePool,
     projectiles: [MaxProjectiles]Projectile,
-    cooldown: u8 = 0,
+    cooldown: usize = 6,
+    cooldown_ctr: usize = 0,
     ammo: usize = 15,
     num_side_projectiles: usize = 2,
 
@@ -97,8 +98,8 @@ pub const SpreadWeapon = struct {
     }
 
     pub fn update(self: *SpreadWeapon) !void {
-        if (self.cooldown > 0)
-            self.cooldown -= 1;
+        if (self.cooldown_ctr > 0)
+            self.cooldown_ctr -= 1;
 
         for (&self.projectiles) |*proj| {
             if (proj.active) {
@@ -122,7 +123,7 @@ pub const SpreadWeapon = struct {
     }
 
     pub fn tryFire(self: *SpreadWeapon, x: i32, y: i32) bool {
-        if (self.cooldown > 0 or self.ammo == 0)
+        if (self.cooldown_ctr > 0 or self.ammo == 0)
             return false;
 
         var fired = false;
@@ -143,7 +144,7 @@ pub const SpreadWeapon = struct {
             fired = spawnProjectile(self, x, y - 9, dx, dy);
         }
 
-        self.cooldown = 6;
+        self.cooldown_ctr = self.cooldown;
         self.ammo -= 1;
 
         return fired;

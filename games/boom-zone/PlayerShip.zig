@@ -148,7 +148,7 @@ pub const PlayerShip = struct {
 
         const y =
             // @as(i32, @intCast(screen.h - ship_sprite.h - 16));
-            @as(i32, @intCast(screen.h - ship_sprite.h - 10));
+            @as(i32, @intCast(screen.h - ship_sprite.h - 8));
 
         const ship = try Ship.init(
             allocator,
