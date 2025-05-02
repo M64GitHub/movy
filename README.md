@@ -20,6 +20,9 @@ Animations are driven by reusable components that modulate indices and values ov
 
 The result is a modular visual engine that invites experimentation — composable, expressive, and built to empower you to create, style, and interact with ease.
 
+![screenshot](https://github.com/user-attachments/assets/c5e4885b-2f31-49d7-aa35-bdc4dff5eefe)
+
+
 ## Core Concepts
 
 At its heart, **movy** is built on composable rendering, effect-driven visuals, and structured interaction. The system is organized around a few core types that coordinate how visuals are drawn, animated, and composed on screen.
