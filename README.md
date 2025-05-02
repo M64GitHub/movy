@@ -4,7 +4,7 @@
 
 ![get_movy](https://github.com/user-attachments/assets/2436ed3e-d7e3-4b92-a63a-8b09908ffcf1)
 
-**movy** is a graphics engine for rendering, effects, and animation for the terminal.  
+**movy** is a graphics rendering engine with effects, and animation for the terminal.  
 
 It transforms your terminal into a vibrant, graphical playground — blending pixel-level rendering with structured UI composition and event-driven interaction.
 
