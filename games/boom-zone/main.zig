@@ -145,7 +145,7 @@ pub fn main() !void {
 
             const status = try std.fmt.bufPrint(
                 &status_line_buffer,
-                "{s} {s:>28} | {s:>20} | {s:>20}",
+                "{s:>20} {s:>28} | {s:>20} | {s:>20}",
                 .{
                     msg,
                     render_time_buffer[0..render_time_len],

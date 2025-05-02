@@ -42,6 +42,11 @@ pub const ShipController = struct {
         };
     }
 
+    pub fn reset(self: *ShipController) void {
+        self.movement_state = .Idle;
+        self.animation_state = .Idle;
+    }
+
     pub fn onKeyDown(self: *ShipController, key: movy.input.Key) void {
         switch (key.type) {
             .Left => self.movement_state = MovementState.MoveLeft,

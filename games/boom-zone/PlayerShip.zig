@@ -15,14 +15,22 @@ pub const PlayerShip = struct {
     screen: *movy.Screen,
     msgbuf: [1024]u8,
     message: ?[]const u8 = null,
+    health_mode: HealthMode = .Vulnerable,
 
     //
-    lives: usize = 5,
+    lives: usize = 0,
     damage: usize = 0,
+
+    pub const HealthMode = enum {
+        Vulnerable,
+        Invincible,
+        Almostvulnerable,
+    };
 
     pub fn init(
         allocator: std.mem.Allocator,
         screen: *movy.Screen,
+        lives: usize,
     ) !PlayerShip {
         // load sprites
         var ship_sprite = try movy.graphic.Sprite.initFromPng(
@@ -148,6 +156,7 @@ pub const PlayerShip = struct {
             .weapon_manager = try WeaponManager.init(allocator, screen),
             .screen = screen,
             .msgbuf = [_]u8{0} ** 1024,
+            .lives = lives,
         };
 
         ship.stepAnimations();
@@ -187,21 +196,23 @@ pub const PlayerShip = struct {
         try self.controller.updateState();
         self.controller.handleState();
         self.ship.stepAnimations();
-        if (self.ship.sprite_ship.active_animation) |ani_name| {
-            try self.setMessage(ani_name);
-        }
         try self.weapon_manager.update();
     }
 
     pub fn setMessage(
         self: *PlayerShip,
-        msg: []const u8,
     ) !void {
-        var ani_or_fired = msg;
+        var ani_or_fired: []const u8 = undefined;
+
+        if (self.ship.sprite_ship.active_animation) |ani_name| {
+            ani_or_fired = ani_name;
+        }
+
         if (self.weapon_manager.just_fired) ani_or_fired = "FIRE!";
+
         self.message = try std.fmt.bufPrint(
             &self.msgbuf,
-            "Player: {s} | Weapon: {s} | Ammo: {d} | Lives: {d}",
+            "Player movement state: {s:>10} | Weapon: {s:>10} | Ammo: {d:>4} | Lives: {d}",
             .{
                 ani_or_fired,
                 self.weapon_manager.getWeaponName(),
