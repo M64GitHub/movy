@@ -169,7 +169,7 @@ pub const GameManager = struct {
 
         self.message = try std.fmt.bufPrint(
             &self.msgbuf,
-            "GameState: {s:>20} || Shield: {s} | Shield Cooldown: {d} || Frame: {d}",
+            "GameState: {s:>20} | Shield: {s} / Cooldown: {d} | Frame: {d}",
             .{
                 @tagName(self.gamestate.state),
                 @tagName(self.shields.active_shield),
@@ -200,10 +200,9 @@ pub const GameManager = struct {
     // -- key commands
     pub fn switchWeapon(self: *GameManager) void {
         if (self.player.weapon_manager.active_weapon == .Default) {
-            self.player.weapon_manager.active_weapon = .Spread;
-            self.player.weapon_manager.spread_weapon.ammo = 50;
+            self.player.weapon_manager.switchWeapon(.Spread);
         } else {
-            self.player.weapon_manager.active_weapon = .Default;
+            self.player.weapon_manager.switchWeapon(.Default);
         }
     }
 

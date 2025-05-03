@@ -68,6 +68,12 @@ pub const WeaponManager = struct {
 
     pub fn switchWeapon(self: *WeaponManager, new_weapon: WeaponType) void {
         self.active_weapon = new_weapon;
+
+        const ammo = switch (self.active_weapon) {
+            .Default => DefaultWeapon.DefaultAmmo,
+            .Spread => SpreadWeapon.DefaultAmmo,
+        };
+        self.setAmmo(ammo);
     }
 
     pub fn getWeaponName(self: *WeaponManager) []const u8 {
@@ -86,5 +92,12 @@ pub const WeaponManager = struct {
         };
 
         return ammo;
+    }
+
+    pub fn setAmmo(self: *WeaponManager, ammo: usize) void {
+        switch (self.active_weapon) {
+            .Default => self.default_weapon.ammo = ammo,
+            .Spread => self.spread_weapon.ammo = ammo,
+        }
     }
 };
