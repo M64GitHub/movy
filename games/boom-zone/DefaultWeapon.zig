@@ -11,6 +11,7 @@ pub const DefaultWeapon = struct {
     projectile_sprites: movy.graphic.SpritePool,
 
     const MaxProjectiles = 16;
+    pub const DefaultAmmo: usize = 9999;
 
     const Projectile = struct {
         sprite: *Sprite = undefined,

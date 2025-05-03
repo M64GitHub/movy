@@ -11,7 +11,8 @@ pub const SpreadWeapon = struct {
     ammo: usize = 15,
     num_side_projectiles: usize = 2,
 
-    const MaxProjectiles = 32;
+    const MaxProjectiles = 64;
+    pub const DefaultAmmo: usize = 50;
 
     const Projectile = struct {
         sprite: *Sprite = undefined,
