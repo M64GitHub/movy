@@ -31,6 +31,7 @@ pub const SpecialShield = struct {
             .screen = screen,
             .cooldown_ctr = 0,
             .cooldown = Cooldown,
+            .active = false,
         };
 
         const sprite = try movy.graphic.Sprite.initFromPng(
@@ -104,9 +105,7 @@ pub const SpecialShield = struct {
         self.sprite.setXY(x, y);
 
         if (self.cooldown_ctr == 0) {
-            self.active = false;
-            self.cooldown_ctr = Cooldown;
-            self.mode = .Normal;
+            self.reset();
         }
     }
 

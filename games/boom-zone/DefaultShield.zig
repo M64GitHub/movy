@@ -12,9 +12,9 @@ pub const DefaultShield = struct {
     active: bool = false,
     mode: Mode = .Normal,
 
-    pub const Cooldown: usize = 1000;
-    pub const Warn1: usize = 300;
-    pub const Warn2: usize = 100;
+    pub const Cooldown: usize = 500;
+    pub const Warn1: usize = 150;
+    pub const Warn2: usize = 50;
 
     pub const Mode = enum {
         Normal,
@@ -31,6 +31,7 @@ pub const DefaultShield = struct {
             .screen = screen,
             .cooldown_ctr = 0,
             .cooldown = Cooldown,
+            .active = false,
         };
 
         const sprite = try movy.graphic.Sprite.initFromPng(
@@ -104,9 +105,7 @@ pub const DefaultShield = struct {
         self.sprite.setXY(x, y);
 
         if (self.cooldown_ctr == 0) {
-            self.active = false;
-            self.cooldown_ctr = Cooldown;
-            self.mode = .Normal;
+            self.reset();
         }
     }
 

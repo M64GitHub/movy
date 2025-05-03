@@ -5,6 +5,7 @@ const Sprite = movy.graphic.Sprite;
 pub const ObstacleType = enum {
     AsteroidSmall,
     AsteroidBig,
+    AsteroidBig2,
     AsteroidHuge,
 };
 
@@ -65,6 +66,7 @@ pub const ObstacleManager = struct {
     screen: *movy.Screen,
     asteroids_small_pool: movy.graphic.SpritePool,
     asteroids_big_pool: movy.graphic.SpritePool,
+    asteroids_big2_pool: movy.graphic.SpritePool,
     asteroids_huge_pool: movy.graphic.SpritePool,
     active_obstacles: [MaxObstacles]Obstacle,
 
@@ -74,7 +76,7 @@ pub const ObstacleManager = struct {
     spawn_interval: u8 = 40, // spawn every 16 frames
     rng: std.Random.DefaultPrng,
 
-    pub const MaxObstacles = 96;
+    pub const MaxObstacles = 128;
 
     pub fn init(
         allocator: std.mem.Allocator,
@@ -85,6 +87,7 @@ pub const ObstacleManager = struct {
             .screen = screen,
             .asteroids_small_pool = movy.graphic.SpritePool.init(allocator),
             .asteroids_big_pool = movy.graphic.SpritePool.init(allocator),
+            .asteroids_big2_pool = movy.graphic.SpritePool.init(allocator),
             .asteroids_huge_pool = movy.graphic.SpritePool.init(allocator),
             .active_obstacles = [_]Obstacle{.{ .active = false }} **
                 MaxObstacles,
@@ -98,6 +101,7 @@ pub const ObstacleManager = struct {
     fn initSprites(self: *ObstacleManager, allocator: std.mem.Allocator) !void {
         const small_path = "games/boom-zone/assets/asteroid_small.png";
         const big_path = "games/boom-zone/assets/asteroid_big.png";
+        const big2_path = "games/boom-zone/assets/asteroid_big2.png";
         const huge_path = "games/boom-zone/assets/asteroid_huge.png";
 
         for (0..MaxObstacles) |_| {
@@ -116,7 +120,7 @@ pub const ObstacleManager = struct {
             try self.asteroids_small_pool.addSprite(s);
 
             // big
-            const b = try Sprite.initFromPng(
+            var b = try Sprite.initFromPng(
                 allocator,
                 big_path,
                 "big_obstacle",
@@ -129,6 +133,19 @@ pub const ObstacleManager = struct {
             );
             try self.asteroids_big_pool.addSprite(b);
 
+            b = try Sprite.initFromPng(
+                allocator,
+                big2_path,
+                "big2_obstacle",
+            );
+            try b.splitByWidth(allocator, 30);
+            try b.addAnimation(
+                allocator,
+                "rotate",
+                Sprite.FrameAnimation.init(1, 6, .loopBounce, 2),
+            );
+            try self.asteroids_big2_pool.addSprite(b);
+
             // huge
             const h = try Sprite.initFromPng(
                 allocator,
@@ -139,7 +156,7 @@ pub const ObstacleManager = struct {
             try h.addAnimation(
                 allocator,
                 "rotate",
-                Sprite.FrameAnimation.init(1, 6, .loopBounce, 0),
+                Sprite.FrameAnimation.init(1, 6, .loopBounce, 1),
             );
             try self.asteroids_huge_pool.addSprite(h);
         }
@@ -154,24 +171,28 @@ pub const ObstacleManager = struct {
         const sprite = switch (kind) {
             .AsteroidSmall => self.asteroids_small_pool.get(),
             .AsteroidBig => self.asteroids_big_pool.get(),
+            .AsteroidBig2 => self.asteroids_big2_pool.get(),
             .AsteroidHuge => self.asteroids_huge_pool.get(),
         } orelse return;
 
         const speed: usize = switch (kind) {
             .AsteroidSmall => 0,
             .AsteroidBig => 1,
+            .AsteroidBig2 => 2,
             .AsteroidHuge => 2,
         };
 
         const spritepool: *movy.graphic.SpritePool = switch (kind) {
             .AsteroidSmall => &self.asteroids_small_pool,
             .AsteroidBig => &self.asteroids_big_pool,
+            .AsteroidBig2 => &self.asteroids_big2_pool,
             .AsteroidHuge => &self.asteroids_huge_pool,
         };
 
         const damage_thr: usize = switch (kind) {
             .AsteroidSmall => 3,
             .AsteroidBig => 5,
+            .AsteroidBig2 => 5,
             .AsteroidHuge => 10,
         };
 
@@ -218,19 +239,22 @@ pub const ObstacleManager = struct {
 
                 const kind: ObstacleType = switch (roll) {
                     0...4 => ObstacleType.AsteroidSmall, // 5 out of 10
-                    5...8 => ObstacleType.AsteroidBig, // 4 out of 10
+                    5...6 => ObstacleType.AsteroidBig, // 2 out of 10
+                    7...8 => ObstacleType.AsteroidBig2, // 2 out of 10
                     else => ObstacleType.AsteroidHuge, // 1 out of 10
                 };
 
                 const y: i32 = switch (kind) {
                     .AsteroidSmall => -16,
                     .AsteroidBig => -30,
+                    .AsteroidBig2 => -30,
                     .AsteroidHuge => -48,
                 };
 
                 const x: i32 = switch (kind) {
                     .AsteroidSmall => -8,
                     .AsteroidBig => -16,
+                    .AsteroidBig2 => -16,
                     .AsteroidHuge => -24,
                 };
 
@@ -252,6 +276,9 @@ pub const ObstacleManager = struct {
                             obs.sprite,
                         ),
                         .AsteroidBig => self.asteroids_big_pool.release(
+                            obs.sprite,
+                        ),
+                        .AsteroidBig2 => self.asteroids_big_pool.release(
                             obs.sprite,
                         ),
                         .AsteroidHuge => self.asteroids_huge_pool.release(
@@ -283,6 +310,9 @@ pub const ObstacleManager = struct {
                     .AsteroidBig => try self.screen.addRenderSurface(
                         try obs.sprite.getCurrentFrameSurface(),
                     ),
+                    .AsteroidBig2 => try self.screen.addRenderSurface(
+                        try obs.sprite.getCurrentFrameSurface(),
+                    ),
                     else => {},
                 }
             }
@@ -304,6 +334,7 @@ pub const ObstacleManager = struct {
     pub fn deinit(self: *ObstacleManager, allocator: std.mem.Allocator) void {
         self.asteroids_small_pool.deinit(allocator);
         self.asteroids_big_pool.deinit(allocator);
+        self.asteroids_big2_pool.deinit(allocator);
         self.asteroids_huge_pool.deinit(allocator);
         allocator.destroy(self);
     }

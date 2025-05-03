@@ -46,6 +46,7 @@ pub const ShieldManager = struct {
 
     pub fn activate(self: *ShieldManager, shield_type: ShieldType) void {
         self.active_shield = shield_type;
+        // deactivate others
         self.default_shield.reset();
         self.special_shield.reset();
         switch (shield_type) {
@@ -64,12 +65,12 @@ pub const ShieldManager = struct {
         self.special_shield.update(x, y - 4);
 
         if (self.active_shield == .Default) {
-            if (self.default_shield.cooldown_ctr == 0) {
+            if (!self.default_shield.active) {
                 self.activate(.None);
             }
         }
         if (self.active_shield == .Special) {
-            if (self.special_shield.cooldown_ctr == 0) {
+            if (!self.special_shield.active) {
                 self.activate(.None);
             }
         }
@@ -78,10 +79,6 @@ pub const ShieldManager = struct {
     pub fn addRenderSurfaces(self: *ShieldManager) !void {
         try self.default_shield.addRenderSurfaces();
         try self.special_shield.addRenderSurfaces();
-    }
-
-    pub fn switchShield(self: *ShieldManager, new_shield: ShieldType) void {
-        self.active_shield = new_shield;
     }
 
     pub fn getCooldown(self: *ShieldManager) usize {
