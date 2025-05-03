@@ -7,6 +7,13 @@ pub const movy = @This();
 
 pub const Version = "0.0.0";
 
+// maybe move to toplevel
+pub const Sprite = @import("graphic/Sprite.zig").Sprite;
+pub const SpritePool = @import("graphic/SpritePool.zig").SpritePool;
+pub const RenderSurface = @import("core/RenderSurface.zig").RenderSurface;
+
+// -- original structure
+
 // Core submodules — foundational elements for movy
 pub const core = @import("core/core.zig");
 

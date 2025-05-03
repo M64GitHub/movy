@@ -78,7 +78,8 @@ pub const ExplosionManager = struct {
         allocator: std.mem.Allocator,
     ) !void {
         const small_path = "games/boom-zone/assets/explosion_small.png";
-        const small_purple_path = "games/boom-zone/assets/explosion_small_purple.png";
+        const small_purple_path =
+            "games/boom-zone/assets/explosion_small_purple.png";
         const big_path = "games/boom-zone/assets/explosion_big.png";
         const big_blu_path = "games/boom-zone/assets/explosion_big_ship.png";
         const huge_path = "games/boom-zone/assets/explosion_huge.png";
@@ -240,7 +241,9 @@ pub const ExplosionManager = struct {
                     // release back to correct pool
                     switch (exp.explosion_type) {
                         .Small => self.small_pool.release(exp.sprite),
-                        .SmallPurple => self.small_purple_pool.release(exp.sprite),
+                        .SmallPurple => self.small_purple_pool.release(
+                            exp.sprite,
+                        ),
                         .Big => self.big_pool.release(exp.sprite),
                         .BigBlu => self.big_blu_pool.release(exp.sprite),
                         .Huge => self.huge_pool.release(exp.sprite),

@@ -11,6 +11,7 @@ pub const ShieldManager = struct {
     pub const ShieldType = enum {
         Default,
         Special,
+        None,
     };
 
     pub fn init(
@@ -21,8 +22,10 @@ pub const ShieldManager = struct {
         shield_mgr.* = ShieldManager{
             .default_shield = try DefaultShield.init(allocator, screen),
             .special_shield = try SpecialShield.init(allocator, screen),
-            .active_shield = .Special,
+            .active_shield = .None,
         };
+
+        shield_mgr.reset();
 
         return shield_mgr;
     }
@@ -35,27 +38,44 @@ pub const ShieldManager = struct {
         allocator.destroy(self);
     }
 
-    pub fn tryFire(self: *ShieldManager, x: i32, y: i32) void {
-        self.just_fired = false;
-        switch (self.active_shield) {
-            .Default => self.just_fired = self.default_shield.tryFire(x, y),
-            .Special => {
-                self.just_fired = self.special_shield.tryFire(x, y);
-                if (!self.just_fired) {
-                    self.active_shield = .Default;
-                    self.just_fired = self.default_shield.tryFire(x, y);
-                }
+    pub fn reset(self: *ShieldManager) void {
+        self.default_shield.active = false;
+        self.special_shield.active = false;
+        self.active_shield = .None;
+    }
+
+    pub fn activate(self: *ShieldManager, shield_type: ShieldType) void {
+        self.active_shield = shield_type;
+        self.default_shield.reset();
+        self.special_shield.reset();
+        switch (shield_type) {
+            .Default => {
+                self.default_shield.active = true;
             },
+            .Special => {
+                self.special_shield.active = true;
+            },
+            .None => {},
         }
     }
 
-    pub fn update(self: *ShieldManager) !void {
-        self.just_fired = false;
-        try self.default_shield.update();
-        try self.special_shield.update();
+    pub fn update(self: *ShieldManager, x: i32, y: i32) !void {
+        self.default_shield.update(x, y - 4);
+        self.special_shield.update(x, y - 4);
+
+        if (self.active_shield == .Default) {
+            if (self.default_shield.cooldown_ctr == 0) {
+                self.activate(.None);
+            }
+        }
+        if (self.active_shield == .Special) {
+            if (self.special_shield.cooldown_ctr == 0) {
+                self.activate(.None);
+            }
+        }
     }
 
-    pub fn addRendersurfaces(self: *ShieldManager) !void {
+    pub fn addRenderSurfaces(self: *ShieldManager) !void {
         try self.default_shield.addRenderSurfaces();
         try self.special_shield.addRenderSurfaces();
     }
@@ -64,21 +84,13 @@ pub const ShieldManager = struct {
         self.active_shield = new_shield;
     }
 
-    pub fn getShieldName(self: *ShieldManager) []const u8 {
-        const wpn_name = switch (self.active_shield) {
-            .Default => "Default",
-            .Special => "Special",
+    pub fn getCooldown(self: *ShieldManager) usize {
+        const cooldown = switch (self.active_shield) {
+            .Default => self.default_shield.cooldown_ctr,
+            .Special => self.special_shield.cooldown_ctr,
+            .None => 0,
         };
 
-        return wpn_name;
-    }
-
-    pub fn getAmmo(self: *ShieldManager) usize {
-        const ammo = switch (self.active_shield) {
-            .Default => self.default_shield.ammo,
-            .Special => self.special_shield.ammo,
-        };
-
-        return ammo;
+        return cooldown;
     }
 };

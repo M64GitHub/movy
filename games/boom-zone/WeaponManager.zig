@@ -61,7 +61,7 @@ pub const WeaponManager = struct {
         try self.spread_weapon.update();
     }
 
-    pub fn addRendersurfaces(self: *WeaponManager) !void {
+    pub fn addRenderSurfaces(self: *WeaponManager) !void {
         try self.default_weapon.addRenderSurfaces();
         try self.spread_weapon.addRenderSurfaces();
     }
