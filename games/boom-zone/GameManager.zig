@@ -91,11 +91,11 @@ pub const GameManager = struct {
                     }
                     if (self.gamestate.state == .StartingInvincible) {
                         self.shields.activate(.Default);
-                        self.shields.special_shield.cooldown_ctr = 500;
+                        self.shields.default_shield.cooldown_ctr = 500;
                     }
                     if (self.gamestate.state == .AlmostVulnerable) {
-                        self.shields.activate(.Default);
-                        self.shields.default_shield.cooldown_ctr = 300;
+                        // self.shields.activate(.Default);
+                        // self.shields.default_shield.cooldown_ctr = 300;
                     }
                 }
                 try self.player.update();
@@ -161,15 +161,15 @@ pub const GameManager = struct {
         try self.exploder.addRenderSurfaces();
         try self.player.weapon_manager.addRenderSurfaces();
         try self.shields.addRenderSurfaces();
-        try self.player.ship.addRenderSurfaces();
         try self.obstacles.addRenderSurfaces();
+        try self.player.ship.addRenderSurfaces();
         self.screen.render();
 
         try self.visuals.render();
 
         self.message = try std.fmt.bufPrint(
             &self.msgbuf,
-            "GameState: {s:>20} | Shield: {s} cooldown: {d} | Frame: {d}",
+            "GameState: {s:>20} || Shield: {s} | Shield Cooldown: {d} || Frame: {d}",
             .{
                 @tagName(self.gamestate.state),
                 @tagName(self.shields.active_shield),
@@ -265,6 +265,7 @@ pub const GameManager = struct {
             const coll_inset: i32 = switch (obstacle.kind) {
                 .AsteroidSmall => 1,
                 .AsteroidBig => 1,
+                .AsteroidBig2 => 1,
                 .AsteroidHuge => 2,
             };
 
@@ -323,6 +324,7 @@ pub const GameManager = struct {
                     const exp_type: ExplosionType = switch (obstacle.kind) {
                         .AsteroidSmall => .Big,
                         .AsteroidBig => .Big,
+                        .AsteroidBig2 => .Big,
                         .AsteroidHuge => .Huge,
                     };
 
@@ -350,6 +352,7 @@ pub const GameManager = struct {
                 const coll_inset: i32 = switch (obstacle.kind) {
                     .AsteroidSmall => 1,
                     .AsteroidBig => 3,
+                    .AsteroidBig2 => 3,
                     .AsteroidHuge => 5,
                 };
 
@@ -369,6 +372,7 @@ pub const GameManager = struct {
                         const exp_type: ExplosionType = switch (obstacle.kind) {
                             .AsteroidSmall => .Big,
                             .AsteroidBig => .Big,
+                            .AsteroidBig2 => .Big,
                             .AsteroidHuge => .Huge,
                         };
 
@@ -395,6 +399,7 @@ pub const GameManager = struct {
                 const coll_inset: i32 = switch (obstacle.kind) {
                     .AsteroidSmall => 1,
                     .AsteroidBig => 3,
+                    .AsteroidBig2 => 3,
                     .AsteroidHuge => 5,
                 };
 
@@ -414,6 +419,7 @@ pub const GameManager = struct {
                         const exp_type: ExplosionType = switch (obstacle.kind) {
                             .AsteroidSmall => .Big,
                             .AsteroidBig => .Big,
+                            .AsteroidBig2 => .Big,
                             .AsteroidHuge => .Huge,
                         };
 
