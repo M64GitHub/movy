@@ -45,6 +45,7 @@ pub const ShipController = struct {
     pub fn reset(self: *ShipController) void {
         self.movement_state = .Idle;
         self.animation_state = .Idle;
+        self.ship.sprite_ship.startAnimation("idle") catch {};
     }
 
     pub fn onKeyDown(self: *ShipController, key: movy.input.Key) void {

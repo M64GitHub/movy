@@ -44,12 +44,12 @@ pub const GameStateManager = struct {
                 }
             },
             .StartingInvincible => {
-                if (self.frame_counter > 100) {
+                if (self.frame_counter > 500) {
                     self.transitionTo(.AlmostVulnerable);
                 }
             },
             .AlmostVulnerable => {
-                if (self.frame_counter > 100) {
+                if (self.frame_counter > 300) {
                     self.transitionTo(.Playing);
                 }
             },

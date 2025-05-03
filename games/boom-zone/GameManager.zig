@@ -1,12 +1,13 @@
 const std = @import("std");
 const movy = @import("movy");
 const PlayerShip = @import("PlayerShip.zig").PlayerShip;
+const ShieldManager = @import("ShieldManager.zig").ShieldManager;
 const GameStateManager = @import("GameStateManager.zig").GameStateManager;
-const StatusWindow = @import("StatusWindow.zig").StatusWindow;
-const VisualsManager = @import("VisualsManager.zig").VisualsManager;
 const ExplosionManager = @import("ExplosionManager.zig").ExplosionManager;
 const ExplosionType = @import("ExplosionManager.zig").ExplosionType;
 const ObstacleManager = @import("ObstacleManager.zig").ObstacleManager;
+const VisualsManager = @import("VisualsManager.zig").VisualsManager;
+const StatusWindow = @import("StatusWindow.zig").StatusWindow;
 const Sprite = movy.graphic.Sprite;
 
 const Lives = 5;
@@ -14,10 +15,11 @@ const Lives = 5;
 pub const GameManager = struct {
     player: PlayerShip,
     gamestate: GameStateManager,
-    statuswin: StatusWindow,
-    visuals: VisualsManager,
+    shields: *ShieldManager,
     exploder: *ExplosionManager,
     obstacles: *ObstacleManager,
+    visuals: VisualsManager,
+    statuswin: StatusWindow,
     screen: *movy.Screen,
     frame_counter: usize = 0,
 
@@ -41,6 +43,7 @@ pub const GameManager = struct {
             .visuals = VisualsManager.init(allocator, screen),
             .exploder = try ExplosionManager.init(allocator, screen),
             .obstacles = try ObstacleManager.init(allocator, screen),
+            .shields = try ShieldManager.init(allocator, screen),
             .screen = screen,
         };
     }
@@ -59,6 +62,11 @@ pub const GameManager = struct {
         if (key.type == .Char and key.sequence[0] == 'w') {
             self.switchWeapon();
         }
+
+        // shield key
+        if (key.type == .Char and key.sequence[0] == 's') {
+            self.shields.activate(.Default);
+        }
     }
 
     pub fn onKeyUp(self: *GameManager, key: movy.input.Key) void {
@@ -76,13 +84,33 @@ pub const GameManager = struct {
                 // maybe animate screen brightness here
             },
             .StartingInvincible, .AlmostVulnerable, .Playing => {
-                self.player.ship.visible = true;
+                if (self.gamestate.justTransitioned()) {
+                    self.player.ship.visible = true;
+                    if (self.gamestate.state == .Playing) {
+                        self.shields.activate(.None);
+                    }
+                    if (self.gamestate.state == .StartingInvincible) {
+                        self.shields.activate(.Default);
+                        self.shields.special_shield.cooldown_ctr = 500;
+                    }
+                    if (self.gamestate.state == .AlmostVulnerable) {
+                        self.shields.activate(.Default);
+                        self.shields.default_shield.cooldown_ctr = 300;
+                    }
+                }
                 try self.player.update();
+                try self.shields.update(
+                    self.player.ship.x,
+                    self.player.ship.y,
+                );
                 try self.exploder.update();
                 try self.obstacles.update();
                 self.doProjectileCollisions();
-                if (self.gamestate.state == .Playing)
-                    self.doShipCollision();
+                if (self.gamestate.state == .Playing) {
+                    if (self.shields.active_shield == .None) {
+                        self.doShipCollision();
+                    }
+                }
             },
             .Dying,
             => {
@@ -90,6 +118,7 @@ pub const GameManager = struct {
                     self.player.lives -= 1;
                     self.player.ship.visible = false;
                     self.player.controller.reset();
+                    self.shields.reset();
                 }
                 try self.player.weapon_manager.update(); // for projectiles
                 try self.exploder.update();
@@ -114,7 +143,7 @@ pub const GameManager = struct {
                 self.player.lives = Lives;
             },
             .Paused => {
-                // don't update anything except maybe animations for screen dimming
+                // don't update anything except screen dimming, pause visuals
             },
             else => {},
         }
@@ -130,18 +159,21 @@ pub const GameManager = struct {
     pub fn renderFrame(self: *GameManager) !void {
         try self.screen.renderInit();
         try self.exploder.addRenderSurfaces();
-        try self.player.weapon_manager.addRendersurfaces();
-        try self.obstacles.addRenderSurfaces();
+        try self.player.weapon_manager.addRenderSurfaces();
+        try self.shields.addRenderSurfaces();
         try self.player.ship.addRenderSurfaces();
+        try self.obstacles.addRenderSurfaces();
         self.screen.render();
 
         try self.visuals.render();
 
         self.message = try std.fmt.bufPrint(
             &self.msgbuf,
-            "GameState: {s:>20} Frame: {d}",
+            "GameState: {s:>20} | Shield: {s} cooldown: {d} | Frame: {d}",
             .{
                 @tagName(self.gamestate.state),
+                @tagName(self.shields.active_shield),
+                self.shields.getCooldown(),
                 self.gamestate.frame_counter,
             },
         );
@@ -190,7 +222,7 @@ pub const GameManager = struct {
             a.y + a_h > b.y + inset;
     }
 
-    // check collision of a with individual inset bounds for a and b
+    // check collision of a with individual inset bounds for a(x/y) and b
     inline fn checkCollisionShip(
         a: *Sprite,
         b: *Sprite,
@@ -221,7 +253,6 @@ pub const GameManager = struct {
     }
 
     pub fn doProjectileCollisions(self: *GameManager) void {
-        // default weapon projectiles
         self.doDefaultWeaponCollisions();
         self.doSpreadWeaponCollisions();
     }
