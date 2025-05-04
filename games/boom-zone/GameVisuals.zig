@@ -50,7 +50,7 @@ pub const GameVisuals = struct {
             50,
         );
         var pos = screen.getCenterCoords(boom.sprite.w, boom.sprite.h);
-        pos.y -= 20;
+        pos.y -= 30;
         boom.sprite.setXY(pos.x, pos.y);
 
         const zone = try GameVisual.init(
@@ -96,6 +96,7 @@ pub const GameVisuals = struct {
             50,
         );
         pos = screen.getCenterCoords(over.sprite.w, over.sprite.h);
+        pos.y += 20;
         over.sprite.setXY(pos.x, pos.y);
 
         return GameVisuals{
