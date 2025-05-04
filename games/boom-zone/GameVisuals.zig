@@ -52,6 +52,15 @@ pub const GameVisuals = struct {
             50,
         );
 
+        const paused = GameVisual.init(
+            allocator,
+            "games/boom-zone/assets/paused.png",
+            "game",
+            50,
+            1,
+            50,
+        );
+
         const game = GameVisual.init(
             allocator,
             "games/boom-zone/assets/game.png",
@@ -69,7 +78,21 @@ pub const GameVisuals = struct {
             1,
             50,
         );
+
+        return GameVisuals{
+            .boom = boom,
+            .zone = zone,
+            .game = game,
+            .over = over,
+            .paused = paused,
+        };
     }
 
-    pub fn deinit(self: *GameVisuals, allocator: std.mem.Allocator) void {}
+    pub fn deinit(self: *GameVisuals, allocator: std.mem.Allocator) void {
+        self.boom.sprite.deinit(allocator);
+        self.zone.sprite.deinit(allocator);
+        self.game.sprite.deinit(allocator);
+        self.over.sprite.deinit(allocator);
+        self.paused.sprite.deinit(allocator);
+    }
 };
