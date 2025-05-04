@@ -7,8 +7,8 @@ const ExplosionManager = @import("ExplosionManager.zig").ExplosionManager;
 const ExplosionType = @import("ExplosionManager.zig").ExplosionType;
 const ObstacleManager = @import("ObstacleManager.zig").ObstacleManager;
 const VisualsManager = @import("VisualsManager.zig").VisualsManager;
+const GameVisuals = @import("GameVisuals.zig").GameVisuals;
 const StatusWindow = @import("StatusWindow.zig").StatusWindow;
-const Sprite = movy.graphic.Sprite;
 
 const Lives = 5;
 
@@ -18,7 +18,8 @@ pub const GameManager = struct {
     shields: *ShieldManager,
     exploder: *ExplosionManager,
     obstacles: *ObstacleManager,
-    visuals: VisualsManager,
+    visuals: GameVisuals,
+    vismanager: VisualsManager,
     statuswin: StatusWindow,
     screen: *movy.Screen,
     frame_counter: usize = 0,
@@ -40,7 +41,8 @@ pub const GameManager = struct {
                 movy.color.DARK_BLUE,
                 movy.color.GRAY,
             ),
-            .visuals = VisualsManager.init(allocator, screen),
+            .visuals = try GameVisuals.init(allocator, screen),
+            .vismanager = VisualsManager.init(allocator, screen),
             .exploder = try ExplosionManager.init(allocator, screen),
             .obstacles = try ObstacleManager.init(allocator, screen),
             .shields = try ShieldManager.init(allocator, screen),
@@ -70,9 +72,14 @@ pub const GameManager = struct {
 
         // pause key
         if (key.type == .Char and key.sequence[0] == 'p') {
-            if (self.gamestate.state != .Paused) {
+            if (self.gamestate.state != .Paused and
+                self.gamestate.state != .FadingToPause and
+                self.gamestate.state != .FadingFromPause)
+            {
                 self.gamestate.transitionTo(.FadingToPause);
-            } else {
+            }
+
+            if (self.gamestate.state == .Paused) {
                 self.gamestate.transitionTo(.FadingFromPause);
             }
         }
@@ -151,12 +158,32 @@ pub const GameManager = struct {
                 self.gamestate.transitionTo(.FadeIn);
                 self.player.lives = Lives;
             },
+            .FadingToPause => {
+                if (self.gamestate.justTransitioned()) {
+                    self.player.lives -= 1;
+                    self.visuals.paused.visual =
+                        try self.vismanager.startSprite(
+                            allocator,
+                            self.visuals.paused.sprite,
+                            self.visuals.paused.fade_in,
+                            self.visuals.paused.fade_out,
+                        );
+                }
+            },
+            .FadingFromPause => {
+                if (self.gamestate.justTransitioned()) {
+                    if (self.visuals.paused.visual) |visual| {
+                        visual.stop();
+                        self.visuals.paused.visual = null;
+                    }
+                }
+            },
             .Paused => {
                 // don't update anything except screen dimming, pause visuals
             },
             else => {},
         }
-        try self.visuals.update(allocator, self.frame_counter);
+        try self.vismanager.update(allocator, self.frame_counter);
 
         // Update state transitions or timers
         self.gamestate.update(self.frame_counter);
@@ -175,7 +202,9 @@ pub const GameManager = struct {
         self.screen.render();
 
         // adds its surfaces on demand, and dims, etc
-        try self.visuals.addRenderSurfaces();
+        self.screen.output_surfaces.clearRetainingCapacity();
+        try self.vismanager.addRenderSurfaces();
+        self.screen.renderOnTop();
 
         self.message = try std.fmt.bufPrint(
             &self.msgbuf,
@@ -219,7 +248,11 @@ pub const GameManager = struct {
     // -- collision logic
 
     // check collision of a with inset bounds of b
-    inline fn checkCollision(a: *Sprite, b: *Sprite, inset: i32) bool {
+    inline fn checkCollision(
+        a: *movy.Sprite,
+        b: *movy.Sprite,
+        inset: i32,
+    ) bool {
         const a_w: i32 = @as(i32, @intCast(a.w));
         const a_h: i32 = @as(i32, @intCast(a.h));
         const b_w: i32 = @as(i32, @intCast(b.w));
@@ -233,8 +266,8 @@ pub const GameManager = struct {
 
     // check collision of a with individual inset bounds for a(x/y) and b
     inline fn checkCollisionShip(
-        a: *Sprite,
-        b: *Sprite,
+        a: *movy.Sprite,
+        b: *movy.Sprite,
         inset_ship_x: i32,
         inset_ship_y: i32,
         inset: i32,
