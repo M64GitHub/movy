@@ -67,13 +67,22 @@ pub const GameManager = struct {
         if (key.type == .Char and key.sequence[0] == 's') {
             self.shields.activate(.Default);
         }
+
+        // pause key
+        if (key.type == .Char and key.sequence[0] == 'p') {
+            if (self.gamestate.state != .Paused) {
+                self.gamestate.transitionTo(.FadingToPause);
+            } else {
+                self.gamestate.transitionTo(.FadingFromPause);
+            }
+        }
     }
 
     pub fn onKeyUp(self: *GameManager, key: movy.input.Key) void {
         self.player.onKeyUp(key);
     }
 
-    pub fn update(self: *GameManager) !void {
+    pub fn update(self: *GameManager, allocator: std.mem.Allocator) !void {
 
         // Handle game logic depending on state
         switch (self.gamestate.state) {
@@ -91,7 +100,7 @@ pub const GameManager = struct {
                     }
                     if (self.gamestate.state == .StartingInvincible) {
                         self.shields.activate(.Default);
-                        self.shields.default_shield.cooldown_ctr = 500;
+                        self.shields.default_shield.cooldown_ctr = 300;
                     }
                     if (self.gamestate.state == .AlmostVulnerable) {
                         // self.shields.activate(.Default);
@@ -147,7 +156,7 @@ pub const GameManager = struct {
             },
             else => {},
         }
-        self.visuals.update(self.frame_counter);
+        try self.visuals.update(allocator, self.frame_counter);
 
         // Update state transitions or timers
         self.gamestate.update(self.frame_counter);
@@ -165,7 +174,8 @@ pub const GameManager = struct {
         try self.player.ship.addRenderSurfaces();
         self.screen.render();
 
-        try self.visuals.render();
+        // adds its surfaces on demand, and dims, etc
+        try self.visuals.addRenderSurfaces();
 
         self.message = try std.fmt.bufPrint(
             &self.msgbuf,

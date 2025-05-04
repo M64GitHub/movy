@@ -100,7 +100,7 @@ pub fn main() !void {
             const start_time = std.time.nanoTimestamp();
 
             // Run Game logic
-            try game.update();
+            try game.update(allocator);
             try game.renderFrame();
 
             var end_time = std.time.nanoTimestamp();

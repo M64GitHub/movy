@@ -1,43 +1,12 @@
 const std = @import("std");
 const movy = @import("movy");
-const Sprite = movy.graphic.Sprite;
-const RenderSurface = movy.core.RenderSurface;
-const Effect = movy.render.Effect;
+const TimedVisual = @import("TimedVisual.zig").TimedVisual;
 
 pub const VisualsManager = struct {
     screen: *movy.Screen,
-    allocator: std.mem.Allocator,
-    dim_level: f32 = 1.0,
-    // fade_effect: ?Effect.Instance = null,
-    visuals: std.ArrayList(TimedVisual),
+    visuals: std.ArrayList(*TimedVisual),
 
-    const TimedVisual = struct {
-        sprite: *Sprite,
-        fade_in: usize,
-        hold: usize,
-        fade_out: usize,
-        frame_counter: usize = 0,
-
-        pub fn totalDuration(self: TimedVisual) usize {
-            return self.fade_in + self.hold + self.fade_out;
-        }
-
-        pub fn computeAlpha(self: TimedVisual) f32 {
-            const frame = self.frame_counter;
-            if (frame < self.fade_in) {
-                return @as(f32, @floatFromInt(frame)) /
-                    @as(f32, @floatFromInt(self.fade_in));
-            } else if (frame < self.fade_in + self.hold) {
-                return 1.0;
-            } else if (frame < self.totalDuration()) {
-                const fade_frame = frame - (self.fade_in + self.hold);
-                return 1.0 - (@as(f32, @floatFromInt(fade_frame)) /
-                    @as(f32, @floatFromInt(self.fade_out)));
-            } else {
-                return 0.0;
-            }
-        }
-    };
+    // --
 
     pub fn init(
         allocator: std.mem.Allocator,
@@ -45,8 +14,7 @@ pub const VisualsManager = struct {
     ) VisualsManager {
         return VisualsManager{
             .screen = screen,
-            .allocator = allocator,
-            .visuals = std.ArrayList(TimedVisual).init(allocator),
+            .visuals = std.ArrayList(*TimedVisual).init(allocator),
         };
     }
 
@@ -54,62 +22,143 @@ pub const VisualsManager = struct {
         self.visuals.deinit();
     }
 
-    pub fn setDimLevel(self: *VisualsManager, level: f32) void {
-        self.dim_level = std.math.clamp(level, 0.0, 1.0);
-    }
-
     pub fn showSprite(
         self: *VisualsManager,
-        sprite: *Sprite,
+        allocator: std.mem.Allocator,
+        sprite: *movy.Sprite,
         fade_in: usize,
         hold: usize,
         fade_out: usize,
     ) !void {
-        try self.visuals.append(.{
-            .sprite = sprite,
-            .fade_in = fade_in,
-            .hold = hold,
-            .fade_out = fade_out,
-        });
+        const visual = TimedVisual.init(
+            allocator,
+            try sprite.getCurrentFrameSurface(),
+            sprite.output_surface,
+            fade_in,
+            hold,
+            fade_out,
+            .Auto,
+        );
+
+        visual.active = true; // Auto start
+        try self.visuals.append(visual);
     }
 
-    pub fn update(self: *VisualsManager, global_frame: usize) void {
+    pub fn startSprite(
+        self: *VisualsManager,
+        allocator: std.mem.Allocator,
+        sprite: *movy.Sprite,
+        fade_in: usize,
+        fade_out: usize,
+    ) !*TimedVisual {
+        const visual = TimedVisual.init(
+            allocator,
+            try sprite.getCurrentFrameSurface(),
+            sprite.output_surface,
+            fade_in,
+            1, // dummy val for update logic, will be skipped by stopVisual
+            fade_out,
+            .StartStop,
+        );
+        visual.active = true; // Auto start
+        try self.visuals.append(visual);
+        return visual;
+    }
+
+    pub fn showSurface(
+        self: *VisualsManager,
+        allocator: std.mem.Allocator,
+        surface_in: *movy.RenderSurface,
+        surface_out: *movy.RenderSurface,
+        fade_in: usize,
+        hold: usize,
+        fade_out: usize,
+    ) !void {
+        const visual = TimedVisual.init(
+            allocator,
+            surface_in,
+            surface_out,
+            fade_in,
+            hold,
+            fade_out,
+            .Auto,
+        );
+
+        visual.active = true; // Auto start
+        try self.visuals.append(visual);
+    }
+
+    pub fn startSurface(
+        self: *VisualsManager,
+        allocator: std.mem.Allocator,
+        surface_in: *movy.RenderSurface,
+        surface_out: *movy.RenderSurface,
+        fade_in: usize,
+        fade_out: usize,
+    ) !*TimedVisual {
+        const visual = TimedVisual.init(
+            allocator,
+            surface_in,
+            surface_out,
+            fade_in,
+            1, // dummy val for update logic, will be skipped by stopVisual
+            fade_out,
+            .StartStop,
+        );
+        visual.active = true; // Auto start
+        try self.visuals.append(visual);
+        return visual;
+    }
+
+    pub fn update(
+        self: *VisualsManager,
+        allocator: std.mem.Allocator,
+        global_frame: usize,
+    ) !void {
         _ = global_frame;
+
         var i: usize = 0;
         while (i < self.visuals.items.len) {
-            var vis = &self.visuals.items[i];
-            vis.frame_counter += 1;
+            var vis = self.visuals.items[i];
+
+            // update auto visuals
+            if (vis.visual_type == .Auto) {
+                try vis.update();
+                vis.frame_counter += 1;
+            }
+
+            // update manual visuals
+            if (vis.visual_type == .StartStop) {
+                if (vis.active) {
+                    try vis.update();
+                    vis.frame_counter += 1;
+                    if (vis.frame_counter >= vis.fade_in)
+                        vis.active = false; // stop after fade in
+                }
+            }
+
             if (vis.frame_counter >= vis.totalDuration()) {
+                // visual finished: remove and destroy
                 _ = self.visuals.orderedRemove(i);
+                vis.deinit(allocator);
             } else {
                 i += 1;
             }
         }
     }
 
-    pub fn render(self: *VisualsManager) !void {
-        // if (self.dim_level < 1.0) {
-        //     if (self.fade_effect == null) {
-        //         self.fade_effect = try Effect.init(.fade, self.allocator);
-        //     }
-        //
-        //     var inst = self.fade_effect.?;
-        //     inst.params.fade.value = self.dim_level;
-        //     try self.screen.renderEffect(inst);
-        // }
-        //
-        // for (self.visuals.items) |*vis| {
-        //     const alpha = vis.computeAlpha();
-        //     try vis.sprite.setAlpha(alpha);
-        //     try self.screen.addRenderSurface(
-        //         try vis.sprite.getCurrentFrameSurface(),
-        //     );
-        // }
-
-        _ = self;
+    pub fn addRenderSurfaces(self: *VisualsManager) !void {
+        for (self.visuals.items) |vis| {
+            if (vis.active) {
+                try self.screen.addRenderSurface(vis.surface_out);
+            }
+        }
     }
 
-    pub fn clearAll(self: *VisualsManager) void {
+    pub fn clearAll(self: *VisualsManager, allocator: std.mem.Allocator) void {
+        for (self.visuals.items) |vis| {
+            vis.deinit(allocator);
+        }
         self.visuals.clearRetainingCapacity();
     }
 };
