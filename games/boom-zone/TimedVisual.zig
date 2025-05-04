@@ -6,6 +6,13 @@ pub const VisualType = enum {
     StartStop,
 };
 
+pub const VisualState = enum {
+    Starting,
+    Stopping,
+    Holding,
+    None,
+};
+
 pub const TimedVisual = struct {
     surface_in: *movy.RenderSurface,
     surface_out: *movy.RenderSurface,
@@ -14,9 +21,8 @@ pub const TimedVisual = struct {
     hold: usize,
     fade_out: usize,
     frame_counter: usize = 0,
-    fade_in_effect: movy.render.RenderEffect,
-    fade_out_effect: movy.render.RenderEffect,
     active: bool,
+    state: VisualState = .None,
 
     pub fn init(
         allocator: std.mem.Allocator,
@@ -29,31 +35,16 @@ pub const TimedVisual = struct {
     ) !*TimedVisual {
         const visual = try allocator.create(TimedVisual);
 
-        const fade_in = movy.render.Effect.Fade{
-            .alpha_start = 0.0,
-            .alpha_end = 1.0,
-            .duration = t_in,
-        };
-        const fade_in_effect = fade_in.asEffect();
-
-        const fade_out = movy.render.Effect.Fade{
-            .alpha_start = 1.0,
-            .alpha_end = 0.0,
-            .duration = t_out,
-        };
-        const fade_out_effect = fade_out.asEffect();
-
         visual.* = .{
             .surface_in = surface_in,
             .surface_out = surface_out,
             .fade_in = t_in,
             .fade_out = t_out,
             .hold = t_hold,
-            .fade_in_effect = fade_in_effect,
-            .fade_out_effect = fade_out_effect,
             .frame_counter = 0,
             .visual_type = v_type,
             .active = false,
+            .state = .None,
         };
 
         return visual;
@@ -71,8 +62,13 @@ pub const TimedVisual = struct {
         const frame = self.frame_counter;
 
         if (frame < self.fade_in) {
-            // fade in
-            try self.fade_in_effect.runOnSurfaces(
+            var fade_in = movy.render.Effect.Fade{
+                .alpha_start = 0.0,
+                .alpha_end = 1.0,
+                .duration = self.fade_in,
+            };
+            const fade_effect = fade_in.asEffect();
+            try fade_effect.runOnSurfaces(
                 self.surface_in,
                 self.surface_out,
                 frame,
@@ -80,8 +76,13 @@ pub const TimedVisual = struct {
         } else if (frame < self.fade_in + self.hold) {
             // hold
         } else if (frame < self.totalDuration()) {
-            // fade out
-            try self.fade_out_effect.runOnSurfaces(
+            var fade_out = movy.render.Effect.Fade{
+                .alpha_start = 1.0,
+                .alpha_end = 0.0,
+                .duration = self.fade_out,
+            };
+            const fade_effect = fade_out.asEffect();
+            try fade_effect.runOnSurfaces(
                 self.surface_in,
                 self.surface_out,
                 frame - self.fade_in - self.hold,
@@ -98,5 +99,6 @@ pub const TimedVisual = struct {
         // prepare frame counter for fade out sequence
         visual.frame_counter = visual.fade_in + visual.hold + 1 + 1;
         visual.active = true; // Auto start
+        visual.state = .Stopping;
     }
 };

@@ -131,6 +131,8 @@ pub const GameStateManager = struct {
     }
 
     pub fn justTransitioned(self: *GameStateManager) bool {
-        return self.frame_counter == 0;
+        const rv = self.frame_counter == 0;
+        if (rv) self.frame_counter = 1; // make sure, it does not double trigger
+        return rv;
     }
 };

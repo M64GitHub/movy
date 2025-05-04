@@ -176,4 +176,23 @@ pub const Screen = struct {
     pub fn setScreenMode(self: *Screen, m: Mode) void {
         self.screen_mode = m;
     }
+
+    /// Get the x and y position as for the topleft corner of a
+    /// rectangle (window, sprite, ...) of dimensions widht and height.
+    pub fn getCenterCoords(
+        self: *Screen,
+        w: usize,
+        h: usize,
+    ) struct { x: i32, y: i32 } {
+        const center_x: i32 =
+            @divTrunc(@as(i32, @intCast(self.w - w)), 2);
+
+        const center_y: i32 =
+            @divTrunc(@as(i32, @intCast(self.h - h)), 2);
+
+        return .{
+            .x = center_x,
+            .y = center_y,
+        };
+    }
 };

@@ -71,9 +71,9 @@ pub const ObstacleManager = struct {
     active_obstacles: [MaxObstacles]Obstacle,
 
     // auto spawn
-    target_count: usize = 24,
+    target_count: usize = 8,
     spawn_cooldown: u8 = 0,
-    spawn_interval: u8 = 40, // spawn every 16 frames
+    spawn_interval: u8 = 50, // spawn wvery n frames
     rng: std.Random.DefaultPrng,
 
     pub const MaxObstacles = 128;

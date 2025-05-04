@@ -106,19 +106,21 @@ pub const RenderEngine = struct {
             for (y_start..y_end) |y| {
                 for (x_start..x_end) |x| {
                     const idx_in = x + y * in_w;
-                    const out_x = @as(i32, @intCast(x)) + surface_in.x;
-                    const out_y = @as(i32, @intCast(y)) + surface_in.y;
-                    if (out_x >= 0 and out_y >= 0 and out_x < @as(
-                        i32,
-                        @intCast(out_w),
-                    ) and out_y < @as(i32, @intCast(out_h))) {
-                        const idx_out = @as(usize, @intCast(out_x)) +
-                            @as(usize, @intCast(out_y)) * out_w;
-                        out_surface.color_map[idx_out] =
-                            surface_in.color_map[idx_in];
-                        out_surface.shadow_map[idx_out] = 1;
-                        out_surface.char_map[idx_out] =
-                            surface_in.char_map[idx_in];
+                    if (surface_in.shadow_map[idx_in] != 0) {
+                        const out_x = @as(i32, @intCast(x)) + surface_in.x;
+                        const out_y = @as(i32, @intCast(y)) + surface_in.y;
+                        if (out_x >= 0 and out_y >= 0 and out_x < @as(
+                            i32,
+                            @intCast(out_w),
+                        ) and out_y < @as(i32, @intCast(out_h))) {
+                            const idx_out = @as(usize, @intCast(out_x)) +
+                                @as(usize, @intCast(out_y)) * out_w;
+                            out_surface.color_map[idx_out] =
+                                surface_in.color_map[idx_in];
+                            out_surface.shadow_map[idx_out] = 1;
+                            out_surface.char_map[idx_out] =
+                                surface_in.char_map[idx_in];
+                        }
                     }
                 }
             }
@@ -164,19 +166,21 @@ pub const RenderEngine = struct {
         for (y_start..y_end) |y| {
             for (x_start..x_end) |x| {
                 const idx_in = x + y * in_w;
-                const out_x = @as(i32, @intCast(x)) + surface_in.x;
-                const out_y = @as(i32, @intCast(y)) + surface_in.y;
-                if (out_x >= 0 and out_y >= 0 and out_x < @as(
-                    i32,
-                    @intCast(out_w),
-                ) and out_y < @as(i32, @intCast(out_h))) {
-                    const idx_out = @as(usize, @intCast(out_x)) +
-                        @as(usize, @intCast(out_y)) * out_w;
-                    out_surface.color_map[idx_out] =
-                        surface_in.color_map[idx_in];
-                    out_surface.shadow_map[idx_out] = 1;
-                    out_surface.char_map[idx_out] =
-                        surface_in.char_map[idx_in];
+                if (surface_in.shadow_map[idx_in] != 0) {
+                    const out_x = @as(i32, @intCast(x)) + surface_in.x;
+                    const out_y = @as(i32, @intCast(y)) + surface_in.y;
+                    if (out_x >= 0 and out_y >= 0 and out_x < @as(
+                        i32,
+                        @intCast(out_w),
+                    ) and out_y < @as(i32, @intCast(out_h))) {
+                        const idx_out = @as(usize, @intCast(out_x)) +
+                            @as(usize, @intCast(out_y)) * out_w;
+                        out_surface.color_map[idx_out] =
+                            surface_in.color_map[idx_in];
+                        out_surface.shadow_map[idx_out] = 1;
+                        out_surface.char_map[idx_out] =
+                            surface_in.char_map[idx_in];
+                    }
                 }
             }
         }

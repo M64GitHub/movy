@@ -30,7 +30,7 @@ pub const VisualsManager = struct {
         hold: usize,
         fade_out: usize,
     ) !void {
-        const visual = TimedVisual.init(
+        const visual = try TimedVisual.init(
             allocator,
             try sprite.getCurrentFrameSurface(),
             sprite.output_surface,
@@ -41,6 +41,7 @@ pub const VisualsManager = struct {
         );
 
         visual.active = true; // Auto start
+        visual.state = .Starting;
         try self.visuals.append(visual);
     }
 
@@ -51,7 +52,7 @@ pub const VisualsManager = struct {
         fade_in: usize,
         fade_out: usize,
     ) !*TimedVisual {
-        const visual = TimedVisual.init(
+        var visual = try TimedVisual.init(
             allocator,
             try sprite.getCurrentFrameSurface(),
             sprite.output_surface,
@@ -61,6 +62,7 @@ pub const VisualsManager = struct {
             .StartStop,
         );
         visual.active = true; // Auto start
+        visual.state = .Starting;
         try self.visuals.append(visual);
         return visual;
     }
@@ -74,7 +76,7 @@ pub const VisualsManager = struct {
         hold: usize,
         fade_out: usize,
     ) !void {
-        const visual = TimedVisual.init(
+        const visual = try TimedVisual.init(
             allocator,
             surface_in,
             surface_out,
@@ -85,6 +87,7 @@ pub const VisualsManager = struct {
         );
 
         visual.active = true; // Auto start
+        visual.state = .Starting;
         try self.visuals.append(visual);
     }
 
@@ -96,7 +99,7 @@ pub const VisualsManager = struct {
         fade_in: usize,
         fade_out: usize,
     ) !*TimedVisual {
-        const visual = TimedVisual.init(
+        const visual = try TimedVisual.init(
             allocator,
             surface_in,
             surface_out,
@@ -106,6 +109,7 @@ pub const VisualsManager = struct {
             .StartStop,
         );
         visual.active = true; // Auto start
+        visual.state = .Starting;
         try self.visuals.append(visual);
         return visual;
     }
@@ -123,17 +127,29 @@ pub const VisualsManager = struct {
 
             // update auto visuals
             if (vis.visual_type == .Auto) {
-                try vis.update();
+                // try vis.update();
                 vis.frame_counter += 1;
             }
 
             // update manual visuals
             if (vis.visual_type == .StartStop) {
                 if (vis.active) {
-                    try vis.update();
-                    vis.frame_counter += 1;
-                    if (vis.frame_counter >= vis.fade_in)
-                        vis.active = false; // stop after fade in
+                    switch (vis.state) {
+                        .Starting => {
+                            vis.frame_counter += 1;
+                            try vis.update();
+                            if (vis.frame_counter >= vis.fade_in)
+                                vis.state = .Holding;
+                        },
+                        .Holding => {
+                            // hold, and wait until state is set to .Stopping
+                        },
+                        .Stopping => {
+                            vis.frame_counter += 1;
+                            try vis.update();
+                        },
+                        else => {},
+                    }
                 }
             }
 
@@ -149,9 +165,8 @@ pub const VisualsManager = struct {
 
     pub fn addRenderSurfaces(self: *VisualsManager) !void {
         for (self.visuals.items) |vis| {
-            if (vis.active) {
+            if (vis.active)
                 try self.screen.addRenderSurface(vis.surface_out);
-            }
         }
     }
 
