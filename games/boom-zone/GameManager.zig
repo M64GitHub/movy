@@ -10,7 +10,7 @@ const VisualsManager = @import("VisualsManager.zig").VisualsManager;
 const GameVisuals = @import("GameVisuals.zig").GameVisuals;
 const StatusWindow = @import("StatusWindow.zig").StatusWindow;
 
-const Lives = 5;
+const Lives = 3;
 
 pub const GameManager = struct {
     player: PlayerShip,
@@ -57,6 +57,22 @@ pub const GameManager = struct {
     }
 
     pub fn onKeyDown(self: *GameManager, key: movy.input.Key) void {
+        if (self.gamestate.state == .GameOver) {
+            if (key.type == .Char and key.sequence[0] == ' ') {
+                self.gamestate.transitionTo(.FadeIn);
+                self.player.lives = Lives;
+
+                if (self.visuals.game.visual) |visual| {
+                    visual.stop();
+                    self.visuals.game.visual = null;
+                }
+                if (self.visuals.over.visual) |visual| {
+                    visual.stop();
+                    self.visuals.over.visual = null;
+                }
+            }
+            return;
+        }
         if (!self.player.ship.visible) return;
 
         self.player.onKeyDown(key);
@@ -136,7 +152,7 @@ pub const GameManager = struct {
                     self.player.controller.reset();
                     self.shields.reset();
                 }
-                try self.player.weapon_manager.update(); // for projectiles
+                try self.player.weapon_manager.update();
                 try self.exploder.update();
                 try self.obstacles.update();
                 self.doProjectileCollisions();
@@ -147,20 +163,42 @@ pub const GameManager = struct {
                 if (self.player.lives == 0) {
                     self.gamestate.transitionTo(.FadeToGameOver);
                 }
-                try self.player.weapon_manager.update(); // for projectiles
+                try self.player.weapon_manager.update();
                 try self.exploder.update();
                 try self.obstacles.update();
                 self.doProjectileCollisions();
             },
-            .FadeToGameOver => {},
+            .FadeToGameOver => {
+                if (self.gamestate.justTransitioned()) {
+                    self.visuals.game.visual =
+                        try self.vismanager.startSprite(
+                            allocator,
+                            self.visuals.game.sprite,
+                            self.visuals.game.fade_in,
+                            self.visuals.game.fade_out,
+                        );
+                    self.visuals.over.visual =
+                        try self.vismanager.startSprite(
+                            allocator,
+                            self.visuals.over.sprite,
+                            self.visuals.over.fade_in,
+                            self.visuals.over.fade_out,
+                        );
+                }
+
+                try self.player.weapon_manager.update();
+                try self.exploder.update();
+                try self.obstacles.update();
+                self.doProjectileCollisions();
+            },
             .GameOver => {
-                // freeze everything
-                self.gamestate.transitionTo(.FadeIn);
-                self.player.lives = Lives;
+                try self.player.weapon_manager.update();
+                try self.exploder.update();
+                try self.obstacles.update();
+                self.doProjectileCollisions();
             },
             .FadingToPause => {
                 if (self.gamestate.justTransitioned()) {
-                    self.player.lives -= 1;
                     self.visuals.paused.visual =
                         try self.vismanager.startSprite(
                             allocator,
