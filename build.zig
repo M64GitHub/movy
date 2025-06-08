@@ -57,9 +57,7 @@ pub fn build(b: *std.Build) void {
     }
 
     // -- Games
-    const games = [_][]const u8{
-        "boom-zone",
-    };
+    const games = [_][]const u8{};
 
     for (games) |name| {
         const game_exe = b.addExecutable(.{
