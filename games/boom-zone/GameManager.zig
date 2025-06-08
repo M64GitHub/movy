@@ -10,7 +10,7 @@ const VisualsManager = @import("VisualsManager.zig").VisualsManager;
 const GameVisuals = @import("GameVisuals.zig").GameVisuals;
 const StatusWindow = @import("StatusWindow.zig").StatusWindow;
 
-const Lives = 3;
+const Lives = 2;
 
 pub const GameManager = struct {
     player: PlayerShip,
@@ -105,14 +105,11 @@ pub const GameManager = struct {
         self.player.onKeyUp(key);
     }
 
+    // Handle game logic depending on state
     pub fn update(self: *GameManager, allocator: std.mem.Allocator) !void {
-
-        // Handle game logic depending on state
         switch (self.gamestate.state) {
             .FadeIn => {
                 self.player.ship.visible = false;
-                try self.obstacles.update();
-                try self.exploder.update();
                 // maybe animate screen brightness here
             },
             .StartingInvincible, .AlmostVulnerable, .Playing => {
@@ -123,12 +120,9 @@ pub const GameManager = struct {
                     }
                     if (self.gamestate.state == .StartingInvincible) {
                         self.shields.activate(.Default);
-                        self.shields.default_shield.cooldown_ctr = 300;
+                        self.shields.default_shield.cooldown_ctr = 250;
                     }
-                    if (self.gamestate.state == .AlmostVulnerable) {
-                        // self.shields.activate(.Default);
-                        // self.shields.default_shield.cooldown_ctr = 300;
-                    }
+                    if (self.gamestate.state == .AlmostVulnerable) {}
                 }
                 try self.player.update();
                 try self.shields.update(
@@ -233,13 +227,13 @@ pub const GameManager = struct {
     pub fn renderFrame(self: *GameManager) !void {
         try self.screen.renderInit();
         try self.exploder.addRenderSurfaces();
+        try self.player.ship.addRenderSurfaces();
         try self.player.weapon_manager.addRenderSurfaces();
         try self.shields.addRenderSurfaces();
         try self.obstacles.addRenderSurfaces();
-        try self.player.ship.addRenderSurfaces();
         self.screen.render();
 
-        // adds its surfaces on demand, and dims, etc
+        // VisualsManager adds its surfaces on demand, and dims, etc
         self.screen.output_surfaces.clearRetainingCapacity();
         try self.vismanager.addRenderSurfaces();
         self.screen.renderOnTop();
