@@ -39,7 +39,7 @@ pub const GameStateManager = struct {
 
         switch (self.state) {
             .FadeIn => {
-                if (self.frame_counter > 100) {
+                if (self.frame_counter > 50) {
                     self.transitionTo(.StartingInvincible);
                 }
             },

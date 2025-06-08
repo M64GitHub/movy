@@ -71,9 +71,9 @@ pub const ObstacleManager = struct {
     active_obstacles: [MaxObstacles]Obstacle,
 
     // auto spawn
-    target_count: usize = 8,
+    target_count: usize = 64,
     spawn_cooldown: u8 = 0,
-    spawn_interval: u8 = 50, // spawn wvery n frames
+    spawn_interval: u8 = 36, // spawn wvery n frames
     rng: std.Random.DefaultPrng,
 
     pub const MaxObstacles = 128;
@@ -190,10 +190,10 @@ pub const ObstacleManager = struct {
         };
 
         const damage_thr: usize = switch (kind) {
-            .AsteroidSmall => 3,
-            .AsteroidBig => 5,
-            .AsteroidBig2 => 5,
-            .AsteroidHuge => 10,
+            .AsteroidSmall => 5,
+            .AsteroidBig => 8,
+            .AsteroidBig2 => 8,
+            .AsteroidHuge => 15,
         };
 
         try sprite.startAnimation("rotate");
