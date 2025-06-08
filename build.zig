@@ -5,11 +5,12 @@ pub fn build(b: *std.Build) void {
     const optimize = std.builtin.OptimizeMode.ReleaseFast;
 
     // -- movy
-    const movy_mod = b.createModule(.{
+    const movy_mod = b.addModule("movy", .{
         .root_source_file = b.path("src/movy.zig"),
         .target = target,
         .optimize = optimize,
     });
+
     movy_mod.addIncludePath(b.path("src/core/lodepng/"));
     movy_mod.addCSourceFile(.{ .file = b.path("src/core/lodepng/lodepng.c") });
 
@@ -67,7 +68,7 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
         });
         game_exe.addIncludePath(b.path("src/core/lodepng/"));
-        game_exe.root_module.addImport("movy", movy_mod); // Link module
+        game_exe.root_module.addImport("movy", movy_mod);
         game_exe.linkLibC();
         b.installArtifact(game_exe);
 
