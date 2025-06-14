@@ -1,23 +1,23 @@
 const std = @import("std");
-const tzui = @import("../../tzui.zig");
+const movy = @import("../../movy.zig");
 
 /// Manages collections of widgets and windows—creates, tracks,
 /// and renders them.
-pub const ZuiManager = struct {
+pub const Manager = struct {
     allocator: std.mem.Allocator,
     // tracked ui items
-    widgets: std.ArrayList(*tzui.ui.ZuiWidget),
-    bordered_windows: std.ArrayList(*tzui.ui.ZuiBorderedWindow),
-    title_windows: std.ArrayList(*tzui.ui.ZuiTitleWindow),
-    text_windows: std.ArrayList(*tzui.ui.ZuiTextWindow),
-    windows: std.ArrayList(*tzui.ui.ZuiWindow),
-    sprites: std.ArrayList(*tzui.graphic.Sprite),
+    widgets: std.ArrayList(*movy.ui.Widget),
+    bordered_windows: std.ArrayList(*movy.ui.BorderedWindow),
+    title_windows: std.ArrayList(*movy.ui.TitleWindow),
+    text_windows: std.ArrayList(*movy.ui.TextWindow),
+    windows: std.ArrayList(*movy.ui.Window),
+    sprites: std.ArrayList(*movy.graphic.Sprite),
     // managed screen
-    screen: *tzui.Screen,
+    screen: *movy.Screen,
 
     // state
-    active_widget: ?tzui.ui.ZuiWidgetInfo = null,
-    input_event: ?tzui.input.InputEvent,
+    active_widget: ?movy.ui.WidgetInfo = null,
+    input_event: ?movy.input.InputEvent,
     drag: DragContext = .{},
 
     const DragContext = struct {
@@ -25,29 +25,29 @@ pub const ZuiManager = struct {
             None,
             Dragging,
         } = .None,
-        target: ?*tzui.ui.ZuiWidget = null,
-        offset: tzui.ui.ZuiPosition2D = .{ .x = 0, .y = 0 },
+        target: ?*movy.ui.Widget = null,
+        offset: movy.ui.Position2D = .{ .x = 0, .y = 0 },
     };
 
     /// Initializes the manager with a screen—starts with empty lists
     /// for all widget types.
     pub fn init(
         allocator: std.mem.Allocator,
-        screen: *tzui.Screen,
-    ) tzui.ui.ZuiManager {
-        return ZuiManager{
-            .widgets = std.ArrayList(*tzui.ui.ZuiWidget).init(allocator),
-            .bordered_windows = std.ArrayList(*tzui.ui.ZuiBorderedWindow).init(
+        screen: *movy.Screen,
+    ) movy.ui.Manager {
+        return Manager{
+            .widgets = std.ArrayList(*movy.ui.Widget).init(allocator),
+            .bordered_windows = std.ArrayList(*movy.ui.BorderedWindow).init(
                 allocator,
             ),
-            .title_windows = std.ArrayList(*tzui.ui.ZuiTitleWindow).init(
+            .title_windows = std.ArrayList(*movy.ui.TitleWindow).init(
                 allocator,
             ),
-            .text_windows = std.ArrayList(*tzui.ui.ZuiTextWindow).init(
+            .text_windows = std.ArrayList(*movy.ui.TextWindow).init(
                 allocator,
             ),
-            .windows = std.ArrayList(*tzui.ui.ZuiWindow).init(allocator),
-            .sprites = std.ArrayList(*tzui.graphic.Sprite).init(allocator),
+            .windows = std.ArrayList(*movy.ui.Window).init(allocator),
+            .sprites = std.ArrayList(*movy.graphic.Sprite).init(allocator),
             .active_widget = null,
             .screen = screen,
             .allocator = allocator,
@@ -57,7 +57,7 @@ pub const ZuiManager = struct {
 
     /// Frees all managed widgets and windows—cleans up all resources owned by
     /// the manager.
-    pub fn deinit(self: *ZuiManager) void {
+    pub fn deinit(self: *Manager) void {
         for (self.widgets.items) |widget| {
             widget.deinit(self.allocator);
         }
@@ -87,11 +87,11 @@ pub const ZuiManager = struct {
 
     /// Adjusts absolute mouse coordinates to screen-relative coordinates.
     pub fn getPositionInScreen(
-        self: *const ZuiManager,
+        self: *const Manager,
         x: i32,
         y: i32,
-    ) tzui.ui.ZuiPosition2D {
-        return tzui.ui.ZuiPosition2D{
+    ) movy.ui.Position2D {
+        return movy.ui.Position2D{
             .x = x - self.screen.x,
             .y = y - self.screen.y,
         };
@@ -99,15 +99,15 @@ pub const ZuiManager = struct {
 
     /// Creates a new widget—adds it to the widget list and returns its pointer.
     pub fn createWidget(
-        self: *ZuiManager,
+        self: *Manager,
         x: i32,
         y: i32,
         w: usize,
         h: usize,
-        theme: *const tzui.ui.ZuiColorTheme,
-        style: *const tzui.ui.ZuiStyle,
-    ) !*tzui.ui.ZuiWidget {
-        const widget = try tzui.ui.ZuiWidget.init(
+        theme: *const movy.ui.ColorTheme,
+        style: *const movy.ui.Style,
+    ) !*movy.ui.Widget {
+        const widget = try movy.ui.Widget.init(
             self.allocator,
             x,
             y,
@@ -122,7 +122,7 @@ pub const ZuiManager = struct {
 
     /// Removes a widget from the manager—frees it and updates active_widget
     /// if needed.
-    pub fn removeWidget(self: *ZuiManager, widget: *tzui.ui.ZuiWidget) void {
+    pub fn removeWidget(self: *Manager, widget: *movy.ui.Widget) void {
         for (self.widgets.items, 0..) |w, i| {
             if (w == widget) {
                 _ = self.widgets.orderedRemove(i);
@@ -135,15 +135,15 @@ pub const ZuiManager = struct {
     /// Creates a new bordered window—adds it to the bordered window list and
     /// returns its pointer.
     pub fn createBorderedWindow(
-        self: *ZuiManager,
+        self: *Manager,
         x: i32,
         y: i32,
         w: usize,
         h: usize,
-        theme: *const tzui.ui.ZuiColorTheme,
-        style: *const tzui.ui.ZuiStyle,
-    ) !*tzui.ui.ZuiBorderedWindow {
-        const window = try tzui.ui.ZuiBorderedWindow.init(
+        theme: *const movy.ui.ColorTheme,
+        style: *const movy.ui.Style,
+    ) !*movy.ui.BorderedWindow {
+        const window = try movy.ui.BorderedWindow.init(
             self.allocator,
             x,
             y,
@@ -158,8 +158,8 @@ pub const ZuiManager = struct {
 
     /// Removes a bordered window from the manager—frees it.
     pub fn removeBorderedWindow(
-        self: *ZuiManager,
-        window: *tzui.ui.ZuiBorderedWindow,
+        self: *Manager,
+        window: *movy.ui.BorderedWindow,
     ) void {
         for (self.bordered_windows.items, 0..) |w, i| {
             if (w == window) {
@@ -173,16 +173,16 @@ pub const ZuiManager = struct {
     /// Creates a new title window—adds it to the title window list and
     /// returns its pointer.
     pub fn createTitleWindow(
-        self: *ZuiManager,
+        self: *Manager,
         x: i32,
         y: i32,
         w: usize,
         h: usize,
         window_title: []const u8,
-        theme: *const tzui.ui.ZuiColorTheme,
-        style: *const tzui.ui.ZuiStyle,
-    ) !*tzui.ui.ZuiTitleWindow {
-        const window = try tzui.ui.ZuiTitleWindow.init(
+        theme: *const movy.ui.ColorTheme,
+        style: *const movy.ui.Style,
+    ) !*movy.ui.TitleWindow {
+        const window = try movy.ui.TitleWindow.init(
             self.allocator,
             x,
             y,
@@ -198,8 +198,8 @@ pub const ZuiManager = struct {
 
     /// Removes a title window from the manager
     pub fn removeTitleWindow(
-        self: *ZuiManager,
-        window: *tzui.ui.ZuiTitleWindow,
+        self: *Manager,
+        window: *movy.ui.TitleWindow,
     ) void {
         for (self.title_windows.items, 0..) |w, i| {
             if (w == window) {
@@ -213,17 +213,17 @@ pub const ZuiManager = struct {
     /// Creates a new text window—adds it to the text window list and
     /// returns its pointer.
     pub fn createTextWindow(
-        self: *ZuiManager,
+        self: *Manager,
         x: i32,
         y: i32,
         w: usize,
         h: usize,
         window_title: []const u8,
         window_text: []const u8,
-        theme: *const tzui.ui.ZuiColorTheme,
-        style: *const tzui.ui.ZuiStyle,
-    ) !*tzui.ui.ZuiTextWindow {
-        const window = try tzui.ui.ZuiTextWindow.init(
+        theme: *const movy.ui.ColorTheme,
+        style: *const movy.ui.Style,
+    ) !*movy.ui.TextWindow {
+        const window = try movy.ui.TextWindow.init(
             self.allocator,
             x,
             y,
@@ -240,8 +240,8 @@ pub const ZuiManager = struct {
 
     /// Removes a text window from the manager
     pub fn removeTextWindow(
-        self: *ZuiManager,
-        window: *tzui.ui.ZuiTextWindow,
+        self: *Manager,
+        window: *movy.ui.TextWindow,
     ) void {
         for (self.text_windows.items, 0..) |w, i| {
             if (w == window) {
@@ -255,16 +255,16 @@ pub const ZuiManager = struct {
     /// Creates a new top-level window—adds it to the window list and
     /// returns its pointer.
     pub fn createWindow(
-        self: *ZuiManager,
+        self: *Manager,
         x: i32,
         y: i32,
         w: usize,
         h: usize,
         window_title: []const u8,
-        theme: *const tzui.ui.ZuiColorTheme,
-        style: *const tzui.ui.ZuiStyle,
-    ) !*tzui.ui.ZuiWindow {
-        const window = try tzui.ui.ZuiWindow.init(
+        theme: *const movy.ui.ColorTheme,
+        style: *const movy.ui.Style,
+    ) !*movy.ui.Window {
+        const window = try movy.ui.Window.init(
             self.allocator,
             x,
             y,
@@ -280,7 +280,7 @@ pub const ZuiManager = struct {
     }
 
     /// Removes a top-level window from the manager
-    pub fn removeWindow(self: *ZuiManager, window: *tzui.ui.ZuiWindow) void {
+    pub fn removeWindow(self: *Manager, window: *movy.ui.Window) void {
         for (self.windows.items, 0..) |w, i| {
             if (w == window) {
                 _ = self.windows.orderedRemove(i);
@@ -290,12 +290,12 @@ pub const ZuiManager = struct {
         }
     }
 
-    pub fn addSprite(self: *ZuiManager, sprite: *tzui.graphic.Sprite) !void {
+    pub fn addSprite(self: *Manager, sprite: *movy.graphic.Sprite) !void {
         try self.sprites.append(sprite);
     }
 
     /// Sets the active widget—focuses it for input handling.
-    pub fn setActiveWidget(self: *ZuiManager, widget: tzui.ui.ZuiWidgetInfo) void {
+    pub fn setActiveWidget(self: *Manager, widget: movy.ui.WidgetInfo) void {
         // inactivate current active widget
         if (self.active_widget) |active| {
             switch (active.widget_type) {
@@ -364,13 +364,13 @@ pub const ZuiManager = struct {
     }
 
     /// Gets the currently active widget—null if none.
-    pub fn getActiveWidget(self: *const ZuiManager) ?*tzui.ui.ZuiWidget {
+    pub fn getActiveWidget(self: *const Manager) ?*movy.ui.Widget {
         return self.active_widget;
     }
 
     /// Renders all widgets and windows to the screen—composites
     /// output_surfaces.
-    pub fn render(self: *ZuiManager) !void {
+    pub fn render(self: *Manager) !void {
         self.screen.output_surfaces.clearRetainingCapacity();
         for (self.widgets.items) |widget| {
             try self.screen.addRenderSurface(widget.render());
@@ -400,7 +400,7 @@ pub const ZuiManager = struct {
 
     /// Clears all widgets and windows—resets their output_surfaces to
     /// background color.
-    pub fn clearAll(self: *ZuiManager) void {
+    pub fn clearAll(self: *Manager) void {
         for (self.widgets.items) |widget| {
             widget.clear();
         }
@@ -418,20 +418,20 @@ pub const ZuiManager = struct {
         }
     }
 
-    /// Get the x and y position as ZuiPosition2D for the topleft corner of a
+    /// Get the x and y position as Position2D for the topleft corner of a
     /// rectangle (window, sprite, ...) of dimensions widht and height.
     pub fn getCenterCoords(
-        self: *ZuiManager,
+        self: *Manager,
         width: usize,
         height: usize,
-    ) tzui.ui.ZuiPosition2D {
+    ) movy.ui.Position2D {
         const center_x: i32 =
             @divTrunc(@as(i32, @intCast(self.screen.width() - width)), 2);
 
         const center_y: i32 =
             @divTrunc(@as(i32, @intCast(self.screen.height() - height)), 2);
 
-        return tzui.ui.ZuiPosition2D{
+        return movy.ui.Position2D{
             .x = center_x,
             .y = center_y,
         };
@@ -448,8 +448,8 @@ pub const ZuiManager = struct {
     ///
     /// Returns `true` if the event was consumed, `false` otherwise.
     pub fn handleInputEvent(
-        self: *ZuiManager,
-        event: tzui.input.InputEvent,
+        self: *Manager,
+        event: movy.input.InputEvent,
     ) bool {
         // Route to active widget first
         if (self.active_widget) |active| {
@@ -458,7 +458,7 @@ pub const ZuiManager = struct {
                     for (self.text_windows.items) |w| {
                         if (w.base_widget == active.ptr) {
                             // clean mouse coordinates
-                            const new_event: tzui.input.InputEvent = switch (event) {
+                            const new_event: movy.input.InputEvent = switch (event) {
                                 .mouse => |mouse| .{ .mouse = .{
                                     .event = mouse.event,
                                     .x = mouse.x - self.screen.x - w.base_widget.x,

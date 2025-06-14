@@ -57,6 +57,34 @@ pub fn build(b: *std.Build) void {
         ).dependOn(&run_example.step);
     }
 
+    // -- Demos
+    const demos = [_][]const u8{
+        "mouse_demo",
+        "win_demo",
+    };
+
+    for (demos) |name| {
+        const demo_exe = b.addExecutable(.{
+            .name = name,
+            .root_source_file = b.path(b.fmt("demos/{s}.zig", .{name})),
+            .target = target,
+            .optimize = optimize,
+        });
+        demo_exe.addIncludePath(b.path("src/core/lodepng/")); // not req
+        demo_exe.root_module.addImport("movy", movy_mod);
+        demo_exe.linkLibC(); // not req
+        b.installArtifact(demo_exe);
+
+        // Add run step
+        const run_demo = b.addRunArtifact(demo_exe);
+        run_demo.step.dependOn(b.getInstallStep());
+        if (b.args) |args| run_demo.addArgs(args);
+        b.step(
+            b.fmt("run-{s}", .{name}),
+            b.fmt("Run {s}", .{name}),
+        ).dependOn(&run_demo.step);
+    }
+
     // -- Games
     const games = [_][]const u8{};
 
@@ -67,9 +95,9 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = optimize,
         });
-        game_exe.addIncludePath(b.path("src/core/lodepng/"));
+        game_exe.addIncludePath(b.path("src/core/lodepng/")); // not required
         game_exe.root_module.addImport("movy", movy_mod);
-        game_exe.linkLibC();
+        game_exe.linkLibC(); // not required
         b.installArtifact(game_exe);
 
         // Add run step

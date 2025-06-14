@@ -1,19 +1,19 @@
 const std = @import("std");
-const tzui = @import("../../../tzui.zig");
+const movy = @import("../../../movy.zig");
 
 /// Defines a border-only widget—renders a rectangular frame using style
 /// characters.
-pub const ZuiWindowBorder = struct {
+pub const WindowBorder = struct {
     // Rendered border—chars only, transparent inner
-    output_surface: *tzui.core.RenderSurface,
+    output_surface: *movy.core.RenderSurface,
     x: i32, // X position in terminal coordinates
     y: i32, // Y position in terminal coordinates
     w: usize, // Width in characters
     h: usize, // Height in pixel rows (h/2 lines for text)
-    theme: *const tzui.ui.ZuiColorTheme, // Reference to the active color theme
-    style: *const tzui.ui.ZuiStyle, // Reference to the active style (chars)
+    theme: *const movy.ui.ColorTheme, // Reference to the active color theme
+    style: *const movy.ui.Style, // Reference to the active style (chars)
 
-    /// Initializes a border widget—matches ZuiWidget dimensions,
+    /// Initializes a border widget—matches Widget dimensions,
     /// allocates output_surface.
     pub fn init(
         allocator: std.mem.Allocator,
@@ -21,16 +21,16 @@ pub const ZuiWindowBorder = struct {
         y: i32,
         w: usize,
         h: usize,
-        theme: *const tzui.ui.ZuiColorTheme,
-        style: *const tzui.ui.ZuiStyle,
-    ) !ZuiWindowBorder {
-        const output_surface = try tzui.core.RenderSurface.init(
+        theme: *const movy.ui.ColorTheme,
+        style: *const movy.ui.Style,
+    ) !WindowBorder {
+        const output_surface = try movy.core.RenderSurface.init(
             allocator,
             w,
             h,
             theme.getColor(.BackgroundColor),
         );
-        return ZuiWindowBorder{
+        return WindowBorder{
             .output_surface = output_surface,
             .x = x,
             .y = y,
@@ -42,13 +42,13 @@ pub const ZuiWindowBorder = struct {
     }
 
     /// Frees the border’s output_surface—caller manages theme/style lifetimes.
-    pub fn deinit(self: *ZuiWindowBorder, allocator: std.mem.Allocator) void {
+    pub fn deinit(self: *WindowBorder, allocator: std.mem.Allocator) void {
         self.output_surface.deinit(allocator);
     }
 
     /// Renders the border—draws a single-line rectangular frame using
     /// style characters, returns the surface.
-    pub fn render(self: *ZuiWindowBorder) *tzui.core.RenderSurface {
+    pub fn render(self: *WindowBorder) *movy.core.RenderSurface {
         const half_h = self.h / 2; // Lines—y * 2 for pixel rows
         const bottom_y = half_h * 2 - 2; // Bottom row—y_pixel for bottom border
         self.output_surface.clearTransparent(); // Inner stays transparent
@@ -156,7 +156,7 @@ pub const ZuiWindowBorder = struct {
     }
 
     /// Sets the border’s position—updates x and y coordinates.
-    pub fn setPosition(self: *ZuiWindowBorder, x: i32, y: i32) void {
+    pub fn setPosition(self: *WindowBorder, x: i32, y: i32) void {
         var y_new: i32 = @divTrunc(y, 2);
         y_new = y_new * 2;
         self.x = x;
@@ -165,34 +165,34 @@ pub const ZuiWindowBorder = struct {
         self.output_surface.y = y_new;
     }
 
-    /// Retrieves the widget’s size—returns w and h as a ZuiSize struct.
-    pub fn getSize(self: *ZuiWindowBorder) tzui.ui.ZuiSize {
+    /// Retrieves the widget’s size—returns w and h as a Size struct.
+    pub fn getSize(self: *WindowBorder) movy.ui.Size {
         return .{ .w = self.w, .h = self.h };
     }
 
     /// Sets a new theme for the widget—updates rendering colors.
     pub fn setTheme(
-        self: *ZuiWindowBorder,
-        theme: *const tzui.ui.ZuiColorTheme,
+        self: *WindowBorder,
+        theme: *const movy.ui.ColorTheme,
     ) void {
         self.theme = theme;
     }
 
     /// Retrieves the current theme—useful for rendering or inspection.
-    pub fn getTheme(self: *const ZuiWindowBorder) *const tzui.ui.ZuiColorTheme {
+    pub fn getTheme(self: *const WindowBorder) *const movy.ui.ColorTheme {
         return self.theme;
     }
 
     /// Sets a new style for the widget—updates rendering characters.
     pub fn setStyle(
-        self: *ZuiWindowBorder,
-        style: *const tzui.ui.ZuiStyle,
+        self: *WindowBorder,
+        style: *const movy.ui.Style,
     ) void {
         self.style = style;
     }
 
     /// Retrieves the current style—useful for rendering or inspection.
-    pub fn getStyle(self: *const ZuiWindowBorder) *const tzui.ui.ZuiStyle {
+    pub fn getStyle(self: *const WindowBorder) *const movy.ui.Style {
         return self.style;
     }
 };

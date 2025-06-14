@@ -1,16 +1,16 @@
 const std = @import("std");
-const tzui = @import("../../../tzui.zig");
+const movy = @import("../../../movy.zig");
 
 /// Base widget for all UI elements—defines dimensions and rendering surface.
-pub const ZuiWidget = struct {
+pub const Widget = struct {
     // Rendered result—chars and pixels combined
-    output_surface: *tzui.core.RenderSurface,
+    output_surface: *movy.core.RenderSurface,
     x: i32, // X position in terminal coordinates
     y: i32, // Y position in terminal coordinates
     w: usize, // Width in characters
     h: usize, // Height in pixel rows (h/2 lines for text)
-    theme: *const tzui.ui.ZuiColorTheme, // Reference to the active color theme
-    style: *const tzui.ui.ZuiStyle, // Reference to the active style (chars)
+    theme: *const movy.ui.ColorTheme, // Reference to the active color theme
+    style: *const movy.ui.Style, // Reference to the active style (chars)
     is_active: bool = false,
 
     /// Initializes a widget with dimensions and default theme/style—allocates
@@ -21,17 +21,17 @@ pub const ZuiWidget = struct {
         y: i32,
         w: usize,
         h: usize,
-        theme: *const tzui.ui.ZuiColorTheme,
-        style: *const tzui.ui.ZuiStyle,
-    ) !*ZuiWidget {
-        const output_surface = try tzui.core.RenderSurface.init(
+        theme: *const movy.ui.ColorTheme,
+        style: *const movy.ui.Style,
+    ) !*Widget {
+        const output_surface = try movy.core.RenderSurface.init(
             allocator,
             w,
             h,
             theme.getColor(.BackgroundColor),
         );
 
-        const self = try allocator.create(ZuiWidget);
+        const self = try allocator.create(Widget);
         self.* = .{
             .output_surface = output_surface,
             .x = x,
@@ -47,33 +47,33 @@ pub const ZuiWidget = struct {
 
     /// Frees the widget’s output_surface—caller must manage theme/style
     /// lifetimes.
-    pub fn deinit(self: *ZuiWidget, allocator: std.mem.Allocator) void {
+    pub fn deinit(self: *Widget, allocator: std.mem.Allocator) void {
         self.output_surface.deinit(allocator);
         allocator.destroy(self);
     }
 
     /// Sets a new theme for the widget—updates rendering colors.
-    pub fn setTheme(self: *ZuiWidget, theme: *const tzui.ui.ZuiColorTheme) void {
+    pub fn setTheme(self: *Widget, theme: *const movy.ui.ColorTheme) void {
         self.theme = theme;
     }
 
     /// Retrieves the current theme—useful for rendering or inspection.
-    pub fn getTheme(self: *const ZuiWidget) *const tzui.ui.ZuiColorTheme {
+    pub fn getTheme(self: *const Widget) *const movy.ui.ColorTheme {
         return self.theme;
     }
 
     /// Sets a new style for the widget—updates rendering characters.
-    pub fn setStyle(self: *ZuiWidget, style: *const tzui.ui.ZuiStyle) void {
+    pub fn setStyle(self: *Widget, style: *const movy.ui.Style) void {
         self.style = style;
     }
 
     /// Retrieves the current style—useful for rendering or inspection.
-    pub fn getStyle(self: *const ZuiWidget) *const tzui.ui.ZuiStyle {
+    pub fn getStyle(self: *const Widget) *const movy.ui.Style {
         return self.style;
     }
 
     /// Sets the widget’s position—updates x and y coordinates.
-    pub fn setPosition(self: *ZuiWidget, x: i32, y: i32) void {
+    pub fn setPosition(self: *Widget, x: i32, y: i32) void {
         var y_new: i32 = @divTrunc(y, 2);
         y_new = y_new * 2;
         self.x = x;
@@ -82,15 +82,15 @@ pub const ZuiWidget = struct {
         self.output_surface.y = y_new;
     }
 
-    /// Gets the widget’s position—returns x and y as a ZuiPosition2D struct.
-    pub fn getPosition(self: *const ZuiWidget) tzui.ui.ZuiPosition2D {
-        return tzui.ui.ZuiPosition2D{ .x = self.x, .y = self.y };
+    /// Gets the widget’s position—returns x and y as a Position2D struct.
+    pub fn getPosition(self: *const Widget) movy.ui.Position2D {
+        return movy.ui.Position2D{ .x = self.x, .y = self.y };
     }
 
     /// Resizes the widget—updates w and h, recreates output_surface if
     /// dimensions change.
     pub fn resize(
-        self: *ZuiWidget,
+        self: *Widget,
         allocator: std.mem.Allocator,
         w: usize,
         h: usize,
@@ -98,7 +98,7 @@ pub const ZuiWidget = struct {
         if (w != self.w or h != self.h) {
             self.output_surface.deinit(allocator);
             allocator.destroy(self.output_surface);
-            self.output_surface = try tzui.core.RenderSurface.init(
+            self.output_surface = try movy.core.RenderSurface.init(
                 allocator,
                 w,
                 h,
@@ -109,19 +109,19 @@ pub const ZuiWidget = struct {
         }
     }
 
-    /// Retrieves the widget’s size—returns w and h as a ZuiSize struct.
-    pub fn getSize(self: *const ZuiWidget) tzui.ui.ZuiSize {
+    /// Retrieves the widget’s size—returns w and h as a Size struct.
+    pub fn getSize(self: *const Widget) movy.ui.Size {
         return .{ .w = self.w, .h = self.h };
     }
 
     /// Clears the widget’s output_surface with the background color from
     /// the theme.
-    pub fn clear(self: *ZuiWidget) void {
+    pub fn clear(self: *Widget) void {
         self.output_surface.clearColored(self.theme.getColor(.BackgroundColor));
     }
 
     /// Renders the widget—base implementation fills with background color.
-    pub fn render(self: *ZuiWidget) *tzui.core.RenderSurface {
+    pub fn render(self: *Widget) *movy.core.RenderSurface {
         self.clear(); // Simple bg fill—subclasses override for more
         return self.output_surface;
     }

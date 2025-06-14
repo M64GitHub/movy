@@ -1,12 +1,12 @@
 const std = @import("std");
-const tzui = @import("../../tzui.zig");
+const movy = @import("../../movy.zig");
 
 pub const LayoutType = enum {
     HLayout,
     VLayout,
 };
 
-pub const ZuiLayout = struct {
+pub const Layout = struct {
     type: LayoutType,
     inner_spacing: i32, // space between components
     outer_spacing: i32, // space between outer border and components
@@ -16,29 +16,29 @@ pub const ZuiLayout = struct {
     shared_borders: bool = false,
 };
 
-pub const ZuiLayoutManager = struct {
-    screen: *tzui.Screen,
+pub const LayoutManager = struct {
+    screen: *movy.Screen,
 
-    pub fn init(screen: *tzui.Screen) ZuiLayoutManager {
-        return ZuiLayoutManager{
+    pub fn init(screen: *movy.Screen) LayoutManager {
+        return LayoutManager{
             .screen = screen,
         };
     }
 
-    /// Get the x and y position as ZuiPosition2D for the topleft corner of a
+    /// Get the x and y position as Position2D for the topleft corner of a
     /// rectangle (window, sprite, ...) of dimensions widht and height.
     pub fn getCenterCoords(
-        self: *ZuiLayoutManager,
+        self: *LayoutManager,
         width: usize,
         height: usize,
-    ) tzui.ui.ZuiPosition2D {
+    ) movy.ui.Position2D {
         const center_x: i32 =
             @divTrunc(@as(i32, @intCast(self.screen.width() - width)), 2);
 
         const center_y: i32 =
             @divTrunc(@as(i32, @intCast(self.screen.height() - height)), 2);
 
-        return tzui.ui.ZuiPosition2D{
+        return movy.ui.Position2D{
             .x = center_x,
             .y = center_y,
         };

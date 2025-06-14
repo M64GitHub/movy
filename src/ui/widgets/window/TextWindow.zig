@@ -1,11 +1,11 @@
 const std = @import("std");
-const tzui = @import("../../../tzui.zig");
+const movy = @import("../../../movy.zig");
 
 // Defines a text window—extends a titled window with a text content area.
-pub const ZuiTextWindow = struct {
-    base: *tzui.ui.ZuiTitleWindow,
-    base_widget: *tzui.ui.ZuiWidget,
-    styled_text: tzui.ui.StyledTextBuffer,
+pub const TextWindow = struct {
+    base: *movy.ui.TitleWindow,
+    base_widget: *movy.ui.Widget,
+    styled_text: movy.ui.StyledTextBuffer,
 
     /// Initializes a heap allocated text window, sets up base with
     /// title and text.
@@ -17,13 +17,13 @@ pub const ZuiTextWindow = struct {
         h: usize,
         window_title: []const u8,
         styled_text: []const u8,
-        theme: *const tzui.ui.ZuiColorTheme,
-        style: *const tzui.ui.ZuiStyle,
-    ) !*ZuiTextWindow {
-        var self = try allocator.create(ZuiTextWindow);
+        theme: *const movy.ui.ColorTheme,
+        style: *const movy.ui.Style,
+    ) !*TextWindow {
+        var self = try allocator.create(TextWindow);
 
         self.* = .{
-            .base = try tzui.ui.ZuiTitleWindow.init(
+            .base = try movy.ui.TitleWindow.init(
                 allocator,
                 x,
                 y,
@@ -33,7 +33,7 @@ pub const ZuiTextWindow = struct {
                 theme,
                 style,
             ),
-            .styled_text = try tzui.ui.StyledTextBuffer.init(allocator, 1024),
+            .styled_text = try movy.ui.StyledTextBuffer.init(allocator, 1024),
             .base_widget = undefined,
         };
         self.base_widget = self.base.base_widget;
@@ -44,31 +44,31 @@ pub const ZuiTextWindow = struct {
 
     /// Frees the text window’s base resources—caller manages title and text
     /// memory.
-    pub fn deinit(self: *ZuiTextWindow, allocator: std.mem.Allocator) void {
+    pub fn deinit(self: *TextWindow, allocator: std.mem.Allocator) void {
         self.styled_text.deinit(allocator);
         self.base.deinit(allocator);
         allocator.destroy(self);
     }
 
-    pub fn getWidgetInfo(self: *ZuiTextWindow) tzui.ui.ZuiWidgetInfo {
+    pub fn getWidgetInfo(self: *TextWindow) movy.ui.WidgetInfo {
         return .{
             .ptr = self.base_widget,
             .widget_type = .TextWindow,
         };
     }
 
-    pub fn setActive(self: *ZuiTextWindow, active: bool) void {
+    pub fn setActive(self: *TextWindow, active: bool) void {
         self.base_widget.is_active = active;
     }
 
-    pub fn isActive(self: *ZuiTextWindow) bool {
+    pub fn isActive(self: *TextWindow) bool {
         return self.base_widget.is_active;
     }
 
     /// Handle input events
     pub fn handleInputEvent(
-        self: *ZuiTextWindow,
-        event: tzui.input.InputEvent,
+        self: *TextWindow,
+        event: movy.input.InputEvent,
     ) void {
         switch (event) {
             .key => |key| {
@@ -136,7 +136,7 @@ pub const ZuiTextWindow = struct {
                 }
                 if (key.type != .ShiftRight and key.type != .ShiftLeft)
                     self.styled_text.selection =
-                        tzui.ui.StyledTextBuffer.SelectionState{ .None = {} };
+                        movy.ui.StyledTextBuffer.SelectionState{ .None = {} };
 
                 self.styleMarkDown();
                 self.visualizeSelection();
@@ -145,7 +145,7 @@ pub const ZuiTextWindow = struct {
         }
     }
 
-    pub fn styleMarkDown(self: *ZuiTextWindow) void {
+    pub fn styleMarkDown(self: *TextWindow) void {
         self.styled_text.clearStyles();
 
         self.styled_text.highlightKeyword(
@@ -235,32 +235,32 @@ pub const ZuiTextWindow = struct {
             "```",
             "```",
             self.base.getTheme().*,
-            tzui.ui.StyledTextBuffer.highlightGenericCodeSlice,
+            movy.ui.StyledTextBuffer.highlightGenericCodeSlice,
         );
 
         self.styled_text.highlightLanguageBlock(
             "```zig",
             "```",
             self.base.getTheme().*,
-            tzui.ui.StyledTextBuffer.highlightZigSlice,
+            movy.ui.StyledTextBuffer.highlightZigSlice,
         );
 
         self.styled_text.highlightLanguageBlock(
             "```c",
             "```",
             self.base.getTheme().*,
-            tzui.ui.StyledTextBuffer.highlightCSlice,
+            movy.ui.StyledTextBuffer.highlightCSlice,
         );
 
         self.styled_text.highlightLanguageBlock(
             "```cpp",
             "```",
             self.base.getTheme().*,
-            tzui.ui.StyledTextBuffer.highlightCppSlice,
+            movy.ui.StyledTextBuffer.highlightCppSlice,
         );
     }
 
-    pub fn visualizeSelection(self: *ZuiTextWindow) void {
+    pub fn visualizeSelection(self: *TextWindow) void {
         switch (self.styled_text.selection) {
             .None => {},
             .Selecting => |start| {
@@ -279,8 +279,8 @@ pub const ZuiTextWindow = struct {
                 self.styled_text.styleRange(
                     start,
                     end,
-                    tzui.color.DARK_BLUE,
-                    tzui.color.LIGHT_BLUE,
+                    movy.color.DARK_BLUE,
+                    movy.color.LIGHT_BLUE,
                 );
             },
         }
@@ -288,40 +288,40 @@ pub const ZuiTextWindow = struct {
 
     /// Sets a new theme for the window—propagates to base.
     pub fn setTheme(
-        self: *ZuiTextWindow,
-        theme: *const tzui.ui.ZuiColorTheme,
+        self: *TextWindow,
+        theme: *const movy.ui.ColorTheme,
     ) void {
         self.base.setTheme(theme);
     }
 
     /// Retrieves the current theme from the base.
-    pub fn getTheme(self: *const ZuiTextWindow) *const tzui.ui.ZuiColorTheme {
+    pub fn getTheme(self: *const TextWindow) *const movy.ui.ColorTheme {
         return self.base.getTheme();
     }
 
     /// Sets a new style for the window—propagates to base.
-    pub fn setStyle(self: *ZuiTextWindow, style: *const tzui.ui.ZuiStyle) void {
+    pub fn setStyle(self: *TextWindow, style: *const movy.ui.Style) void {
         self.base.setStyle(style);
     }
 
     /// Retrieves the current style from the base.
-    pub fn getStyle(self: *const ZuiTextWindow) *const tzui.ui.ZuiStyle {
+    pub fn getStyle(self: *const TextWindow) *const movy.ui.Style {
         return self.base.getStyle();
     }
 
     /// Sets the window’s position—propagates to base.
-    pub fn setPosition(self: *ZuiTextWindow, x: i32, y: i32) void {
+    pub fn setPosition(self: *TextWindow, x: i32, y: i32) void {
         self.base.setPosition(x, y);
     }
 
     /// Retrieves the window’s position—passes through to base.
-    pub fn getPosition(self: *const ZuiTextWindow) tzui.ui.ZuiPosition2D {
+    pub fn getPosition(self: *const TextWindow) movy.ui.Position2D {
         return self.base.getPosition();
     }
 
     /// Resizes the window—updates base dimensions.
     pub fn resize(
-        self: *ZuiTextWindow,
+        self: *TextWindow,
         allocator: std.mem.Allocator,
         w: usize,
         h: usize,
@@ -330,45 +330,45 @@ pub const ZuiTextWindow = struct {
     }
 
     /// Retrieves the window’s size—passes through to base.
-    pub fn getSize(self: *const ZuiTextWindow) tzui.ui.ZuiSize {
+    pub fn getSize(self: *const TextWindow) movy.ui.Size {
         return self.base.getSize();
     }
 
     /// Sets the window title—propagates to base.
-    pub fn setTitle(self: *ZuiTextWindow, title: []const u8) void {
+    pub fn setTitle(self: *TextWindow, title: []const u8) void {
         self.base.setTitle(title);
     }
 
     /// Retrieves the current window title from the base.
-    pub fn getTitle(self: *const ZuiTextWindow) []const u8 {
+    pub fn getTitle(self: *const TextWindow) []const u8 {
         return self.base.getTitle();
     }
 
     /// Sets the window text—updates the displayed content.
-    pub fn setText(self: *ZuiTextWindow, text: []const u8) !void {
+    pub fn setText(self: *TextWindow, text: []const u8) !void {
         try self.styled_text.setTextFromAscii(text);
     }
 
     /// Retrieves the current window text.
-    pub fn getText(self: *const ZuiTextWindow) []const u8 {
+    pub fn getText(self: *const TextWindow) []const u8 {
         return self.styled_text;
     }
 
     /// Checks if the given coordinates are within the window's bounds
     /// uses absolute coordinates.
-    pub fn isInBounds(self: *const ZuiTextWindow, x: i32, y: i32) bool {
+    pub fn isInBounds(self: *const TextWindow, x: i32, y: i32) bool {
         return self.base.isInBounds(x, y);
     }
 
     /// Checks if the given coordinates are within the window's title bounds
     /// (first row).
-    pub fn isInTitleBounds(self: *const ZuiTextWindow, x: i32, y: i32) bool {
+    pub fn isInTitleBounds(self: *const TextWindow, x: i32, y: i32) bool {
         return self.base.isInTitleBounds(x, y);
     }
 
     /// Renders the text window—composites base, title, and text content,
     /// returns the final surface.
-    pub fn render(self: *ZuiTextWindow) *tzui.core.RenderSurface {
+    pub fn render(self: *TextWindow) *movy.core.RenderSurface {
         const surface = self.base.render(); // Render base (bg, border, title)
         var cursor_idx: usize = 0;
 
@@ -394,28 +394,28 @@ pub const ZuiTextWindow = struct {
             if (self.styled_text.cursorAtInsertPos()) {
                 // show APPEND cursor
                 self.base.base.base.output_surface.color_map[cursor_idx] =
-                    tzui.color.BRIGHT_LIGHT_YELLOW;
+                    movy.color.BRIGHT_LIGHT_YELLOW;
                 // cursor is 2 half blocks high!
                 self.base.base.base.output_surface.color_map[
                     cursor_idx +
                         self.base.base.base.w
                 ] =
-                    tzui.color.BRIGHT_LIGHT_YELLOW;
+                    movy.color.BRIGHT_LIGHT_YELLOW;
             } else {
                 // show IN TEXT cursor
                 if (self.styled_text.getCharUnderCursor() == '\n') {
                     self.base.base.base.output_surface.color_map[cursor_idx] =
-                        tzui.color.BRIGHT_LIGHT_YELLOW;
+                        movy.color.BRIGHT_LIGHT_YELLOW;
                 } else {
                     // on bright cursor, text "below" gets black
                     self.base.base.base.output_surface.color_map[cursor_idx] =
-                        tzui.color.BLACK;
+                        movy.color.BLACK;
                 }
                 self.base.base.base.output_surface.color_map[
                     cursor_idx +
                         self.base.base.base.w
                 ] =
-                    tzui.color.BRIGHT_LIGHT_YELLOW;
+                    movy.color.BRIGHT_LIGHT_YELLOW;
             }
         }
 
