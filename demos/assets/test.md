@@ -1,14 +1,14 @@
 # Hello World!
 
-This is tzui! We just read a markdown file
+This is **MOVY**! We just read a markdown file
 into our StyledTextBuffer!
 
 ## Of course we can recognize UTF8 !! ★★★★
 This is very *cool*!
 But it is even cooler to go **bold**!
 
-We also can do `inline code`, "strings", 
-and also // comments 
+We also can do `inline code`, "strings",
+and also // comments
 
 ### Here comes the code!
 

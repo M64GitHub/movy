@@ -68,7 +68,7 @@ pub fn main() !void {
     // movy logo
     var sprite_movy_logo = try movy.graphic.Sprite.initFromPng(
         allocator,
-        "demos/assets/movy_80_hue1.png",
+        "demos/assets/movy_100_transparent.png",
         "sprite 2",
     );
     defer sprite_movy_logo.deinit(allocator);
@@ -81,7 +81,7 @@ pub fn main() !void {
 
     // position sprites
     sprite_m64_logo.setXY(34 + sine_wave.tickSine(), 54);
-    sprite_movy_logo.setXY(24, 12);
+    sprite_movy_logo.setXY(10, 12);
 
     // add a textwindow
     // Create a manager—owns and tracks all UI elements.
@@ -141,10 +141,10 @@ pub fn main() !void {
     const status_surface = status_window.render();
 
     // add all we want to render to the screen - reverse z order: first is top
-    try screen.addSprite(sprite_alien);
+    try screen.addRenderSurface(sprite_alien.output_surface);
     try screen.addRenderSurface(window_surface);
-    try screen.addSprite(sprite_movy_logo);
-    try screen.addSprite(sprite_m64_logo);
+    try screen.addRenderSurface(sprite_movy_logo.output_surface);
+    try screen.addRenderSurface(sprite_m64_logo.output_surface);
     try screen.addRenderSurface(status_surface);
 
     // render the screen and blast it to the terminal before main loop starts
@@ -388,7 +388,7 @@ pub fn main() !void {
 
             // Render
             _ = status_window.render();
-            try screen.renderWithSprites();
+            screen.render();
             var end_time = std.time.nanoTimestamp();
             const render_time_ns = end_time - start_time;
 
