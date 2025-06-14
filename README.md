@@ -21,7 +21,11 @@ Animations are driven by reusable components that modulate indices and values ov
 The result is a modular visual engine that invites experimentation — composable, expressive, and built to empower you to create, style, and interact with ease.
 
 ![screenshot](https://github.com/user-attachments/assets/c5e4885b-2f31-49d7-aa35-bdc4dff5eefe)
-
+(dev snapshot of a game)
+![mouse_demo](https://github.com/user-attachments/assets/aa9c1f58-5c09-4bda-9faf-1db092bdbef2)
+(alien mouse move demo)
+![win_demo](https://github.com/user-attachments/assets/4ceae31d-bbb1-4a2c-95d9-8bd09e2a513b)
+(window demo)
 
 ## Core Concepts
 
