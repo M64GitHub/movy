@@ -1,8 +1,8 @@
 const std = @import("std");
-const tzui = @import("../../tzui.zig");
+const movy = @import("../../movy.zig");
 
 /// Defines color classes for theming
-pub const ZuiColorClass = enum {
+pub const ColorClass = enum {
     WindowBorder, // Standard window border color
     WindowCorner, // Custom color for window corners
     WindowTitle, // Color for window titles
@@ -32,21 +32,21 @@ pub const ZuiColorClass = enum {
     TerminalBlack, // Terminal black
 };
 
-/// Manages color assignments for UI elements—maps ZuiColorClass to Rgb
+/// Manages color assignments for UI elements—maps ColorClass to Rgb
 /// with a name.
-pub const ZuiColorTheme = struct {
+pub const ColorTheme = struct {
     name: []const u8, // Theme name—e.g., "TokyoNight-Storm"
     // Fixed mapping for fast lookups
-    colors: std.EnumArray(ZuiColorClass, tzui.core.types.Rgb),
+    colors: std.EnumArray(ColorClass, movy.core.types.Rgb),
 
     /// Initializes a TokyoNight-Storm theme—dark, vibrant, and inspired by
     /// TokyoNight.
-    pub fn initTokyoNightStorm() ZuiColorTheme {
-        var theme = ZuiColorTheme{
+    pub fn initTokyoNightStorm() ColorTheme {
+        var theme = ColorTheme{
             .name = "TokyoNight-Storm",
             .colors = std.EnumArray(
-                ZuiColorClass,
-                tzui.core.types.Rgb,
+                ColorClass,
+                movy.core.types.Rgb,
             ).initUndefined(),
         };
 
@@ -108,12 +108,12 @@ pub const ZuiColorTheme = struct {
     }
 
     /// Initializes a Gruvbox theme—warm, retro, and easy on the eyes.
-    pub fn initGruvbox() ZuiColorTheme {
-        var theme = ZuiColorTheme{
+    pub fn initGruvbox() ColorTheme {
+        var theme = ColorTheme{
             .name = "Gruvbox",
             .colors = std.EnumArray(
-                ZuiColorClass,
-                tzui.core.types.Rgb,
+                ColorClass,
+                movy.core.types.Rgb,
             ).initUndefined(),
         };
 
@@ -175,12 +175,12 @@ pub const ZuiColorTheme = struct {
     }
 
     /// Initializes a Catppuccin Mocha theme—warm, muted, and elegant.
-    pub fn initCatppuccinMocha() ZuiColorTheme {
-        var theme = ZuiColorTheme{
+    pub fn initCatppuccinMocha() ColorTheme {
+        var theme = ColorTheme{
             .name = "Catppuccin-Mocha",
             .colors = std.EnumArray(
-                ZuiColorClass,
-                tzui.core.types.Rgb,
+                ColorClass,
+                movy.core.types.Rgb,
             ).initUndefined(),
         };
 
@@ -242,12 +242,12 @@ pub const ZuiColorTheme = struct {
     }
 
     /// Initializes a Dracula theme—dark, vibrant, and modern.
-    pub fn initDracula() ZuiColorTheme {
-        var theme = ZuiColorTheme{
+    pub fn initDracula() ColorTheme {
+        var theme = ColorTheme{
             .name = "Dracula",
             .colors = std.EnumArray(
-                ZuiColorClass,
-                tzui.core.types.Rgb,
+                ColorClass,
+                movy.core.types.Rgb,
             ).initUndefined(),
         };
 
@@ -309,12 +309,12 @@ pub const ZuiColorTheme = struct {
     }
 
     /// Initializes a Nord theme—cool, arctic, and minimalist.
-    pub fn initNord() ZuiColorTheme {
-        var theme = ZuiColorTheme{
+    pub fn initNord() ColorTheme {
+        var theme = ColorTheme{
             .name = "Nord",
             .colors = std.EnumArray(
-                ZuiColorClass,
-                tzui.core.types.Rgb,
+                ColorClass,
+                movy.core.types.Rgb,
             ).initUndefined(),
         };
 
@@ -376,12 +376,12 @@ pub const ZuiColorTheme = struct {
     }
 
     /// Initializes a Monokai theme—classic, vibrant, and high-contrast.
-    pub fn initMonokai() ZuiColorTheme {
-        var theme = ZuiColorTheme{
+    pub fn initMonokai() ColorTheme {
+        var theme = ColorTheme{
             .name = "Monokai",
             .colors = std.EnumArray(
-                ZuiColorClass,
-                tzui.core.types.Rgb,
+                ColorClass,
+                movy.core.types.Rgb,
             ).initUndefined(),
         };
 
@@ -443,12 +443,12 @@ pub const ZuiColorTheme = struct {
     }
 
     /// Initializes a Sublime Text Mariana theme—balanced, modern, and vibrant.
-    pub fn initSublimeMariana() ZuiColorTheme {
-        var theme = ZuiColorTheme{
+    pub fn initSublimeMariana() ColorTheme {
+        var theme = ColorTheme{
             .name = "Sublime-Mariana",
             .colors = std.EnumArray(
-                ZuiColorClass,
-                tzui.core.types.Rgb,
+                ColorClass,
+                movy.core.types.Rgb,
             ).initUndefined(),
         };
 
@@ -510,12 +510,12 @@ pub const ZuiColorTheme = struct {
     }
 
     /// Initializes a Solarized Dark theme—balanced, scientific, and eye-friendly.
-    pub fn initSolarizedDark() ZuiColorTheme {
-        var theme = ZuiColorTheme{
+    pub fn initSolarizedDark() ColorTheme {
+        var theme = ColorTheme{
             .name = "Solarized-Dark",
             .colors = std.EnumArray(
-                ZuiColorClass,
-                tzui.core.types.Rgb,
+                ColorClass,
+                movy.core.types.Rgb,
             ).initUndefined(),
         };
 
@@ -577,12 +577,12 @@ pub const ZuiColorTheme = struct {
     }
 
     /// Initializes a Tomorrow Night theme—soft, calming, and readable.
-    pub fn initTomorrowNight() ZuiColorTheme {
-        var theme = ZuiColorTheme{
+    pub fn initTomorrowNight() ColorTheme {
+        var theme = ColorTheme{
             .name = "Tomorrow-Night",
             .colors = std.EnumArray(
-                ZuiColorClass,
-                tzui.core.types.Rgb,
+                ColorClass,
+                movy.core.types.Rgb,
             ).initUndefined(),
         };
 
@@ -644,12 +644,12 @@ pub const ZuiColorTheme = struct {
     }
 
     /// Initializes a Shades of Purple theme—bold, vibrant, and purple-heavy.
-    pub fn initShadesOfPurple() ZuiColorTheme {
-        var theme = ZuiColorTheme{
+    pub fn initShadesOfPurple() ColorTheme {
+        var theme = ColorTheme{
             .name = "Shades-of-Purple",
             .colors = std.EnumArray(
-                ZuiColorClass,
-                tzui.core.types.Rgb,
+                ColorClass,
+                movy.core.types.Rgb,
             ).initUndefined(),
         };
 
@@ -711,12 +711,12 @@ pub const ZuiColorTheme = struct {
     }
 
     /// Initializes a Night Owl theme—night-friendly, accessible, and muted.
-    pub fn initNightOwl() ZuiColorTheme {
-        var theme = ZuiColorTheme{
+    pub fn initNightOwl() ColorTheme {
+        var theme = ColorTheme{
             .name = "Night-Owl",
             .colors = std.EnumArray(
-                ZuiColorClass,
-                tzui.core.types.Rgb,
+                ColorClass,
+                movy.core.types.Rgb,
             ).initUndefined(),
         };
 
@@ -778,12 +778,12 @@ pub const ZuiColorTheme = struct {
     }
 
     /// Initializes an MS-DOS theme—retro, bold, and terminal-inspired.
-    pub fn initMSDOS() ZuiColorTheme {
-        var theme = ZuiColorTheme{
+    pub fn initMSDOS() ColorTheme {
+        var theme = ColorTheme{
             .name = "MS-DOS",
             .colors = std.EnumArray(
-                ZuiColorClass,
-                tzui.core.types.Rgb,
+                ColorClass,
+                movy.core.types.Rgb,
             ).initUndefined(),
         };
 
@@ -845,12 +845,12 @@ pub const ZuiColorTheme = struct {
     }
 
     /// Initializes a Turbo Vision theme—classic Borland TUI-inspired, updated for accuracy.
-    pub fn initTurboVision() ZuiColorTheme {
-        var theme = ZuiColorTheme{
+    pub fn initTurboVision() ColorTheme {
+        var theme = ColorTheme{
             .name = "Turbo-Vision",
             .colors = std.EnumArray(
-                ZuiColorClass,
-                tzui.core.types.Rgb,
+                ColorClass,
+                movy.core.types.Rgb,
             ).initUndefined(),
         };
 
@@ -912,12 +912,12 @@ pub const ZuiColorTheme = struct {
     }
 
     /// Initializes a One Dark theme—modern, balanced, and professional.
-    pub fn initOneDark() ZuiColorTheme {
-        var theme = ZuiColorTheme{
+    pub fn initOneDark() ColorTheme {
+        var theme = ColorTheme{
             .name = "One-Dark",
             .colors = std.EnumArray(
-                ZuiColorClass,
-                tzui.core.types.Rgb,
+                ColorClass,
+                movy.core.types.Rgb,
             ).initUndefined(),
         };
 
@@ -979,12 +979,12 @@ pub const ZuiColorTheme = struct {
     }
 
     /// Initializes a Commodore 64 theme—light blue on dark blue with retro accents.
-    pub fn initCommodore64() ZuiColorTheme {
-        var theme = ZuiColorTheme{
+    pub fn initCommodore64() ColorTheme {
+        var theme = ColorTheme{
             .name = "Commodore-64",
             .colors = std.EnumArray(
-                ZuiColorClass,
-                tzui.core.types.Rgb,
+                ColorClass,
+                movy.core.types.Rgb,
             ).initUndefined(),
         };
 
@@ -1046,12 +1046,12 @@ pub const ZuiColorTheme = struct {
     }
 
     /// Initializes a Commodore 128 theme—light green on dark gray with retro accents.
-    pub fn initCommodore128() ZuiColorTheme {
-        var theme = ZuiColorTheme{
+    pub fn initCommodore128() ColorTheme {
+        var theme = ColorTheme{
             .name = "Commodore-128",
             .colors = std.EnumArray(
-                ZuiColorClass,
-                tzui.core.types.Rgb,
+                ColorClass,
+                movy.core.types.Rgb,
             ).initUndefined(),
         };
 
@@ -1115,72 +1115,72 @@ pub const ZuiColorTheme = struct {
     /// Gathers all available themes into an ArrayList.
     pub fn getAllThemes(
         allocator: std.mem.Allocator,
-    ) !std.ArrayList(*const ZuiColorTheme) {
-        var themes = std.ArrayList(*const ZuiColorTheme).init(allocator);
+    ) !std.ArrayList(*const ColorTheme) {
+        var themes = std.ArrayList(*const ColorTheme).init(allocator);
 
         // Allocate, append, and initialize each theme
-        const theme_tokyo_night = try allocator.create(ZuiColorTheme);
-        theme_tokyo_night.* = ZuiColorTheme.initTokyoNightStorm();
+        const theme_tokyo_night = try allocator.create(ColorTheme);
+        theme_tokyo_night.* = ColorTheme.initTokyoNightStorm();
         try themes.append(theme_tokyo_night);
 
-        const theme_gruvbox = try allocator.create(ZuiColorTheme);
-        theme_gruvbox.* = ZuiColorTheme.initGruvbox();
+        const theme_gruvbox = try allocator.create(ColorTheme);
+        theme_gruvbox.* = ColorTheme.initGruvbox();
         try themes.append(theme_gruvbox);
 
-        const theme_catppuccin = try allocator.create(ZuiColorTheme);
-        theme_catppuccin.* = ZuiColorTheme.initCatppuccinMocha();
+        const theme_catppuccin = try allocator.create(ColorTheme);
+        theme_catppuccin.* = ColorTheme.initCatppuccinMocha();
         try themes.append(theme_catppuccin);
 
-        const theme_dracula = try allocator.create(ZuiColorTheme);
-        theme_dracula.* = ZuiColorTheme.initDracula();
+        const theme_dracula = try allocator.create(ColorTheme);
+        theme_dracula.* = ColorTheme.initDracula();
         try themes.append(theme_dracula);
 
-        const theme_nord = try allocator.create(ZuiColorTheme);
-        theme_nord.* = ZuiColorTheme.initNord();
+        const theme_nord = try allocator.create(ColorTheme);
+        theme_nord.* = ColorTheme.initNord();
         try themes.append(theme_nord);
 
-        const theme_monokai = try allocator.create(ZuiColorTheme);
-        theme_monokai.* = ZuiColorTheme.initMonokai();
+        const theme_monokai = try allocator.create(ColorTheme);
+        theme_monokai.* = ColorTheme.initMonokai();
         try themes.append(theme_monokai);
 
-        const theme_sublime_mariana = try allocator.create(ZuiColorTheme);
-        theme_sublime_mariana.* = ZuiColorTheme.initSublimeMariana();
+        const theme_sublime_mariana = try allocator.create(ColorTheme);
+        theme_sublime_mariana.* = ColorTheme.initSublimeMariana();
         try themes.append(theme_sublime_mariana);
 
-        const theme_solarized_dark = try allocator.create(ZuiColorTheme);
-        theme_solarized_dark.* = ZuiColorTheme.initSolarizedDark();
+        const theme_solarized_dark = try allocator.create(ColorTheme);
+        theme_solarized_dark.* = ColorTheme.initSolarizedDark();
         try themes.append(theme_solarized_dark);
 
-        const theme_tomorrow_night = try allocator.create(ZuiColorTheme);
-        theme_tomorrow_night.* = ZuiColorTheme.initTomorrowNight();
+        const theme_tomorrow_night = try allocator.create(ColorTheme);
+        theme_tomorrow_night.* = ColorTheme.initTomorrowNight();
         try themes.append(theme_tomorrow_night);
 
-        const theme_shades_of_purple = try allocator.create(ZuiColorTheme);
-        theme_shades_of_purple.* = ZuiColorTheme.initShadesOfPurple();
+        const theme_shades_of_purple = try allocator.create(ColorTheme);
+        theme_shades_of_purple.* = ColorTheme.initShadesOfPurple();
         try themes.append(theme_shades_of_purple);
 
-        const theme_night_owl = try allocator.create(ZuiColorTheme);
-        theme_night_owl.* = ZuiColorTheme.initNightOwl();
+        const theme_night_owl = try allocator.create(ColorTheme);
+        theme_night_owl.* = ColorTheme.initNightOwl();
         try themes.append(theme_night_owl);
 
-        const theme_ms_dos = try allocator.create(ZuiColorTheme);
-        theme_ms_dos.* = ZuiColorTheme.initMSDOS();
+        const theme_ms_dos = try allocator.create(ColorTheme);
+        theme_ms_dos.* = ColorTheme.initMSDOS();
         try themes.append(theme_ms_dos);
 
-        const theme_turbo_vision = try allocator.create(ZuiColorTheme);
-        theme_turbo_vision.* = ZuiColorTheme.initTurboVision();
+        const theme_turbo_vision = try allocator.create(ColorTheme);
+        theme_turbo_vision.* = ColorTheme.initTurboVision();
         try themes.append(theme_turbo_vision);
 
-        const theme_one_dark = try allocator.create(ZuiColorTheme);
-        theme_one_dark.* = ZuiColorTheme.initOneDark();
+        const theme_one_dark = try allocator.create(ColorTheme);
+        theme_one_dark.* = ColorTheme.initOneDark();
         try themes.append(theme_one_dark);
 
-        const theme_commodore_64 = try allocator.create(ZuiColorTheme);
-        theme_commodore_64.* = ZuiColorTheme.initCommodore64();
+        const theme_commodore_64 = try allocator.create(ColorTheme);
+        theme_commodore_64.* = ColorTheme.initCommodore64();
         try themes.append(theme_commodore_64);
 
-        const theme_commodore_128 = try allocator.create(ZuiColorTheme);
-        theme_commodore_128.* = ZuiColorTheme.initCommodore128();
+        const theme_commodore_128 = try allocator.create(ColorTheme);
+        theme_commodore_128.* = ColorTheme.initCommodore128();
         try themes.append(theme_commodore_128);
 
         return themes;
@@ -1190,7 +1190,7 @@ pub const ZuiColorTheme = struct {
     pub fn initFromJson(
         allocator: std.mem.Allocator,
         json_data: []const u8,
-    ) !ZuiColorTheme {
+    ) !ColorTheme {
         // TODO: Parse JSON into colors—e.g., {"WindowBorder": "#6c7086", ...}
         _ = allocator;
         _ = json_data;
@@ -1199,17 +1199,17 @@ pub const ZuiColorTheme = struct {
 
     /// Retrieves the color for a given class—simple and efficient.
     pub fn getColor(
-        self: *const ZuiColorTheme,
-        class: ZuiColorClass,
-    ) tzui.core.types.Rgb {
+        self: *const ColorTheme,
+        class: ColorClass,
+    ) movy.core.types.Rgb {
         return self.colors.get(class);
     }
 
     /// Updates the color for a given class—flexible customization.
     pub fn setColor(
-        self: *ZuiColorTheme,
-        class: ZuiColorClass,
-        color: tzui.core.types.Rgb,
+        self: *ColorTheme,
+        class: ColorClass,
+        color: movy.core.types.Rgb,
     ) void {
         self.colors.set(class, color);
     }

@@ -1,10 +1,10 @@
 const std = @import("std");
-const tzui = @import("../../../tzui.zig");
+const movy = @import("../../../movy.zig");
 
 /// Defines a titled window—adds a centered title to a bordered window.
-pub const ZuiTitleWindow = struct {
-    base: *tzui.ui.ZuiBorderedWindow,
-    base_widget: *tzui.ui.ZuiWidget,
+pub const TitleWindow = struct {
+    base: *movy.ui.BorderedWindow,
+    base_widget: *movy.ui.Widget,
     title: []const u8, // Window title text
 
     /// Initializes a heap allocated titled window, sets up base and title.
@@ -15,12 +15,12 @@ pub const ZuiTitleWindow = struct {
         w: usize,
         h: usize,
         window_title: []const u8,
-        theme: *const tzui.ui.ZuiColorTheme,
-        style: *const tzui.ui.ZuiStyle,
-    ) !*ZuiTitleWindow {
-        var self = try allocator.create(ZuiTitleWindow);
+        theme: *const movy.ui.ColorTheme,
+        style: *const movy.ui.Style,
+    ) !*TitleWindow {
+        var self = try allocator.create(TitleWindow);
         self.* = .{
-            .base = try tzui.ui.ZuiBorderedWindow.init(
+            .base = try movy.ui.BorderedWindow.init(
                 allocator,
                 x,
                 y,
@@ -37,68 +37,68 @@ pub const ZuiTitleWindow = struct {
     }
 
     /// Frees the titled window’s base resources—caller manages title memory.
-    pub fn deinit(self: *ZuiTitleWindow, allocator: std.mem.Allocator) void {
+    pub fn deinit(self: *TitleWindow, allocator: std.mem.Allocator) void {
         self.base.deinit(allocator);
         allocator.destroy(self);
     }
 
-    pub fn setActive(self: *ZuiTitleWindow, active: bool) void {
+    pub fn setActive(self: *TitleWindow, active: bool) void {
         self.base_widget.is_active = active;
     }
 
-    pub fn isActive(self: *ZuiTitleWindow) bool {
+    pub fn isActive(self: *TitleWindow) bool {
         return self.base_widget.is_active;
     }
 
     /// Sets a new theme for the window—propagates to base.
     pub fn setTheme(
-        self: *ZuiTitleWindow,
-        theme: *const tzui.ui.ZuiColorTheme,
+        self: *TitleWindow,
+        theme: *const movy.ui.ColorTheme,
     ) void {
         self.base.setTheme(theme);
     }
 
     /// Retrieves the current theme from the base.
-    pub fn getTheme(self: *const ZuiTitleWindow) *const tzui.ui.ZuiColorTheme {
+    pub fn getTheme(self: *const TitleWindow) *const movy.ui.ColorTheme {
         return self.base.getTheme();
     }
 
     /// Sets a new style for the window—propagates to base.
     pub fn setStyle(
-        self: *ZuiTitleWindow,
-        style: *const tzui.ui.ZuiStyle,
+        self: *TitleWindow,
+        style: *const movy.ui.Style,
     ) void {
         self.base.setStyle(style);
     }
 
     /// Retrieves the current style from the base.
-    pub fn getStyle(self: *const ZuiTitleWindow) *const tzui.ui.ZuiStyle {
+    pub fn getStyle(self: *const TitleWindow) *const movy.ui.Style {
         return self.base.getStyle();
     }
 
     /// Sets the window title—updates the displayed text.
-    pub fn setTitle(self: *ZuiTitleWindow, title: []const u8) void {
+    pub fn setTitle(self: *TitleWindow, title: []const u8) void {
         self.title = title;
     }
 
     /// Retrieves the current window title.
-    pub fn getTitle(self: *const ZuiTitleWindow) []const u8 {
+    pub fn getTitle(self: *const TitleWindow) []const u8 {
         return self.title;
     }
 
     /// Retrieves the window’s position—passes through to base.
-    pub fn getPosition(self: *const ZuiTitleWindow) tzui.ui.ZuiPosition2D {
+    pub fn getPosition(self: *const TitleWindow) movy.ui.Position2D {
         return self.base.getPosition();
     }
 
     /// Sets the window’s position—propagates to base.
-    pub fn setPosition(self: *ZuiTitleWindow, x: i32, y: i32) void {
+    pub fn setPosition(self: *TitleWindow, x: i32, y: i32) void {
         self.base.setPosition(x, y);
     }
 
     /// Resizes the window—updates base dimensions.
     pub fn resize(
-        self: *ZuiTitleWindow,
+        self: *TitleWindow,
         allocator: std.mem.Allocator,
         w: usize,
         h: usize,
@@ -107,13 +107,13 @@ pub const ZuiTitleWindow = struct {
     }
 
     /// Retrieves the window’s size—passes through to base.
-    pub fn getSize(self: *const ZuiTitleWindow) tzui.ui.ZuiSize {
+    pub fn getSize(self: *const TitleWindow) movy.ui.Size {
         return self.base.getSize();
     }
 
     /// Checks if the given coordinates are within the window's bounds
     /// Uses absolute coordinates.
-    pub fn isInBounds(self: *const ZuiTitleWindow, x: i32, y: i32) bool {
+    pub fn isInBounds(self: *const TitleWindow, x: i32, y: i32) bool {
         const pos = self.getPosition();
         const size = self.getSize();
         return x >= pos.x and x < pos.x + @as(i32, @intCast(size.w)) and
@@ -122,7 +122,7 @@ pub const ZuiTitleWindow = struct {
 
     /// Checks if the given coordinates are within the
     /// window's title bounds (first row).
-    pub fn isInTitleBounds(self: *const ZuiTitleWindow, x: i32, y: i32) bool {
+    pub fn isInTitleBounds(self: *const TitleWindow, x: i32, y: i32) bool {
         const pos = self.getPosition();
         const size = self.getSize();
         // Check if within x bounds and in the first row (y == pos.y)
@@ -132,7 +132,7 @@ pub const ZuiTitleWindow = struct {
 
     /// Renders the titled window—composites base and title, returns the
     /// final surface.
-    pub fn render(self: *ZuiTitleWindow) *tzui.core.RenderSurface {
+    pub fn render(self: *TitleWindow) *movy.core.RenderSurface {
         _ = self.base.render(); // Render base (bg + border)—discard tmp surface
         // Trim to w-2
         const title_len = @min(self.title.len, self.base.getSize().w - 2);
@@ -169,12 +169,12 @@ pub const ZuiTitleWindow = struct {
             self.base.getTheme().getColor(.BackgroundColor),
         );
 
-        var surfaces = [_]*tzui.core.RenderSurface{
+        var surfaces = [_]*movy.core.RenderSurface{
             self.base.base.output_surface,
             self.base.border.output_surface,
         };
         // Merge all
-        tzui.render.RenderEngine.renderComposite(
+        movy.render.RenderEngine.renderComposite(
             &surfaces,
             self.base.base.output_surface,
         );

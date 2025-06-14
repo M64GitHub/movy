@@ -1,6 +1,6 @@
 const std = @import("std");
-const tzui = @import("../../tzui.zig");
-const Rgb = tzui.core.types.Rgb;
+const movy = @import("../../movy.zig");
+const Rgb = movy.core.types.Rgb;
 
 /// Represents a styled character with optional foreground and background colors.
 pub const StyledChar = struct {
@@ -428,8 +428,8 @@ pub const StyledTextBuffer = struct {
     pub fn highlightKeyword(
         self: *StyledTextBuffer,
         keyword: []const u8,
-        fg: tzui.core.types.Rgb,
-        bg: tzui.core.types.Rgb,
+        fg: movy.core.types.Rgb,
+        bg: movy.core.types.Rgb,
     ) void {
         if (self.is_empty) return;
 
@@ -471,8 +471,8 @@ pub const StyledTextBuffer = struct {
     pub fn highlightKeywordIsolated(
         self: *StyledTextBuffer,
         keyword: []const u8,
-        fg: tzui.core.types.Rgb,
-        bg: tzui.core.types.Rgb,
+        fg: movy.core.types.Rgb,
+        bg: movy.core.types.Rgb,
     ) void {
         if (self.is_empty) return;
 
@@ -564,8 +564,8 @@ pub const StyledTextBuffer = struct {
         self: *StyledTextBuffer,
         start_keyword: []const u8,
         end_keyword: []const u8,
-        fg: tzui.core.types.Rgb,
-        bg: tzui.core.types.Rgb,
+        fg: movy.core.types.Rgb,
+        bg: movy.core.types.Rgb,
         include_keywords: bool,
         require_end_keyword: bool,
     ) void {
@@ -782,12 +782,12 @@ pub const StyledTextBuffer = struct {
         self: *StyledTextBuffer,
         start_keyword: []const u8,
         end_keyword: []const u8,
-        theme: tzui.ui.ZuiColorTheme,
+        theme: movy.ui.ColorTheme,
         highlight_fn: fn (
             *StyledTextBuffer,
             usize,
             usize,
-            tzui.ui.ZuiColorTheme,
+            movy.ui.ColorTheme,
         ) void,
     ) void {
         if (self.is_empty) return;
@@ -877,7 +877,7 @@ pub const StyledTextBuffer = struct {
         self: *StyledTextBuffer,
         start: usize,
         end: usize,
-        theme: tzui.ui.ZuiColorTheme,
+        theme: movy.ui.ColorTheme,
     ) void {
         const keywords = [_][]const u8{
             "const",  "var",            "fn",     "return",   "if",
@@ -960,7 +960,7 @@ pub const StyledTextBuffer = struct {
         self: *StyledTextBuffer,
         start: usize,
         end: usize,
-        theme: tzui.ui.ZuiColorTheme,
+        theme: movy.ui.ColorTheme,
     ) void {
         const keywords = [_][]const u8{
             "int",    "char",     "float",   "double", "void",     "return",
@@ -1073,7 +1073,7 @@ pub const StyledTextBuffer = struct {
         self: *StyledTextBuffer,
         start: usize,
         end: usize,
-        theme: tzui.ui.ZuiColorTheme,
+        theme: movy.ui.ColorTheme,
     ) void {
         self.highlightCSlice(start, end, theme); // base it on C first
 
@@ -1100,7 +1100,7 @@ pub const StyledTextBuffer = struct {
         self: *StyledTextBuffer,
         start: usize,
         end: usize,
-        theme: tzui.ui.ZuiColorTheme,
+        theme: movy.ui.ColorTheme,
     ) void {
         // 1. Style everything with default code text/background color
         for (start..end) |i| {
@@ -1161,7 +1161,7 @@ pub const StyledTextBuffer = struct {
 
     pub fn highlightFunctionNames(
         self: *StyledTextBuffer,
-        theme: tzui.ui.ZuiColorTheme,
+        theme: movy.ui.ColorTheme,
         start: usize,
         end: usize,
     ) void {
@@ -1204,7 +1204,7 @@ pub const StyledTextBuffer = struct {
 
     pub fn highlightFunctionParameters(
         self: *StyledTextBuffer,
-        theme: tzui.ui.ZuiColorTheme,
+        theme: movy.ui.ColorTheme,
         start: usize,
         end: usize,
     ) void {
@@ -1269,7 +1269,7 @@ pub const StyledTextBuffer = struct {
 
     pub fn highlightInlineBacktickCode(
         self: *StyledTextBuffer,
-        theme: tzui.ui.ZuiColorTheme,
+        theme: movy.ui.ColorTheme,
     ) void {
         const text = self.text;
         const max_index = self.last_char_idx;
