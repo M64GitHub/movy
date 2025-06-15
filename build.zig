@@ -3,6 +3,11 @@ const std = @import("std");
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = std.builtin.OptimizeMode.ReleaseFast;
+    // const optimize = b.option(std.builtin.OptimizeMode, "optimize", "") orelse .Debug;
+
+    // -- build options
+    // apt-get install libavcodec-dev libavutil-dev libswresample-dev libavformat-dev libswscale-dev
+    const enable_ffmpeg = b.option(bool, "ffmpeg", "Enable ffmpeg support in movy") orelse false;
 
     // -- movy
     const movy_mod = b.addModule("movy", .{
@@ -108,6 +113,34 @@ pub fn build(b: *std.Build) void {
             b.fmt("run-{s}", .{name}),
             b.fmt("Run {s}", .{name}),
         ).dependOn(&run_game.step);
+    }
+
+    if (enable_ffmpeg) {
+        // -- mplayer
+        const name = "mplayer";
+        const mplayer_exe = b.addExecutable(.{
+            .name = "mplayer",
+            .root_source_file = b.path(b.fmt("examples/{s}.zig", .{name})),
+            .target = target,
+            .optimize = optimize,
+        });
+        mplayer_exe.root_module.addImport("movy", movy_mod);
+        mplayer_exe.addIncludePath(.{ .cwd_relative = "/usr/include/x86_64-linux-gnu" });
+        mplayer_exe.linkSystemLibrary("avformat");
+        mplayer_exe.linkSystemLibrary("avcodec");
+        mplayer_exe.linkSystemLibrary("swscale");
+        mplayer_exe.linkSystemLibrary("avutil");
+        mplayer_exe.linkLibC();
+        b.installArtifact(mplayer_exe);
+
+        // Add run step
+        const run_mplayer = b.addRunArtifact(mplayer_exe);
+        run_mplayer.step.dependOn(b.getInstallStep());
+        if (b.args) |args| run_mplayer.addArgs(args);
+        b.step(
+            b.fmt("run-{s}", .{name}),
+            b.fmt("Run {s}", .{name}),
+        ).dependOn(&run_mplayer.step);
     }
 
     // -- Docs
