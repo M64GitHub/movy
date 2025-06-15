@@ -68,7 +68,8 @@ At its heart, **movy** is built on composable rendering, effect-driven visuals, 
 - **TrigWave** provides reusable sine and cosine generators with internal state. These simplify wave-based animations such as pulsing highlights, bobbing motion, or cyclic transitions.
 - **Easing** - for easing curve based animations, functions for easing -in/-out/-inout are provided.
 
+# Building
 
-
-
-
+```
+zig build -Dffmpeg=true
+```

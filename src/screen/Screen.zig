@@ -51,7 +51,6 @@ pub const Screen = struct {
         self.sub_screens.deinit();
         self.output_surfaces.deinit();
         self.output_surface.deinit(allocator);
-        allocator.destroy(self.output_surface);
     }
 
     /// Adds a Sprite to the Screen for rendering its output_surface

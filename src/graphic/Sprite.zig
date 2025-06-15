@@ -48,8 +48,8 @@ pub const SpriteFrame = struct {
 
     /// Deinitializes a SpriteFrame, freeing all its allocated resources
     pub fn deinit(self: *SpriteFrame, allocator: std.mem.Allocator) void {
-        allocator.destroy(self.data_surface); // Free the new data surface
-        allocator.destroy(self.output_surface);
+        self.data_surface.deinit(allocator);
+        self.output_surface.deinit(allocator);
         allocator.destroy(self);
     }
 
@@ -294,7 +294,7 @@ pub const Sprite = struct {
     /// Deinitializes a Sprite, freeing all its allocated resources
     pub fn deinit(self: *Sprite, allocator: std.mem.Allocator) void {
         self.frame_set.deinit(allocator);
-        allocator.destroy(self.output_surface);
+        self.output_surface.deinit(allocator);
         if (self.name.len > 0) allocator.free(self.name);
         self.animations.deinit();
         allocator.destroy(self);
