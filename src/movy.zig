@@ -7,7 +7,7 @@ pub const movy = @This();
 
 pub const Version = "0.0.0";
 
-// maybe move to toplevel: graphic, RenderSurface
+// moved to toplevel: graphic, RenderSurface
 pub const Sprite = @import("graphic/Sprite.zig").Sprite;
 pub const SpritePool = @import("graphic/SpritePool.zig").SpritePool;
 pub const BlockLine = @import("graphic/BlockLine.zig").BlockLine;
@@ -38,6 +38,6 @@ pub const color = @import("core/colors.zig");
 pub const input = @import("input/input.zig");
 pub const terminal = @import("terminal/terminal.zig");
 
-// -- ui
+// -- experimantal ui
 
 pub const ui = @import("ui/ui.zig");

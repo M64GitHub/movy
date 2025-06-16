@@ -1,3 +1,7 @@
+// this is a proof of concept version of a commandline video player
+// please note: it is completely unpolished, and was the foundation to
+// movy_video.VideoDecoder - see movycat as an example
+
 const std = @import("std");
 const movy = @import("movy");
 const stdout = std.io.getStdOut().writer();
@@ -87,7 +91,7 @@ pub fn main() !void {
     // -- init ffmpeg
     _ = c.avformat_network_init();
     defer _ = c.avformat_network_deinit();
-    c.av_log_set_level(c.AV_LOG_QUIET);
+    c.av_log_set_level(c.AV_LOG_QUIET); // disable terminal output
 
     // -- open video file
     var fmt_ctx: ?*c.AVFormatContext = null;
@@ -240,8 +244,11 @@ pub fn main() !void {
             }
         }
 
+        // if video packet
         if (pkt.stream_index == @as(c_int, @intCast(vid_stream_id.?))) {
+            // send to the decoder
             if (c.avcodec_send_packet(codec_ctx, &pkt) == 0) {
+                //
                 while (c.avcodec_receive_frame(codec_ctx, frame) == 0) {
                     //  Scale and convert to RGB24
                     const src_data: [*c]const [*c]const u8 =
