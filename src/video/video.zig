@@ -16,33 +16,29 @@ const SDL = @cImport({
 });
 
 pub const VideoDecoder = struct {
-    //  State
+    //  state
     current_pts: i64 = 0,
     paused: bool = false,
     exit_requested: bool = false,
     loop_video: bool = true,
     was_video_frame: bool = false,
 
-    // Core
+    // core
     allocator: std.mem.Allocator,
     fmt_ctx: *c.AVFormatContext,
     codec_ctx: *c.AVCodecContext,
     sws_ctx: *c.SwsContext,
     vid_stream_id: usize,
 
-    // Buffers
+    // buffers
     frame: *c.AVFrame,
     rgb_frame: *c.AVFrame,
     rgb_buf: []u8,
 
-    // Output
+    // output
     target_width: usize,
     target_height: usize,
     surface: *movy.RenderSurface,
-
-    // Frame Sync
-    frame_duration_ns: u64,
-    last_frame_time: i128,
 
     // audio
     audio_stream_id: usize,
@@ -50,9 +46,18 @@ pub const VideoDecoder = struct {
     swr_ctx: *c.SwrContext,
     audio_buf: []u8,
     audio_device: SDL.SDL_AudioDeviceID,
+    audio_sample_rate: u32,
+    audio_channels: u32,
 
     // frame sync
-    pending_pkt: ?c.AVPacket = null,
+    start_time_ns: i128,
+    frame_duration_ns: u64,
+    last_frame_time: i128,
+
+    const UpdateResult = struct {
+        eof: bool,
+        video_rendered: bool,
+    };
 
     pub fn init(
         allocator: std.mem.Allocator,
@@ -224,6 +229,11 @@ pub const VideoDecoder = struct {
         // Audio buffer
         self.audio_buf = try self.allocator.alloc(u8, 8192);
 
+        self.audio_sample_rate = @as(u32, @intCast(self.audio_codec_ctx.sample_rate));
+        self.audio_channels = @as(u32, @intCast(self.audio_codec_ctx.channels));
+
+        self.start_time_ns = 0;
+
         return self;
     }
 
@@ -253,7 +263,6 @@ pub const VideoDecoder = struct {
 
         const stream_index = pkt.stream_index;
 
-        // VIDEO packet
         if (stream_index == @as(c_int, @intCast(self.vid_stream_id))) {
             if (c.avcodec_send_packet(self.codec_ctx, &pkt) < 0)
                 return error.DecodeFailed;
@@ -310,15 +319,6 @@ pub const VideoDecoder = struct {
         self.last_frame_time = std.time.nanoTimestamp();
     }
 
-    pub fn getAudioClock(self: *VideoDecoder) u64 {
-        const bytes_per_sec = self.audio_sample_rate *
-            c.av_get_bytes_per_sample(c.AV_SAMPLE_FMT_S16) * self.audio_channels;
-
-        const queued_bytes = SDL.SDL_GetQueuedAudioSize(self.audio_device);
-        const played_time_ns: u64 = @divTrunc(queued_bytes * 1_000_000_000, bytes_per_sec);
-        return std.time.nanoTimestamp() - played_time_ns;
-    }
-
     // video only atm
     pub fn seek(self: *VideoDecoder, seconds: i64) !void {
         const stream = self.fmt_ctx.streams[self.vid_stream_id];
@@ -332,5 +332,129 @@ pub const VideoDecoder = struct {
             c.AVSEEK_FLAG_BACKWARD,
         );
         c.avcodec_flush_buffers(self.codec_ctx);
+    }
+
+    // -- new AV sync functions
+
+    pub fn getAudioClock(self: *VideoDecoder) u64 {
+        const bytes_per_sec = self.audio_sample_rate *
+            @as(u32, @intCast(c.av_get_bytes_per_sample(c.AV_SAMPLE_FMT_S16))) *
+            self.audio_channels;
+
+        const queued_bytes = SDL.SDL_GetQueuedAudioSize(self.audio_device);
+        const played_time_ns: i128 = @divTrunc(queued_bytes * 1_000_000_000, bytes_per_sec);
+        const diff =
+            std.time.nanoTimestamp() - self.start_time_ns - played_time_ns;
+
+        return @as(u64, @intCast(diff));
+    }
+
+    fn decodeAudioPacket(self: *VideoDecoder, pkt: *const c.AVPacket) !void {
+        if (c.avcodec_send_packet(self.audio_codec_ctx, pkt) < 0)
+            return;
+
+        var frame = c.av_frame_alloc() orelse return error.FrameAllocFailed;
+        defer c.av_frame_free(@as([*c][*c]c.AVFrame, @ptrCast(&frame)));
+
+        while (c.avcodec_receive_frame(self.audio_codec_ctx, frame) == 0) {
+            const audio_buf_ptr: [*c][*c]u8 = @ptrCast(&self.audio_buf);
+            const out_samples = c.swr_convert(
+                self.swr_ctx,
+                audio_buf_ptr,
+                4096,
+                @ptrCast(&frame.*.data[0]),
+                frame.*.nb_samples,
+            );
+
+            const bytes: u32 = @as(u32, @intCast(out_samples)) *
+                @as(u32, @intCast(c.av_get_bytes_per_sample(c.AV_SAMPLE_FMT_S16))) *
+                self.audio_channels;
+
+            _ = SDL.SDL_QueueAudio(self.audio_device, self.audio_buf.ptr, @intCast(bytes));
+        }
+    }
+
+    fn decodeVideoFrame(self: *VideoDecoder, pkt: *const c.AVPacket) bool {
+        if (c.avcodec_send_packet(self.codec_ctx, pkt) < 0) return false;
+
+        while (c.avcodec_receive_frame(self.codec_ctx, self.frame) == 0) {
+            const frame_pts = self.frame.*.pts;
+            const stream = self.fmt_ctx.streams[self.vid_stream_id];
+            const time_base = stream.*.time_base;
+
+            const frame_time_ns = @divTrunc(frame_pts * 1_000_000_000 * time_base.num, time_base.den);
+
+            // Wait for audio clock to catch up
+            while (true) {
+                const audio_clock = self.getAudioClock();
+                // std.debug.print("🎞️ Frame PTS={} ({}ns), Audio clock={}ns\n", .{ frame_pts, frame_time_ns, audio_clock });
+
+                if (frame_time_ns <= audio_clock + 5_000_000) { // allow 5ms ahead
+                    break;
+                }
+                std.time.sleep(1_000_000); // sleep 1ms
+            }
+
+            const src_data: [*c]const [*c]const u8 = @ptrCast(&self.frame.*.data[0]);
+            const dst_data: [*c][*c]u8 = @ptrCast(&self.rgb_frame.*.data[0]);
+
+            const src_stride: [*c]const c_int = &self.frame.*.linesize[0];
+            const dst_stride: [*c]c_int = &self.rgb_frame.*.linesize[0];
+
+            _ = c.sws_scale(
+                self.sws_ctx,
+                src_data,
+                src_stride,
+                0,
+                self.codec_ctx.height,
+                dst_data,
+                dst_stride,
+            );
+            self.convertFrameToSurface();
+            return true;
+        }
+
+        return false;
+    }
+
+    fn convertFrameToSurface(self: *VideoDecoder) void {
+        const pitch = @as(usize, @intCast(self.rgb_frame.*.linesize[0]));
+
+        var y: usize = 0;
+        while (y < self.target_height) : (y += 1) {
+            var x: usize = 0;
+            while (x < self.target_width) : (x += 1) {
+                const offset = y * pitch + x * 3;
+                const r = self.rgb_buf[offset];
+                const g = self.rgb_buf[offset + 1];
+                const b = self.rgb_buf[offset + 2];
+
+                self.surface.color_map[y * self.target_width + x] =
+                    movy.core.types.Rgb{ .r = r, .g = g, .b = b };
+            }
+        }
+    }
+
+    pub fn update(self: *VideoDecoder) !UpdateResult {
+        if (self.start_time_ns == 0)
+            self.start_time_ns = std.time.nanoTimestamp();
+
+        var pkt: c.AVPacket = undefined;
+        if (c.av_read_frame(self.fmt_ctx, &pkt) < 0) {
+            return UpdateResult{ .eof = true, .video_rendered = false };
+        }
+        defer c.av_packet_unref(&pkt);
+
+        if (pkt.stream_index == @as(c_int, @intCast(self.audio_stream_id))) {
+            try self.decodeAudioPacket(&pkt);
+            return UpdateResult{ .eof = false, .video_rendered = false };
+        }
+
+        if (pkt.stream_index == @as(c_int, @intCast(self.vid_stream_id))) {
+            const rendered = self.decodeVideoFrame(&pkt);
+            return UpdateResult{ .eof = false, .video_rendered = rendered };
+        }
+
+        return UpdateResult{ .eof = false, .video_rendered = false };
     }
 };

@@ -21,7 +21,7 @@ pub fn main() !void {
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
 
-    // -- setup movy screen
+    // -- Setup movy screen
     try movy.terminal.beginRawMode();
     defer movy.terminal.endRawMode();
     try movy.terminal.beginAlternateScreen();
@@ -29,12 +29,12 @@ pub fn main() !void {
 
     var screen = try movy.Screen.init(
         allocator,
-        target_width + 8,
-        target_height / 2 + 4,
+        target_width,
+        target_height / 2,
     );
     defer screen.deinit(allocator);
 
-    screen.setScreenMode(movy.Screen.Mode.transparent);
+    screen.setScreenMode(movy.Screen.Mode.bgcolor);
 
     // -- init render surface for output, and add to screen
     var surface = try movy.RenderSurface.init(
@@ -45,8 +45,8 @@ pub fn main() !void {
     );
     defer surface.deinit(allocator);
 
-    surface.x = 4;
-    surface.y = 4;
+    surface.x = 0;
+    surface.y = 0;
 
     try screen.addRenderSurface(surface);
 
@@ -62,7 +62,7 @@ pub fn main() !void {
     const file_name = args[1];
     try stdout.print("Working with filename '{s}'\n", .{file_name});
 
-    // -- open movie
+    // -- Open movie
 
     const decoder = try movy_video.VideoDecoder.init(
         allocator,
@@ -71,23 +71,28 @@ pub fn main() !void {
     );
     defer decoder.deinit();
 
-    while (try decoder.readVideoFrameFrame()) {
-        // -- ESC to exit
+    // Play!
+    while (true) {
+        // Try reading input every frame
         if (try movy.input.get()) |event| {
             switch (event) {
                 .key => |key| {
                     if (key.type == .Escape) {
                         break;
-                    } else {}
+                    }
                 },
                 else => {},
             }
         }
 
-        screen.render();
-        try screen.output(); // blast to terminal
+        // Perform one decoding step
+        // This plays audio or filled the RenderSurface
+        const result = try decoder.update();
+        if (result.eof) break;
 
-        // frame sync
-        if (decoder.was_video_frame) decoder.syncFrame();
+        if (result.video_rendered) {
+            screen.render();
+            try screen.output();
+        }
     }
 }
