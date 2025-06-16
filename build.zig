@@ -1,5 +1,9 @@
 const std = @import("std");
 
+// The following constants are only used for enabled movy_video:
+const usr_include_path = "/usr/include/"; // for SDL (audio)
+const ffmpeg_include_path = "/usr/include/x86_64-linux-gnu"; // for ffmpeg
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = std.builtin.OptimizeMode.ReleaseFast;
@@ -7,7 +11,8 @@ pub fn build(b: *std.Build) void {
 
     // -- build options
     // apt-get install libavcodec-dev libavutil-dev libswresample-dev libavformat-dev libswscale-dev
-    const enable_ffmpeg = b.option(bool, "ffmpeg", "Enable ffmpeg support in movy") orelse false;
+    // const enable_ffmpeg = b.option(bool, "ffmpeg", "Enable ffmpeg support in movy") orelse false;
+    const enable_ffmpeg = true;
 
     // -- movy
     const movy_mod = b.addModule("movy", .{
@@ -47,9 +52,7 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = optimize,
         });
-        example_exe.addIncludePath(b.path("src/core/lodepng/"));
         example_exe.root_module.addImport("movy", movy_mod); // Link module
-        example_exe.linkLibC();
         b.installArtifact(example_exe);
 
         // Add run step
@@ -75,9 +78,7 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = optimize,
         });
-        demo_exe.addIncludePath(b.path("src/core/lodepng/")); // not req
         demo_exe.root_module.addImport("movy", movy_mod);
-        demo_exe.linkLibC(); // not req
         b.installArtifact(demo_exe);
 
         // Add run step
@@ -100,9 +101,7 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = optimize,
         });
-        game_exe.addIncludePath(b.path("src/core/lodepng/")); // not required
         game_exe.root_module.addImport("movy", movy_mod);
-        game_exe.linkLibC(); // not required
         b.installArtifact(game_exe);
 
         // Add run step
@@ -116,31 +115,50 @@ pub fn build(b: *std.Build) void {
     }
 
     if (enable_ffmpeg) {
-        // -- mplayer
-        const name = "mplayer";
-        const mplayer_exe = b.addExecutable(.{
-            .name = "mplayer",
-            .root_source_file = b.path(b.fmt("examples/{s}.zig", .{name})),
+        const movy_video_mod = b.addModule("movy_video", .{
+            .root_source_file = b.path("src/video/video.zig"),
             .target = target,
             .optimize = optimize,
         });
-        mplayer_exe.root_module.addImport("movy", movy_mod);
-        mplayer_exe.addIncludePath(.{ .cwd_relative = "/usr/include/x86_64-linux-gnu" });
-        mplayer_exe.linkSystemLibrary("avformat");
-        mplayer_exe.linkSystemLibrary("avcodec");
-        mplayer_exe.linkSystemLibrary("swscale");
-        mplayer_exe.linkSystemLibrary("avutil");
-        mplayer_exe.linkLibC();
-        b.installArtifact(mplayer_exe);
 
-        // Add run step
-        const run_mplayer = b.addRunArtifact(mplayer_exe);
-        run_mplayer.step.dependOn(b.getInstallStep());
-        if (b.args) |args| run_mplayer.addArgs(args);
-        b.step(
-            b.fmt("run-{s}", .{name}),
-            b.fmt("Run {s}", .{name}),
-        ).dependOn(&run_mplayer.step);
+        movy_video_mod.addIncludePath(.{ .cwd_relative = ffmpeg_include_path });
+        movy_video_mod.addImport("movy", movy_mod);
+        // link ffmpeg
+        movy_video_mod.linkSystemLibrary("avformat", .{});
+        movy_video_mod.linkSystemLibrary("avcodec", .{});
+        movy_video_mod.linkSystemLibrary("swscale", .{});
+        movy_video_mod.linkSystemLibrary("avutil", .{});
+        movy_video_mod.linkSystemLibrary("swresample", .{}); // audio
+        // link SDL2
+        movy_video_mod.linkSystemLibrary("SDL2", .{});
+
+        // Executables for movy_video
+
+        const names = [_][]const u8{
+            "mplayer",
+            "movycat",
+        };
+
+        for (names) |name| {
+            const ffmpeg_exe = b.addExecutable(.{
+                .name = name,
+                .root_source_file = b.path(b.fmt("examples/{s}.zig", .{name})),
+                .target = target,
+                .optimize = optimize,
+            });
+            ffmpeg_exe.root_module.addImport("movy", movy_mod);
+            ffmpeg_exe.root_module.addImport("movy_video", movy_video_mod);
+            b.installArtifact(ffmpeg_exe);
+
+            // Add run step
+            const run_ffmpeg = b.addRunArtifact(ffmpeg_exe);
+            run_ffmpeg.step.dependOn(b.getInstallStep());
+            if (b.args) |args| run_ffmpeg.addArgs(args);
+            b.step(
+                b.fmt("run-{s}", .{name}),
+                b.fmt("Run {s}", .{name}),
+            ).dependOn(&run_ffmpeg.step);
+        }
     }
 
     // -- Docs
