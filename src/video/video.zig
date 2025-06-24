@@ -22,6 +22,7 @@ pub const VideoDecoder = struct {
     exit_requested: bool = false,
     loop_video: bool = true,
     was_video_frame: bool = false,
+    has_audio: bool = false,
 
     // core
     allocator: std.mem.Allocator,
@@ -162,6 +163,12 @@ pub const VideoDecoder = struct {
         );
         self.last_frame_time = std.time.nanoTimestamp();
 
+        self.start_time_ns = 0;
+
+        return self;
+    }
+
+    pub fn init_audio(self: *VideoDecoder) !void {
         // AUDIO
         if (SDL.SDL_Init(SDL.SDL_INIT_AUDIO) < 0) {
             std.debug.print("SDL Error: {s}\n", .{SDL.SDL_GetError()});
@@ -231,10 +238,7 @@ pub const VideoDecoder = struct {
 
         self.audio_sample_rate = @as(u32, @intCast(self.audio_codec_ctx.sample_rate));
         self.audio_channels = @as(u32, @intCast(self.audio_codec_ctx.channels));
-
-        self.start_time_ns = 0;
-
-        return self;
+        self.has_audio = true;
     }
 
     pub fn deinit(self: *VideoDecoder) void {
@@ -445,9 +449,11 @@ pub const VideoDecoder = struct {
         }
         defer c.av_packet_unref(&pkt);
 
-        if (pkt.stream_index == @as(c_int, @intCast(self.audio_stream_id))) {
-            try self.decodeAudioPacket(&pkt);
-            return UpdateResult{ .eof = false, .video_rendered = false };
+        if (self.has_audio) {
+            if (pkt.stream_index == @as(c_int, @intCast(self.audio_stream_id))) {
+                try self.decodeAudioPacket(&pkt);
+                return UpdateResult{ .eof = false, .video_rendered = false };
+            }
         }
 
         if (pkt.stream_index == @as(c_int, @intCast(self.vid_stream_id))) {

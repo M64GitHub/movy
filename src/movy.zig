@@ -1,6 +1,4 @@
 /// movy - Terminal rendering, animation and effects engine.
-/// A lightweight, modular framework for crafting vibrant terminal UIs
-/// with sprites, animations, windows, and styled text.
 const std = @import("std");
 
 pub const movy = @This();
@@ -38,6 +36,6 @@ pub const color = @import("core/colors.zig");
 pub const input = @import("input/input.zig");
 pub const terminal = @import("terminal/terminal.zig");
 
-// -- experimantal ui
+// -- experimental ui
 
 pub const ui = @import("ui/ui.zig");
