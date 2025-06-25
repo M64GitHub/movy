@@ -17,6 +17,8 @@ const SDL = @cImport({
 
 const AVERROR_EAGAIN = -11; // missing ffmpeg error
 
+const SAMPLE_BUF_SIZE = 1024;
+
 // for frame queueing
 
 const VideoFrame = struct {
@@ -584,15 +586,17 @@ const AudioState = struct {
         if (c.swr_init(swr_ctx) < 0)
             return error.SwrInitFailed;
 
-        // allocate audio buffer (~64KB)
-        const audio_buf = try allocator.alloc(u8, 256 * 2);
+        // allocate audio buffer
+        const audio_buf = try allocator.alloc(u8, SAMPLE_BUF_SIZE * 2);
 
         // open SDL audio device
         var want: SDL.SDL_AudioSpec = .{
-            .freq = 44100,
             .format = SDL.AUDIO_S16SYS,
-            .channels = 2,
-            .samples = 256,
+            .freq = @as(c_int, @intCast(codec_ctx.*.sample_rate)),
+            .channels = @as(u8, @intCast(codec_ctx.*.channels)),
+            // .freq = 48000,
+            // .channels = 2,
+            .samples = SAMPLE_BUF_SIZE,
             .callback = null,
             .userdata = null,
         };
@@ -631,7 +635,7 @@ const AudioState = struct {
             const out_samples = c.swr_convert(
                 self.swr_ctx,
                 audio_buf_ptr,
-                4096,
+                SAMPLE_BUF_SIZE,
                 @ptrCast(&frame.*.data[0]),
                 frame.*.nb_samples,
             );
