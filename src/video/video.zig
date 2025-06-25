@@ -17,17 +17,6 @@ const SDL = @cImport({
 
 const AVERROR_EAGAIN = -11;
 
-fn printFFmpegError(code: c_int) void {
-    var err_buf: [256]u8 = undefined;
-    _ = c.av_strerror(code, &err_buf, err_buf.len);
-    std.debug.print("FFmpeg error: {s}\n", .{std.mem.sliceTo(&err_buf, 0)});
-}
-
-fn thunkGetAudioClock(ctx: *anyopaque) i128 {
-    const self: *VideoDecoder = @ptrCast(@alignCast(ctx));
-    return self.getAudioClock();
-}
-
 pub const VideoDecoder = struct {
     surface: *movy.RenderSurface,
 
