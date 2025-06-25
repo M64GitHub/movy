@@ -68,6 +68,7 @@ pub fn main() !void {
     defer decoder.deinit(allocator);
 
     const MAX_VIDEO_QUEUE = 600;
+    const SYNC_WINDOW_NS: i64 = 80_000_000;
 
     while (true) {
         if (try movy.input.get()) |event| {
@@ -77,7 +78,6 @@ pub fn main() !void {
         // FIRST: Chck if a frame is ready to render (even before decoding more)
         if (decoder.video.queue_count > 0) {
             if (decoder.video.peekFrame()) |head| {
-                const SYNC_WINDOW_NS: i64 = 80_000_000;
                 const playback_time_ns = decoder.getAudioClock(); // already relative
                 const head_pts_i64 = @as(i64, @intCast(head.pts_ns));
                 const audio_i64 = @as(i64, @intCast(playback_time_ns));
