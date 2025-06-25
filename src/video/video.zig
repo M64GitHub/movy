@@ -15,7 +15,16 @@ const SDL = @cImport({
     @cInclude("SDL2/SDL.h");
 });
 
-const AVERROR_EAGAIN = -11;
+const AVERROR_EAGAIN = -11; // missing ffmpeg error
+
+// for frame queueing
+
+const VideoFrame = struct {
+    frame: *c.AVFrame,
+    pts_ns: u64,
+};
+
+// decoder structs
 
 pub const VideoDecoder = struct {
     surface: *movy.RenderSurface,
@@ -31,7 +40,7 @@ pub const VideoDecoder = struct {
         const decoder = try allocator.create(VideoDecoder);
         errdefer allocator.destroy(decoder);
 
-        _ = c.av_log_set_level(c.AV_LOG_QUIET); // or AV_LOG_QUIET
+        _ = c.av_log_set_level(c.AV_LOG_QUIET);
 
         var video = try VideoState.init(allocator, filename, surface);
         errdefer video.deinit(allocator);
@@ -39,7 +48,8 @@ pub const VideoDecoder = struct {
         const fmt_ctx = video.fmt_ctx; // pull it from the initialized VideoState
 
         var audio: ?AudioState = null;
-        const audio_stream_index = findStreamIndex(fmt_ctx, c.AVMEDIA_TYPE_AUDIO) catch null;
+        const audio_stream_index =
+            findStreamIndex(fmt_ctx, c.AVMEDIA_TYPE_AUDIO) catch null;
         if (audio_stream_index) |idx| {
             audio = try AudioState.init(allocator, fmt_ctx, idx);
             errdefer audio.deinit(allocator); // in case something fails after
@@ -79,8 +89,19 @@ pub const VideoDecoder = struct {
         defer c.av_packet_unref(&pkt);
 
         if (pkt.stream_index == @as(c_int, @intCast(self.video.stream_index))) {
-            try self.video.sendAndDecode(&pkt);
-            return .handled_video;
+            if (self.audio) |*a| {
+                if (a.has_started_playing) {
+                    try self.video.sendAndDecode(&pkt);
+                    return .handled_video;
+                } else {
+                    // Queue this packet for later!
+                    try self.video.sendAndDecode(&pkt);
+                    return .handled_video;
+                }
+            } else {
+                try self.video.sendAndDecode(&pkt);
+                return .handled_video;
+            }
         } else if (self.audio) |*a| {
             if (pkt.stream_index == a.stream_index) {
                 try a.sendAndDecode(&pkt);
@@ -96,9 +117,17 @@ pub const VideoDecoder = struct {
     }
 
     pub fn seekToTimestamp(self: *VideoDecoder, timestamp_ns: i64) !void {
-        const timestamp = @divTrunc(timestamp_ns * self.video.time_base.den, self.video.time_base.num * 1_000_000_000);
+        const timestamp = @divTrunc(
+            timestamp_ns * self.video.time_base.den,
+            self.video.time_base.num * 1_000_000_000,
+        );
 
-        if (c.av_seek_frame(self.video.fmt_ctx, self.video.stream_index, timestamp, c.AVSEEK_FLAG_BACKWARD) < 0)
+        if (c.av_seek_frame(
+            self.video.fmt_ctx,
+            self.video.stream_index,
+            timestamp,
+            c.AVSEEK_FLAG_BACKWARD,
+        ) < 0)
             return error.SeekFailed;
 
         _ = c.avcodec_flush_buffers(self.video.codec_ctx);
@@ -108,7 +137,6 @@ pub const VideoDecoder = struct {
     }
 
     pub fn getAudioClock(self: *VideoDecoder) i128 {
-        // return std.time.nanoTimestamp() - self.video.start_time_ns;
         if (self.audio) |*a| {
             return a.getAudioClock();
         } else {
@@ -116,7 +144,10 @@ pub const VideoDecoder = struct {
         }
     }
 
-    fn findStreamIndex(fmt_ctx: *c.AVFormatContext, media_type: c.enum_AVMediaType) !usize {
+    fn findStreamIndex(
+        fmt_ctx: *c.AVFormatContext,
+        media_type: c.enum_AVMediaType,
+    ) !usize {
         var i: usize = 0;
         while (i < fmt_ctx.nb_streams) : (i += 1) {
             const stream = fmt_ctx.streams[i];
@@ -127,11 +158,11 @@ pub const VideoDecoder = struct {
     }
 
     pub fn syncFrame(self: *VideoDecoder) bool {
-        const now_ns = self.getAudioClock(); // current audio time in nanoseconds
+        const now_ns = self.getAudioClock(); // current audio time in nanosecs
         const frame_time = self.video.frame_pts_ns;
 
         if (frame_time > now_ns + 15_000_000) {
-            // Too early: wait! Let the main loop skip this frame render call for now
+            // Too early! Let the main loop skip this frame render call for now
             return false;
         }
 
@@ -147,6 +178,8 @@ pub const VideoDecoder = struct {
         return frame_time <= audio_time;
     }
 };
+
+const MAX_VIDEO_FRAMES = 1024; // max in q
 
 const VideoState = struct {
     fmt_ctx: *c.AVFormatContext,
@@ -168,10 +201,18 @@ const VideoState = struct {
     start_time_ns: i128 = 0,
     frame_duration_ns: u64 = 41_666_666, // fallback: ~24fps
 
-    frame_ready: bool = false,
     has_reference_error: bool = false,
     has_seen_keyframe: bool = false,
     frame_pts_ns: u64 = 0,
+
+    // frame q
+
+    video_queue: [MAX_VIDEO_FRAMES]?VideoFrame = .{null} ** MAX_VIDEO_FRAMES,
+    queue_head: usize = 0,
+    queue_tail: usize = 0,
+    queue_count: usize = 0,
+
+    last_enqueued_pts_ns: u64 = 0,
 
     pub fn init(
         allocator: std.mem.Allocator,
@@ -184,7 +225,8 @@ const VideoState = struct {
         }
         if (c.avformat_find_stream_info(fmt_ctx.?, null) < 0)
             return error.StreamInfoFailed;
-        const stream_index = try findStreamIndex(fmt_ctx.?, c.AVMEDIA_TYPE_VIDEO);
+        const stream_index =
+            try findStreamIndex(fmt_ctx.?, c.AVMEDIA_TYPE_VIDEO);
 
         // std.debug.print("Video stream index is: {d}\n", .{stream_index});
 
@@ -192,8 +234,10 @@ const VideoState = struct {
 
         const codec_params = stream.*.codecpar;
 
-        const codec = c.avcodec_find_decoder(codec_params.*.codec_id) orelse return error.UnknownCodec;
-        const codec_ctx = c.avcodec_alloc_context3(codec) orelse return error.AllocFailed;
+        const codec = c.avcodec_find_decoder(codec_params.*.codec_id) orelse
+            return error.UnknownCodec;
+        const codec_ctx = c.avcodec_alloc_context3(codec) orelse
+            return error.AllocFailed;
 
         if (c.avcodec_parameters_to_context(codec_ctx, codec_params) < 0)
             return error.CodecContextFailed;
@@ -239,7 +283,13 @@ const VideoState = struct {
 
         const time_base = stream.*.time_base;
         var frame_duration_ns: u64 =
-            @as(u64, @intCast(@divTrunc(1_000_000_000 * time_base.num, time_base.den)));
+            @as(
+                u64,
+                @intCast(@divTrunc(
+                    1_000_000_000 * time_base.num,
+                    time_base.den,
+                )),
+            );
 
         const framerate = stream.*.avg_frame_rate;
         if (framerate.num != 0) {
@@ -282,7 +332,10 @@ const VideoState = struct {
         );
     }
 
-    pub fn findStreamIndex(fmt_ctx: *c.AVFormatContext, media_type: c.enum_AVMediaType) !usize {
+    pub fn findStreamIndex(
+        fmt_ctx: *c.AVFormatContext,
+        media_type: c.enum_AVMediaType,
+    ) !usize {
         var i: usize = 0;
         while (i < fmt_ctx.nb_streams) : (i += 1) {
             if (fmt_ctx.streams[i].*.codecpar.*.codec_type == media_type)
@@ -292,65 +345,154 @@ const VideoState = struct {
     }
 
     pub fn sendAndDecode(self: *VideoState, pkt: *const c.AVPacket) !void {
+        if (self.queue_count >= MAX_VIDEO_FRAMES) {
+            // Don't decode more — skip
+            return;
+        }
+
         const res_send = c.avcodec_send_packet(self.codec_ctx, pkt);
         if (res_send == AVERROR_EAGAIN) return error.SendAgain;
         if (res_send < 0) return error.SendFailed;
 
-        // Now receive until we can't
         while (true) {
-            const res_recv = c.avcodec_receive_frame(self.codec_ctx, self.frame);
+            const res_recv =
+                c.avcodec_receive_frame(self.codec_ctx, self.frame);
             if (res_recv == AVERROR_EAGAIN or res_recv == c.AVERROR_EOF) break;
             if (res_recv < 0) return error.ReceiveFailed;
 
-            // yay! we got a frame!
-            self.frame_ready = true;
+            // Enqueue the decoded frame
 
-            const frame_pts_ns = try self.getFramePtsNS(self.frame);
-
-            self.frame_pts_ns = frame_pts_ns;
-
-            // Check for reference errors or skipped frames
-            if (self.frame.*.pict_type == c.AV_PICTURE_TYPE_NONE) {
-                self.has_reference_error = true;
-            } else {
-                self.has_reference_error = false;
+            if (self.start_time_ns == 0) {
+                self.start_time_ns = std.time.nanoTimestamp();
             }
-
-            break; // just one frame for now!
+            try self.enqueueDecodedFrame();
         }
     }
 
     pub fn getFramePtsNS(self: *VideoState, frame: *c.AVFrame) !u64 {
-        // const pts = frame.pts;
-
         const pts = if (frame.*.pts != c.AV_NOPTS_VALUE)
             frame.*.pts
         else
             frame.*.best_effort_timestamp;
 
-        if (pts == c.AV_NOPTS_VALUE) {
+        if (pts == c.AV_NOPTS_VALUE)
             return error.MissingPTS;
-        }
 
         const stream = self.fmt_ctx.*.streams[self.stream_index];
         const time_base = stream.*.time_base;
 
-        // Convert pts (in stream's time_base) to nanoseconds
-
-        const num_f64 = @as(f64, @floatFromInt(time_base.num));
-        const den_f64 = @as(f64, @floatFromInt(time_base.den));
+        // Just convert the raw pts to nanoseconds, do NOT subtract anything!
         const pts_f64 = @as(f64, @floatFromInt(pts));
-
-        const seconds = pts_f64 * num_f64 / den_f64;
-
-        return @intFromFloat(seconds * 1_000_000_000.0); // to nanoseconds
+        const seconds = pts_f64 * @as(f64, @floatFromInt(time_base.num)) /
+            @as(f64, @floatFromInt(time_base.den));
+        return @intFromFloat(seconds * 1_000_000_000.0);
     }
 
-    pub fn convertFrameToSurface(self: *VideoState, surface: *movy.RenderSurface) void {
-        const src_data: [*c]const [*c]const u8 = @ptrCast(&self.frame.*.data[0]);
+    pub fn convertFrameToSurface(
+        self: *VideoState,
+        surface: *movy.RenderSurface,
+    ) void {
+        const src_data: [*c]const [*c]const u8 =
+            @ptrCast(&self.frame.*.data[0]);
         const dst_data: [*c][*c]u8 = @ptrCast(&self.rgb_frame.*.data[0]);
 
         const src_stride: [*c]const c_int = &self.frame.*.linesize[0];
+        const dst_stride: [*c]c_int = &self.rgb_frame.*.linesize[0];
+
+        _ = c.sws_scale(
+            self.sws_ctx,
+            src_data,
+            src_stride,
+            0,
+            self.codec_ctx.height,
+            dst_data,
+            dst_stride,
+        );
+
+        const pitch: usize = @as(usize, @intCast(self.rgb_frame.*.linesize[0]));
+        var y: usize = 0;
+        while (y < self.target_height) : (y += 1) {
+            var x: usize = 0;
+            while (x < self.target_width) : (x += 1) {
+                const offset = y * pitch + x * 3;
+                const r = self.rgb_buf[offset];
+                const g = self.rgb_buf[offset + 1];
+                const b = self.rgb_buf[offset + 2];
+
+                surface.color_map[y * self.target_width + x] =
+                    movy.core.types.Rgb{ .r = r, .g = g, .b = b };
+            }
+        }
+    }
+
+    // -- q
+
+    pub fn enqueueDecodedFrame(self: *VideoState) !void {
+        if (self.queue_count >= MAX_VIDEO_FRAMES) return error.QueueFull;
+
+        const cloned_frame = c.av_frame_alloc() orelse return error.AllocFailed;
+        if (c.av_frame_ref(cloned_frame, self.frame) < 0)
+            return error.RefFailed;
+
+        const pts_ns = try self.getFramePtsNS(cloned_frame);
+        if (pts_ns == self.last_enqueued_pts_ns) {
+            return;
+        }
+
+        self.last_enqueued_pts_ns = pts_ns;
+
+        const index = (self.queue_tail + self.queue_count) % MAX_VIDEO_FRAMES;
+        self.video_queue[index] = VideoFrame{
+            .frame = cloned_frame,
+            .pts_ns = pts_ns,
+        };
+        self.queue_count += 1;
+
+        // std.debug.print("Enqueued frame PTS: {}\n", .{pts_ns});
+    }
+
+    pub fn popFrameForRender(self: *VideoState) ?*c.AVFrame {
+        if (self.queue_count == 0) return null;
+
+        const maybe_vf = self.video_queue[self.queue_tail];
+        if (maybe_vf) |vf| {
+            const frame = vf.frame;
+
+            self.video_queue[self.queue_tail] = null;
+            self.queue_tail = (self.queue_tail + 1) % MAX_VIDEO_FRAMES;
+            self.queue_count -= 1;
+
+            return frame;
+        }
+
+        return null;
+    }
+
+    pub fn peekFrame(self: *VideoState) ?VideoFrame {
+        if (self.queue_count == 0) return null;
+        return self.video_queue[self.queue_tail] orelse null;
+    }
+
+    pub fn popFrame(self: *VideoState) !VideoFrame {
+        if (self.queue_count == 0) return error.EmptyQueue;
+
+        const frame = self.video_queue[self.queue_head].?;
+        self.video_queue[self.queue_head] = null;
+        self.queue_head = (self.queue_head + 1) % MAX_VIDEO_FRAMES;
+        self.queue_count -= 1;
+
+        return frame;
+    }
+
+    pub fn renderFrameToSurface(
+        self: *VideoState,
+        frame: *c.AVFrame,
+        surface: *movy.RenderSurface,
+    ) void {
+        const src_data: [*c]const [*c]const u8 = @ptrCast(&frame.*.data[0]);
+        const src_stride: [*c]const c_int = &frame.*.linesize[0];
+
+        const dst_data: [*c][*c]u8 = @ptrCast(&self.rgb_frame.*.data[0]);
         const dst_stride: [*c]c_int = &self.rgb_frame.*.linesize[0];
 
         _ = c.sws_scale(
@@ -425,10 +567,14 @@ const AudioState = struct {
 
         const swr_ctx = c.swr_alloc_set_opts(
             null,
-            c.av_get_default_channel_layout(@as(c_int, @intCast(audio_channels))),
+            c.av_get_default_channel_layout(
+                @as(c_int, @intCast(audio_channels)),
+            ),
             c.AV_SAMPLE_FMT_S16,
             codec_ctx.*.sample_rate,
-            c.av_get_default_channel_layout(@as(c_int, @intCast(audio_channels))),
+            c.av_get_default_channel_layout(
+                @as(c_int, @intCast(audio_channels)),
+            ),
             codec_ctx.*.sample_fmt,
             codec_ctx.*.sample_rate,
             0,
@@ -491,31 +637,27 @@ const AudioState = struct {
             );
 
             const bytes: u32 = @as(u32, @intCast(out_samples)) *
-                @as(u32, @intCast(c.av_get_bytes_per_sample(c.AV_SAMPLE_FMT_S16))) *
+                @as(u32, @intCast(c.av_get_bytes_per_sample(
+                    c.AV_SAMPLE_FMT_S16,
+                ))) *
                 self.audio_channels;
 
-            _ = SDL.SDL_QueueAudio(self.audio_device, self.audio_buf.ptr, @intCast(bytes));
+            _ = SDL.SDL_QueueAudio(
+                self.audio_device,
+                self.audio_buf.ptr,
+                @intCast(bytes),
+            );
         }
     }
 
     pub fn getAudioClock(self: *AudioState) i128 {
+        if (!self.has_started_playing) return 0;
+
         const now = std.time.nanoTimestamp();
+        const elapsed_ns = now - self.start_time_ns;
 
-        // const bytes_per_sample = @as(i128, @intCast(c.av_get_bytes_per_sample(c.AV_SAMPLE_FMT_S16)));
-        // const bytes_per_sec: i128 = self.audio_sample_rate * bytes_per_sample * self.audio_channels;
-        //
-        // if (bytes_per_sec == 0) return 0;
-        //
-        // const queued_bytes: i128 = @intCast(SDL.SDL_GetQueuedAudioSize(self.audio_device));
-        // const time_remaining_ns = @divTrunc(queued_bytes * 1_000_000_000, bytes_per_sec);
-        //
-        // const raw_ns = now - self.start_time_ns - time_remaining_ns;
-        // self.last_audio_ns = raw_ns;
-        self.last_audio_ns = now - self.start_time_ns;
-
-        // Smooth against previous to avoid jumps (e.g., with EMA)
-        // self.last_audio_ns = @divTrunc(self.last_audio_ns * 7 + raw_ns * 3, 10);
-        return self.last_audio_ns;
+        self.last_audio_ns = elapsed_ns;
+        return elapsed_ns;
     }
 
     pub fn deinit(self: *AudioState, allocator: std.mem.Allocator) void {
@@ -561,7 +703,11 @@ const AudioState = struct {
             @as(u32, @intCast(c.av_get_bytes_per_sample(c.AV_SAMPLE_FMT_S16))) *
             self.audio_channels;
 
-        _ = SDL.SDL_QueueAudio(self.audio_device, self.audio_buf.ptr, @intCast(bytes));
+        _ = SDL.SDL_QueueAudio(
+            self.audio_device,
+            self.audio_buf.ptr,
+            @intCast(bytes),
+        );
 
         if (!self.has_started_playing) {
             SDL.SDL_PauseAudioDevice(self.audio_device, 0); // start playback
