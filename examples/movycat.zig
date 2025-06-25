@@ -63,51 +63,66 @@ pub fn main() !void {
     try stdout.print("Working with filename '{s}'\n", .{file_name});
 
     // Initialize the decoder
-    const decoder = try movy_video.VideoDecoder.init(allocator, file_name, surface);
+    const decoder =
+        try movy_video.VideoDecoder.init(allocator, file_name, surface);
     defer decoder.deinit(allocator);
 
-    for (0..5) |_| {
-        switch (try decoder.processNextPacket()) {
-            .eof => break,
-            .handled_video => {},
-            .handled_audio => {
-                if (decoder.audio.?.has_started_playing and decoder.video.start_time_ns == 0) {
-                    decoder.video.start_time_ns = decoder.audio.?.start_time_ns;
-                }
-            },
-            .skipped => std.time.sleep(100_000),
-        }
-    }
+    const MAX_VIDEO_QUEUE = 600;
 
     while (true) {
         if (try movy.input.get()) |event| {
             if (event == .key and event.key.type == .Escape) break;
         }
 
-        if (decoder.video.frame_ready) {
-            if (!decoder.shouldRenderNow()) {
-                std.time.sleep(500); // just wait a little and check again
-                continue;
-            }
+        // FIRST: Chck if a frame is ready to render (even before decoding more)
+        if (decoder.video.queue_count > 0) {
+            if (decoder.video.peekFrame()) |head| {
+                const SYNC_WINDOW_NS: i64 = 80_000_000;
+                const playback_time_ns = decoder.getAudioClock(); // already relative
+                const head_pts_i64 = @as(i64, @intCast(head.pts_ns));
+                const audio_i64 = @as(i64, @intCast(playback_time_ns));
+                const diff = head_pts_i64 - audio_i64;
 
-            decoder.renderCurrentFrame();
-            screen.render();
-            try screen.output();
-            decoder.video.frame_ready = false;
-        }
+                // std.debug.print("PEEK PTS: {}\n", .{head.pts_ns});
+                // std.debug.print("  head.pts_ns = {}, audio_played = {}, diff = {}\n", .{
+                //     head.pts_ns,
+                //     playback_time_ns,
+                //     diff,
+                // });
 
-        //  At this point: either no frame yet, or time to decode another
-        switch (try decoder.processNextPacket()) {
-            .eof => break,
-            .handled_video => {},
-            .handled_audio => {
-                if (decoder.audio.?.has_started_playing and decoder.video.start_time_ns == 0) {
-                    decoder.video.start_time_ns = decoder.audio.?.start_time_ns;
+                if (diff <= SYNC_WINDOW_NS and diff >= -SYNC_WINDOW_NS) {
+                    if (decoder.video.popFrameForRender()) |frame_ptr| {
+                        // std.debug.print("POPPED  q-size: {}\n", .{decoder.video.queue_count});
+                        // std.debug.print("POPPED PTS: {}\n", .{frame_ptr.*.pts});
+                        // std.debug.print("POPPED new tail index: {}\n", .{decoder.video.queue_tail});
+                        decoder.video.renderFrameToSurface(frame_ptr, surface);
+                        screen.render();
+                        try screen.output();
+                        c.av_frame_free(
+                            @as(
+                                [*c][*c]c.AVFrame,
+                                @constCast(@ptrCast(&frame_ptr)),
+                            ),
+                        );
+                    }
                 }
-            },
-            .skipped => std.time.sleep(1_000),
+            }
         }
 
-        std.time.sleep(1_000); // wait a bit, let audio catch up
+        // THEN: Decode only if queue is not full
+        if (decoder.video.queue_count < MAX_VIDEO_QUEUE) {
+            var frame_decoded = false;
+            while (!frame_decoded) {
+                switch (try decoder.processNextPacket()) {
+                    .eof => break,
+                    .handled_video => frame_decoded = true,
+                    .handled_audio => {},
+                    .skipped => break,
+                }
+            }
+        }
+
+        // Small sleep to yield
+        std.time.sleep(100_000); // 0.1ms
     }
 }
