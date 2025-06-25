@@ -49,20 +49,15 @@ pub const VideoDecoder = struct {
 
         const fmt_ctx = video.fmt_ctx; // pull it from the initialized VideoState
 
-        const start_time_ns = std.time.nanoTimestamp();
-
         var audio: ?AudioState = null;
         const audio_stream_index = findStreamIndex(fmt_ctx, c.AVMEDIA_TYPE_AUDIO) catch null;
         if (audio_stream_index) |idx| {
             audio = try AudioState.init(allocator, fmt_ctx, idx);
             errdefer audio.deinit(allocator); // in case something fails after
-            audio.?.start_time_ns = start_time_ns;
         }
 
+        const start_time_ns = std.time.nanoTimestamp();
         video.start_time_ns = start_time_ns;
-        video.getAudioClockFn = if (audio != null) thunkGetAudioClock else null;
-        video.getAudioClockCtx = if (audio != null) @ptrCast(decoder) else null;
-        video.has_audio = (audio != null);
 
         decoder.* = .{
             .surface = surface,
@@ -81,56 +76,6 @@ pub const VideoDecoder = struct {
         allocator.destroy(self);
     }
 
-    pub fn decodeNextVideoFrame(self: *VideoDecoder) !bool {
-        // Try draining from decoder first
-        if (try self.video.decodeFrame(null)) return true;
-
-        // If a pending packet exists, try to send it again
-        if (self.video.pending_pkt) |*pkt| {
-            const send_result = c.avcodec_send_packet(self.video.codec_ctx, pkt);
-            if (send_result == AVERROR_EAGAIN) {
-                return false; // still not ready
-            } else if (send_result < 0) {
-                return error.FailedToSendPacket;
-            }
-            c.av_packet_unref(pkt);
-            self.video.pending_pkt = null;
-        }
-
-        // Read a new packet
-        var pkt: c.AVPacket = undefined;
-        const res = c.av_read_frame(self.video.fmt_ctx, &pkt);
-        if (res == c.AVERROR_EOF) return false;
-        if (res < 0) return error.ReadFailed;
-
-        defer c.av_packet_unref(&pkt);
-
-        if (pkt.stream_index != @as(c_int, @intCast(self.video.stream_index))) return false;
-
-        const send_result = c.avcodec_send_packet(self.video.codec_ctx, &pkt);
-        if (send_result == AVERROR_EAGAIN) {
-            self.video.pending_pkt = pkt;
-            return false;
-        } else if (send_result < 0) {
-            return error.FailedToSendPacket;
-        }
-
-        // Try to receive again after sending
-        return try self.video.decodeFrame(null);
-    }
-
-    pub fn decodeNextAudioPacket(self: *VideoDecoder) !void {
-        if (self.audio) |*audio| {
-            var pkt: c.AVPacket = undefined;
-            if (c.av_read_frame(self.video.fmt_ctx, &pkt) < 0) return;
-            defer c.av_packet_unref(&pkt);
-
-            if (pkt.stream_index == @as(c_int, @intCast(audio.stream_index))) {
-                try audio.decodePacket(&pkt);
-            }
-        }
-    }
-
     pub fn processNextPacket(self: *VideoDecoder) !enum {
         eof,
         handled_video,
@@ -145,7 +90,7 @@ pub const VideoDecoder = struct {
         defer c.av_packet_unref(&pkt);
 
         if (pkt.stream_index == @as(c_int, @intCast(self.video.stream_index))) {
-            try self.video.sendAndDecode(&pkt, if (self.audio) |*a| a else null);
+            try self.video.sendAndDecode(&pkt);
             return .handled_video;
         } else if (self.audio) |*a| {
             if (pkt.stream_index == a.stream_index) {
@@ -155,66 +100,6 @@ pub const VideoDecoder = struct {
         }
 
         return .skipped;
-    }
-
-    // old, not used
-    pub fn readAndDispatchNextPacket(self: *VideoDecoder) !enum {
-        eof,
-        packet_ok,
-        no_packet_yet,
-    } {
-        if (self.video.pending_pkt != null) {
-            // We still need to drain it first!
-            return .no_packet_yet;
-        }
-
-        var pkt: c.AVPacket = undefined;
-        const res = c.av_read_frame(self.video.fmt_ctx, &pkt);
-        if (res == c.AVERROR_EOF) return .eof;
-        if (res < 0) return error.ReadFailed;
-
-        defer c.av_packet_unref(&pkt);
-
-        // if (pkt.stream_index != @as(c_int, @intCast(self.video.stream_index))) {
-        //     return .no_packet_yet; // ignore non-video packets
-        // }
-        //
-        // const send_result = c.avcodec_send_packet(self.video.codec_ctx, &pkt);
-        // if (send_result == AVERROR_EAGAIN) {
-        //     self.video.pending_pkt = pkt; // 🧠 stash it until next time
-        //     return .no_packet_yet;
-        // } else if (send_result < 0) {
-        //     return error.SendFailed;
-        // }
-        //
-        // return .packet_ok;
-
-        if (pkt.stream_index == @as(c_int, @intCast(self.video.stream_index))) {
-            const send_result = c.avcodec_send_packet(self.video.codec_ctx, &pkt);
-            if (send_result == AVERROR_EAGAIN) {
-                self.video.pending_pkt = pkt;
-                return .no_packet_yet;
-            } else if (send_result < 0) {
-                return error.SendFailed;
-            }
-            return .packet_ok;
-        } else if (self.audio != null and pkt.stream_index == self.audio.?.stream_index) {
-            const send_result = c.avcodec_send_packet(self.audio.?.codec_ctx, &pkt);
-            if (send_result == AVERROR_EAGAIN) {
-                // Optional: add audio.pending_pkt = pkt if you want same buffering
-                return .no_packet_yet;
-            } else if (send_result < 0) {
-                return error.SendFailed;
-            }
-            return .packet_ok;
-        } else {
-            // Drop unknown packet types (subs, data streams, etc.)
-            return .no_packet_yet;
-        }
-    }
-
-    pub fn tryReceiveVideoFrame(self: *VideoDecoder) !bool {
-        return try self.video.tryReceiveFrame();
     }
 
     pub fn renderCurrentFrame(self: *VideoDecoder) void {
@@ -264,6 +149,14 @@ pub const VideoDecoder = struct {
         // Otherwise, time to show this frame
         return true;
     }
+
+    pub fn shouldRenderNow(self: *VideoDecoder) bool {
+        const audio_time = self.getAudioClock();
+        const frame_time = self.video.frame_pts_ns;
+
+        // only render when audio has reached or passed the frame
+        return frame_time <= audio_time;
+    }
 };
 
 const VideoState = struct {
@@ -277,7 +170,6 @@ const VideoState = struct {
     rgb_buf: []u8,
 
     time_base: c.AVRational,
-    current_pts: i64,
 
     target_width: usize,
     target_height: usize,
@@ -285,16 +177,9 @@ const VideoState = struct {
     // av sync
     pending_pkt: ?c.AVPacket = null,
     start_time_ns: i128 = 0,
-    has_audio: bool = false,
-    getAudioClockFn: ?*const fn (*anyopaque) i128 = null,
-    getAudioClockCtx: ?*anyopaque = null,
     frame_duration_ns: u64 = 41_666_666, // fallback: ~24fps
-    last_frame_time: u64 = 0,
 
     frame_ready: bool = false,
-    last_pts: i64 = -1,
-    last_frame_time_ns: i128 = 0,
-    last_clock_ns: i128 = 0,
     has_reference_error: bool = false,
     has_seen_keyframe: bool = false,
     frame_pts_ns: u64 = 0,
@@ -374,8 +259,6 @@ const VideoState = struct {
                 @as(u64, @intCast(framerate.num)),
             );
         }
-        const last_frame_time: u64 =
-            @as(u64, @intCast(std.time.nanoTimestamp()));
 
         return VideoState{
             .fmt_ctx = fmt_ctx.?,
@@ -387,11 +270,9 @@ const VideoState = struct {
             .rgb_buf = rgb_buf,
             .time_base = time_base,
             .frame_duration_ns = @as(u64, @intCast(frame_duration_ns)),
-            .current_pts = 0,
             .target_width = surface.w,
             .target_height = surface.h,
             .pending_pkt = null,
-            .last_frame_time = last_frame_time,
         };
     }
 
@@ -421,191 +302,7 @@ const VideoState = struct {
         return error.StreamNotFound;
     }
 
-    // pub fn decodeFrame(self: *VideoState, pkt: ?*const c.AVPacket) !bool {
-    //     self.frame_ready = false;
-    //
-    //     if (pkt) |p| {
-    //         if (c.avcodec_send_packet(self.codec_ctx, p) < 0)
-    //             return false;
-    //     }
-    //
-    //     while (c.avcodec_receive_frame(self.codec_ctx, self.frame) == 0) {
-    //         const stream = self.fmt_ctx.streams[self.stream_index];
-    //         const time_base = stream.*.time_base;
-    //         const pts = self.frame.*.pts;
-    //         if (pts < 0) continue;
-    //
-    //         // 💥 Skip corrupt frames
-    //         if ((self.frame.*.flags & c.AV_FRAME_FLAG_CORRUPT) != 0) {
-    //             // std.log.debug("Skipping corrupt frame (flags={})", .{self.frame.*.flags});
-    //             continue;
-    //         }
-    //
-    //         const frame_time_ns = @divTrunc(pts * 1_000_000_000 * time_base.num, time_base.den);
-    //
-    //         if (self.start_time_ns == 0) {
-    //             const now = std.time.nanoTimestamp();
-    //             self.start_time_ns = now;
-    //
-    //             if (self.getAudioClockCtx) |ctx_any| {
-    //                 const ctx: *AudioState = @ptrCast(@alignCast(ctx_any));
-    //                 ctx.start_time_ns = now;
-    //             }
-    //         }
-    //
-    //         // 🕒 Get current clock
-    //         const now = std.time.nanoTimestamp();
-    //         var clock: i128 = 0;
-    //         if (self.has_audio) {
-    //             if (self.getAudioClockFn) |clock_fn| {
-    //                 clock = clock_fn(self.getAudioClockCtx.?);
-    //             } else {
-    //                 clock = now - self.start_time_ns;
-    //             }
-    //         } else {
-    //             clock = now - self.start_time_ns;
-    //         }
-    //
-    //         // 💨 Skip frame if it's waaaay too early (avoid huge stalls)
-    //         const delta_ns = frame_time_ns - clock;
-    //         if (delta_ns > 100_000_000) { // more than 100ms early
-    //             // std.log.debug("Skipping early frame by {}ns", .{delta_ns});
-    //             continue;
-    //         }
-    //
-    //         // 💤 Wait gently up to max threshold
-    //         var waited_ns: i128 = 0;
-    //         const max_total_wait_ns: i128 = 50_000_000; // 50ms
-    //
-    //         while (frame_time_ns > clock + 5_000_000 and waited_ns < max_total_wait_ns) {
-    //             const wait_ns = frame_time_ns - clock;
-    //             const sleep_ns = @min(wait_ns, 1_000_000); // sleep max 1ms
-    //             std.time.sleep(@as(u64, @intCast(sleep_ns)));
-    //             waited_ns += sleep_ns;
-    //
-    //             if (self.has_audio) {
-    //                 if (self.getAudioClockFn) |clock_fn| {
-    //                     clock = clock_fn(self.getAudioClockCtx.?);
-    //                 } else {
-    //                     clock = std.time.nanoTimestamp() - self.start_time_ns;
-    //                 }
-    //             } else {
-    //                 clock = std.time.nanoTimestamp() - self.start_time_ns;
-    //             }
-    //         }
-    //
-    //         self.last_pts = pts;
-    //         self.frame_ready = true;
-    //         return true;
-    //     }
-    //
-    //     return false;
-    // }
-
-    pub fn decodeFrame(self: *VideoState, pkt: ?*const c.AVPacket) !bool {
-        if (pkt) |p| {
-            if (c.avcodec_send_packet(self.codec_ctx, p) < 0)
-                return false;
-        }
-
-        // while (c.avcodec_receive_frame(self.codec_ctx, self.frame) == 0) {
-        //     // Detect reference picture errors via side_data or log level (hard to check in C)
-        //     // So instead, we conservatively detect if we’re too far off in sync
-        //
-        //     const stream = self.fmt_ctx.streams[self.stream_index];
-        //     const time_base = stream.*.time_base;
-        //     const pts = self.frame.*.pts;
-        //     if (pts < 0) continue;
-        //
-        //     const frame_time_ns = @divTrunc(pts * 1_000_000_000 * time_base.num, time_base.den);
-        //     const now = std.time.nanoTimestamp();
-        //
-        //     var clock: i128 = now - self.start_time_ns;
-        //     if (self.getAudioClockFn) |clock_fn| {
-        //         clock = clock_fn(self.getAudioClockCtx.?);
-        //     }
-        //
-        //     // 💥 If frame is TOO FAR ahead, then probably a ref frame is missing
-        //     if (frame_time_ns > clock + 1_000_000_000) {
-        //         self.has_reference_error = true;
-        //         return false; // 🛑 Skip frame, don’t render junk
-        //     }
-        //
-        //     // Optional sleep (if desired):
-        //     // ...
-        //
-        //     self.last_pts = pts;
-        //     self.frame_ready = true;
-        //     self.has_reference_error = false; // ✅ Clear if this frame is ok
-        //     return true;
-        // }
-        //
-        // return false;
-
-        while (c.avcodec_receive_frame(self.codec_ctx, self.frame) == 0) {
-            var is_keyframe = self.frame.*.key_frame == 1;
-
-            is_keyframe = is_keyframe and self.frame.*.pict_type == c.AV_PICTURE_TYPE_I;
-
-            if (!self.has_seen_keyframe) {
-                if (!is_keyframe) {
-                    // 💔 not a keyframe yet, skip it
-                    continue;
-                }
-
-                // 💘 first keyframe seen — mark it
-                self.has_seen_keyframe = true;
-                std.debug.print("✨ First keyframe accepted!\n", .{});
-            }
-
-            // 🥰 now we’re good to process this frame
-
-            const stream = self.fmt_ctx.streams[self.stream_index];
-            const time_base = stream.*.time_base;
-            const pts = self.frame.*.pts;
-            if (pts < 0) continue;
-
-            const frame_time_ns = @divTrunc(pts * 1_000_000_000 * time_base.num, time_base.den);
-
-            var clock: i128 = std.time.nanoTimestamp() - self.start_time_ns;
-            if (self.getAudioClockFn) |clock_fn| {
-                clock = clock_fn(self.getAudioClockCtx.?);
-            }
-
-            if (frame_time_ns > clock + 1_000_000_000) {
-                self.has_reference_error = true;
-                return false;
-            }
-
-            self.last_pts = pts;
-            self.frame_ready = true;
-            self.has_reference_error = false;
-            return true;
-        }
-        return false;
-    }
-
-    pub fn sendPacket(self: *VideoState, pkt: *c.AVPacket) !void {
-        const result = c.avcodec_send_packet(self.codec_ctx, pkt);
-        if (result == AVERROR_EAGAIN) return error.WouldBlock;
-        if (result < 0) {
-            printFFmpegError(result);
-            return error.DecodeSendFailed;
-        }
-    }
-
-    pub fn tryReceiveFrame(self: *VideoState) !bool {
-        const result = c.avcodec_receive_frame(self.codec_ctx, self.frame);
-        if (result == AVERROR_EAGAIN) return false;
-        if (result == c.AVERROR_EOF) return false;
-        if (result < 0) return error.DecodeReceiveFailed;
-
-        return true;
-    }
-
-    //    pub fn sendAndDecode(self: *VideoState, pkt: *const c.AVPacket) !void {
-
-    pub fn sendAndDecode(self: *VideoState, pkt: *c.AVPacket, audio: ?*AudioState) !void {
+    pub fn sendAndDecode(self: *VideoState, pkt: *const c.AVPacket) !void {
         const res_send = c.avcodec_send_packet(self.codec_ctx, pkt);
         if (res_send == AVERROR_EAGAIN) return error.SendAgain;
         if (res_send < 0) return error.SendFailed;
@@ -621,21 +318,6 @@ const VideoState = struct {
 
             const frame_pts_ns = try self.getFramePtsNS(self.frame);
 
-            if (audio) |a| {
-                const audio_now = a.getAudioClock();
-
-                // Wait if we're too early (max 10ms)
-                if (frame_pts_ns > audio_now) {
-                    const diff = frame_pts_ns - audio_now;
-                    std.time.sleep(@as(u64, @intCast(@min(diff, 10_000_000))));
-                }
-
-                // Skip frame if way too late (500ms)
-                if (audio_now - frame_pts_ns > 500_000_000) {
-                    return;
-                }
-            }
-
             self.frame_pts_ns = frame_pts_ns;
 
             // Check for reference errors or skipped frames
@@ -650,7 +332,13 @@ const VideoState = struct {
     }
 
     pub fn getFramePtsNS(self: *VideoState, frame: *c.AVFrame) !u64 {
-        const pts = frame.pts;
+        // const pts = frame.pts;
+
+        const pts = if (frame.*.pts != c.AV_NOPTS_VALUE)
+            frame.*.pts
+        else
+            frame.*.best_effort_timestamp;
+
         if (pts == c.AV_NOPTS_VALUE) {
             return error.MissingPTS;
         }
@@ -716,6 +404,8 @@ const AudioState = struct {
     start_time_ns: i128 = 0,
 
     frame: *c.AVFrame,
+    has_started_playing: bool = false,
+    last_audio_ns: i128 = 0,
 
     pub fn init(
         allocator: std.mem.Allocator,
@@ -740,7 +430,6 @@ const AudioState = struct {
         // init SDL audio
         if (SDL.SDL_Init(SDL.SDL_INIT_AUDIO) != 0)
             return error.SDLInitFailed;
-        // defer SDL.SDL_Quit(); // Clean up at the end
 
         const audio_sample_rate = @as(u32, @intCast(codec_ctx.*.sample_rate));
         const audio_channels = @as(u32, @intCast(codec_ctx.*.channels));
@@ -761,14 +450,14 @@ const AudioState = struct {
             return error.SwrInitFailed;
 
         // allocate audio buffer (~64KB)
-        const audio_buf = try allocator.alloc(u8, 2048 * 32);
+        const audio_buf = try allocator.alloc(u8, 256 * 2);
 
         // open SDL audio device
         var want: SDL.SDL_AudioSpec = .{
             .freq = 44100,
             .format = SDL.AUDIO_S16SYS,
             .channels = 2,
-            .samples = 16384,
+            .samples = 256,
             .callback = null,
             .userdata = null,
         };
@@ -783,8 +472,6 @@ const AudioState = struct {
         if (audio_device == 0) return error.SDLAudioFailed;
 
         const audio_frame = c.av_frame_alloc() orelse return error.OutOfMemory;
-
-        SDL.SDL_PauseAudioDevice(audio_device, 0); // start playback
 
         return AudioState{
             .stream_index = stream_index,
@@ -822,51 +509,24 @@ const AudioState = struct {
         }
     }
 
-    pub fn sendPacket(self: *AudioState, pkt: *c.AVPacket) !void {
-        const result = c.avcodec_send_packet(self.codec_ctx, pkt);
-        if (result < 0) {
-            printFFmpegError(result);
-            return error.FailedToSendPacket;
-        }
-    }
-
-    // pub fn getAudioClock(self: *AudioState) i128 {
-    //     const bytes_per_sec: i128 =
-    //         self.audio_sample_rate *
-    //         @as(i128, @intCast(c.av_get_bytes_per_sample(c.AV_SAMPLE_FMT_S16))) *
-    //         self.audio_channels;
-    //
-    //     if (bytes_per_sec == 0) return 0;
-    //
-    //     const queued_bytes: i128 = SDL.SDL_GetQueuedAudioSize(self.audio_device);
-    //
-    //     // 🛑 Don't sync to audio until there's enough queued
-    //     if (queued_bytes < 2048) {
-    //         return std.time.nanoTimestamp() - self.start_time_ns;
-    //     }
-    //
-    //     const time_remaining_ns = @divTrunc(queued_bytes * 1_000_000_000, bytes_per_sec);
-    //     return std.time.nanoTimestamp() - time_remaining_ns - self.start_time_ns;
-    // }
-    //
-
     pub fn getAudioClock(self: *AudioState) i128 {
         const now = std.time.nanoTimestamp();
 
-        const bytes_per_sample = @as(i128, @intCast(c.av_get_bytes_per_sample(c.AV_SAMPLE_FMT_S16)));
-        const bytes_per_sec: i128 = self.audio_sample_rate * bytes_per_sample * self.audio_channels;
-
-        if (bytes_per_sec == 0) return 0;
-
+        // const bytes_per_sample = @as(i128, @intCast(c.av_get_bytes_per_sample(c.AV_SAMPLE_FMT_S16)));
+        // const bytes_per_sec: i128 = self.audio_sample_rate * bytes_per_sample * self.audio_channels;
+        //
+        // if (bytes_per_sec == 0) return 0;
+        //
         // const queued_bytes: i128 = @intCast(SDL.SDL_GetQueuedAudioSize(self.audio_device));
         // const time_remaining_ns = @divTrunc(queued_bytes * 1_000_000_000, bytes_per_sec);
+        //
+        // const raw_ns = now - self.start_time_ns - time_remaining_ns;
+        // self.last_audio_ns = raw_ns;
+        self.last_audio_ns = now - self.start_time_ns;
 
-        // Time already elapsed since audio started playing
-        const time_elapsed_ns = now - self.start_time_ns;
-
-        // We subtract what’s still buffered to get what has actually been played
-        // return time_elapsed_ns - time_remaining_ns;
-        return time_elapsed_ns;
+        // Smooth against previous to avoid jumps (e.g., with EMA)
+        // self.last_audio_ns = @divTrunc(self.last_audio_ns * 7 + raw_ns * 3, 10);
+        return self.last_audio_ns;
     }
 
     pub fn deinit(self: *AudioState, allocator: std.mem.Allocator) void {
@@ -886,35 +546,19 @@ const AudioState = struct {
         if (res_send < 0) return error.SendFailed;
 
         // Now decode all available audio frames
-        while (true) {
-            const res_recv = c.avcodec_receive_frame(self.codec_ctx, self.frame);
-            if (res_recv == c.AVERROR_EOF or res_recv == AVERROR_EAGAIN) break;
-            if (res_recv < 0) return error.ReceiveFailed;
+        // while (true) {
+        const res_recv = c.avcodec_receive_frame(self.codec_ctx, self.frame);
+        // if (res_recv == c.AVERROR_EOF or res_recv == AVERROR_EAGAIN) break;
+        if (res_recv < 0) return error.ReceiveFailed;
 
-            // Push it into your SDL queue or audio buffer
-            self.pushDecodedAudio(self.frame) catch {
-                std.log.err("Failed to push decoded audio!", .{});
-            };
-        }
+        // Push it into your SDL queue or audio buffer
+        self.pushDecodedAudio(self.frame) catch {
+            std.log.err("Failed to push decoded audio!", .{});
+        };
+        // }
     }
 
     pub fn pushDecodedAudio(self: *AudioState, frame: *c.AVFrame) !void {
-        // const nb_samples = frame.nb_samples;
-        // const bytes_per_sample = 2;
-        // const num_channels = frame.channels;
-
-        // if (bytes_per_sample <= 0) return error.UnsupportedSampleFormat;
-        //
-        // const data_size = nb_samples * bytes_per_sample * num_channels;
-        //
-        // // Assuming packed audio (no planar formats like FLTP)
-        // const buffer = frame.data[0]; // pointer to audio data
-        //
-        // const queued = c.SDL_QueueAudio(self.device_id, buffer, @intCast(u32, data_size));
-        // if (queued != 0) {
-        //     return error.SDLQueueFailed;
-        // }
-
         const audio_buf_ptr: [*c][*c]u8 = @ptrCast(&self.audio_buf);
         const out_samples = c.swr_convert(
             self.swr_ctx,
@@ -929,20 +573,12 @@ const AudioState = struct {
             self.audio_channels;
 
         _ = SDL.SDL_QueueAudio(self.audio_device, self.audio_buf.ptr, @intCast(bytes));
-    }
 
-    pub fn maybeDecodeMore(self: *AudioState, decoder: *VideoDecoder) void {
-        const BYTES_PER_SAMPLE = 2;
-        const bytes_per_sec: i128 =
-            self.audio_sample_rate * BYTES_PER_SAMPLE * self.audio_channels;
-
-        if (bytes_per_sec == 0) return;
-
-        const queued_bytes: u32 = SDL.SDL_GetQueuedAudioSize(self.audio_device);
-        const queued_ns = @divTrunc(@as(i128, queued_bytes) * 1_000_000_000, bytes_per_sec);
-
-        if (queued_ns >= 500_000_000) return;
-
-        _ = decoder.decodeNextAudioPacket() catch {};
+        if (!self.has_started_playing) {
+            SDL.SDL_PauseAudioDevice(self.audio_device, 0); // start playback
+            const start_time_ns = std.time.nanoTimestamp();
+            self.start_time_ns = start_time_ns;
+            self.has_started_playing = true;
+        }
     }
 };
