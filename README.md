@@ -2,7 +2,7 @@
 ![Version](https://img.shields.io/badge/Version-0.0.0-85adf2?style=flat)
 ![Zig](https://img.shields.io/badge/Zig-0.14.0-92eaf2?style=flat)  
 
-![get-movy](https://github.com/user-attachments/assets/ef0e57e5-3beb-4b7b-b50e-f00124a03140)
+![get-movy](https://github.com/user-attachments/assets/aa86dded-8e47-404c-bdbe-7db8b04bdbaf)
 
 **movy** is a graphics rendering-, effects-, and animation engine for the terminal. 
 
