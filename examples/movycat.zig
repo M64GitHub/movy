@@ -62,37 +62,90 @@ pub fn main() !void {
     const file_name = args[1];
     try stdout.print("Working with filename '{s}'\n", .{file_name});
 
-    // -- Open movie
+    // Initialize the decoder
+    const decoder = try movy_video.VideoDecoder.init(allocator, file_name, surface);
+    defer decoder.deinit(allocator);
 
-    const decoder = try movy_video.VideoDecoder.init(
-        allocator,
-        file_name,
-        surface,
-    );
-    defer decoder.deinit();
+    // while (true) {
+    //     if (try movy.input.get()) |event| {
+    //         if (event == .key and event.key.type == .Escape) break;
+    //     }
+    //
+    //     // Step 1: Read a packet
+    //     switch (try decoder.readAndDispatchNextPacket()) {
+    //         .eof => break,
+    //         .packet_ok => {},
+    //         .no_packet_yet => continue,
+    //     }
+    //
+    //     // Step 2: Decode audio if needed
+    //     if (decoder.audio) |*a| {
+    //         a.maybeDecodeMore(decoder);
+    //     }
+    //
+    //     // Step 3: Decode & Render video
+    //     if (try decoder.decodeNextVideoFrame()) {
+    //         if (decoder.video.frame_ready and !decoder.video.has_reference_error) {
+    //             decoder.renderCurrentFrame();
+    //             screen.render();
+    //             try screen.output();
+    //         }
+    //     }
+    // }
 
-    // Play!
+    // while (true) {
+    //     if (try movy.input.get()) |event| {
+    //         if (event == .key and event.key.type == .Escape) break;
+    //     }
+    //
+    //     std.time.sleep(100_000);
+    //
+    //     switch (try decoder.processNextPacket()) {
+    //         .eof => break,
+    //         .handled_video => {
+    //             if (decoder.video.frame_ready and !decoder.video.has_reference_error) {
+    //                 decoder.renderCurrentFrame();
+    //                 screen.render();
+    //                 try screen.output();
+    //             }
+    //         },
+    //         .handled_audio => {}, // decoding already happened!
+    //         .skipped => {},
+    //     }
+    // }
+
+    const ALLOWABLE_LEEWAY_NS = 15_000_000; // 15ms leeway (~1 frame at 60fps)
+
     while (true) {
-        // Try reading input every frame
         if (try movy.input.get()) |event| {
-            switch (event) {
-                .key => |key| {
-                    if (key.type == .Escape) {
-                        break;
-                    }
-                },
-                else => {},
-            }
+            if (event == .key and event.key.type == .Escape) break;
         }
 
-        // Perform one decoding step
-        // This plays audio or filled the RenderSurface
-        const result = try decoder.update();
-        if (result.eof) break;
+        const audio_ns = decoder.getAudioClock();
 
-        if (result.video_rendered) {
+        // Only allow reading new packets if we are not ahead
+        if (decoder.video.frame_ready) {
+            if (decoder.video.frame_pts_ns > audio_ns + ALLOWABLE_LEEWAY_NS) {
+                std.time.sleep(10_000); // wait a bit, let audio catch up
+                continue;
+            }
+
+            // Time to render the current frame!
+            decoder.renderCurrentFrame();
             screen.render();
             try screen.output();
+            decoder.video.frame_ready = false;
+            continue;
         }
+
+        // 🧠 At this point: either no frame yet, or time to decode another
+        switch (try decoder.processNextPacket()) {
+            .eof => break,
+            .handled_video => {},
+            .handled_audio => {},
+            .skipped => std.time.sleep(100_000),
+        }
+
+        std.time.sleep(1_000); // wait a bit, let audio catch up
     }
 }
