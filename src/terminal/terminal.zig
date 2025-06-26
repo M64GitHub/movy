@@ -89,14 +89,6 @@ pub fn beginAlternateScreen() !void {
     cursorOff(); // Hide cursor
 }
 
-/// Clears the terminal screen
-pub fn clear() void {
-    // ESC [ 2J: Clear entire screen
-    stdout.print("\x1b[2J", .{}) catch {};
-    // ESC [ H: Move cursor to home position (row 1, column 1)
-    stdout.print("\x1b[H", .{}) catch {};
-}
-
 /// Ends alternate screen mode, returning to the normal screen buffer
 pub fn endAlternateScreen() void {
     // ESC [ ?47l: Switch back to normal screen buffer
@@ -104,6 +96,14 @@ pub fn endAlternateScreen() void {
     // ESC u: Restore previously saved cursor position
     stdout.print("\x1b[u", .{}) catch {};
     cursorOn(); // Show cursor
+}
+
+/// Clears the terminal screen
+pub fn clear() void {
+    // ESC [ 2J: Clear entire screen
+    stdout.print("\x1b[2J", .{}) catch {};
+    // ESC [ H: Move cursor to home position (row 1, column 1)
+    stdout.print("\x1b[H", .{}) catch {};
 }
 
 var original_term: ?c.termios = null;

@@ -18,6 +18,7 @@ const SDL = @cImport({
 const AVERROR_EAGAIN = -11; // missing ffmpeg error
 
 const SAMPLE_BUF_SIZE = 1024;
+const MAX_VIDEO_FRAMES = 4096; // max in q
 
 // for frame queueing
 
@@ -181,8 +182,6 @@ pub const VideoDecoder = struct {
     }
 };
 
-const MAX_VIDEO_FRAMES = 1024; // max in q
-
 const VideoState = struct {
     fmt_ctx: *c.AVFormatContext,
     stream_index: usize,
@@ -215,6 +214,9 @@ const VideoState = struct {
     queue_count: usize = 0,
 
     last_enqueued_pts_ns: u64 = 0,
+
+    frame_ctr: usize = 0,
+    pkt_ctr: usize = 0,
 
     pub fn init(
         allocator: std.mem.Allocator,
