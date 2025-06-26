@@ -41,6 +41,8 @@ pub const Screen = struct {
             screen.bg_color,
         );
         try screen.colorClear(allocator);
+
+        movy.terminal.cursorOff();
         return screen;
     }
 
@@ -51,6 +53,7 @@ pub const Screen = struct {
         self.sub_screens.deinit();
         self.output_surfaces.deinit();
         self.output_surface.deinit(allocator);
+        movy.terminal.cursorOn();
     }
 
     /// Adds a Sprite to the Screen for rendering its output_surface

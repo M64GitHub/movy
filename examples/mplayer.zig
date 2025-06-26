@@ -13,8 +13,8 @@ const c = @cImport({
     @cInclude("libavutil/imgutils.h");
 });
 
-const target_width: usize = 140;
-const target_height: usize = 100;
+const target_width: usize = 200;
+const target_height: usize = 112;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{
@@ -28,8 +28,10 @@ pub fn main() !void {
 
     try movy.terminal.beginRawMode();
     defer movy.terminal.endRawMode();
-    try movy.terminal.beginAlternateScreen();
-    defer movy.terminal.endAlternateScreen();
+    // try movy.terminal.beginAlternateScreen();
+    // defer movy.terminal.endAlternateScreen();
+    movy.terminal.cursorOff();
+    defer movy.terminal.cursorOn();
 
     var screen = try movy.Screen.init(
         allocator,
@@ -45,7 +47,7 @@ pub fn main() !void {
     // m64 logo
     var sprite_m64_logo = try movy.graphic.Sprite.initFromPng(
         allocator,
-        "demos/assets/m64logo.png",
+        "demos/assets/movy-logo3.png",
         "sprite 1",
     );
     defer sprite_m64_logo.deinit(allocator);
@@ -54,10 +56,10 @@ pub fn main() !void {
     var data_surface = try sprite_m64_logo.getCurrentFrameSurface();
 
     _ = data_surface.putStrXY(
-        "M64!",
-        41,
+        "ANSI ON PNG!",
+        32,
         8,
-        movy.color.BLACK_4,
+        movy.color.WHITE,
         movy.color.DARK_GRAY,
     );
 
@@ -72,7 +74,7 @@ pub fn main() !void {
     };
     var rotator_effect = outline_rotator.asEffect();
     sprite_m64_logo.effect_ctx.input_surface = sprite_m64_logo.output_surface;
-    var sine_wave = movy.animation.TrigWave.init(100, 50);
+    var sine_wave = movy.animation.TrigWave.init(120, 50);
 
     try screen.addRenderSurface(sprite_m64_logo.output_surface);
 
@@ -291,7 +293,7 @@ pub fn main() !void {
 
                     frame_nr += 1;
 
-                    sprite_m64_logo.setXY(50 + sine_wave.tickSine(), 82);
+                    sprite_m64_logo.setXY(70 + sine_wave.tickSine(), 88);
                     // Apply effect
                     try rotator_effect.run(
                         allocator,
@@ -306,7 +308,7 @@ pub fn main() !void {
                     const now = std.time.nanoTimestamp();
                     const delay = now - last_frame_time;
                     if (delay < frame_duration_ns) {
-                        const ns: u64 = @as(u64, @intCast(delay));
+                        const ns: u64 = @as(u64, @intCast(frame_duration_ns - delay));
                         std.time.sleep(ns);
                     }
 
