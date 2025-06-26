@@ -86,7 +86,6 @@ pub fn beginAlternateScreen() !void {
     try stdout.print("\x1b[2J", .{});
     // ESC [ H: Move cursor to home position (row 1, column 1)
     try stdout.print("\x1b[H", .{});
-    cursorOff(); // Hide cursor
 }
 
 /// Ends alternate screen mode, returning to the normal screen buffer
@@ -95,7 +94,6 @@ pub fn endAlternateScreen() void {
     stdout.print("\x1b[?47l", .{}) catch {};
     // ESC u: Restore previously saved cursor position
     stdout.print("\x1b[u", .{}) catch {};
-    cursorOn(); // Show cursor
 }
 
 /// Clears the terminal screen

@@ -10,32 +10,66 @@ const c = @cImport({
     @cInclude("libavutil/imgutils.h");
 });
 
-// for dbg ctrl-c
 const SDL = @cImport({
     @cInclude("SDL2/SDL.h");
 });
 
-// const target_width: usize = 200;
-// const target_height: usize = 120;
-
 const target_width: usize = 160;
 const target_height: usize = 90;
 
-const DBG = false;
+const SYNC_WINDOW_NS: i64 = 50_000_000;
+
+const PlayerState = struct {
+    paused: bool = false,
+    stop: bool = false,
+
+    pause_start_ns: i128 = 0,
+    total_paused_ns: i128 = 0,
+
+    pub fn togglePause(
+        self: *PlayerState,
+        decoder: *movy_video.VideoDecoder,
+    ) void {
+        self.paused = !self.paused;
+        if (decoder.audio) |*a| {
+            if (self.paused) {
+                // Pause audio and measure pause time
+                self.pause_start_ns = a.getAudioClock();
+                SDL.SDL_PauseAudioDevice(a.audio_device, 1);
+            } else {
+                // Continue audio and update clocks for av sync
+                const pause_end_ns = a.getAudioClock();
+                self.total_paused_ns += pause_end_ns - self.pause_start_ns;
+
+                decoder.video.start_time_ns += pause_end_ns - self.pause_start_ns;
+                a.start_time_ns += pause_end_ns - self.pause_start_ns;
+
+                SDL.SDL_PauseAudioDevice(a.audio_device, 0);
+            }
+        }
+    }
+
+    pub fn getEffectiveAudioClock(
+        self: *const PlayerState,
+        audio: *movy_video.AudioState,
+    ) i128 {
+        return audio.getAudioClock() - self.total_paused_ns;
+    }
+};
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{
-        .verbose_log = true,
+        // .verbose_log = true,
     }){};
 
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
 
     // -- Setup movy screen
-    if (!DBG) {
-        try movy.terminal.beginRawMode();
-        try movy.terminal.beginAlternateScreen();
-    }
+    try movy.terminal.beginRawMode();
+    defer movy.terminal.endRawMode();
+    // try movy.terminal.beginAlternateScreen();
+    // defer movy.terminal.endAlternateScreen();
 
     var screen = try movy.Screen.init(
         allocator,
@@ -77,23 +111,30 @@ pub fn main() !void {
         try movy_video.VideoDecoder.init(allocator, file_name, surface);
     defer decoder.deinit(allocator);
 
-    const MAX_VIDEO_QUEUE = 600;
-    const SYNC_WINDOW_NS: i64 = 50_000_000;
-
-    var stop = false;
     var reached_end = false;
     var loop_ctr: usize = 0;
 
-    while (!stop) {
+    var state = PlayerState{};
+
+    while (!state.stop) {
         loop_ctr += 1;
 
         // esc input only works with raw terminal mode
-        if (!DBG) {
-            if (try movy.input.get()) |event| {
-                if (event == .key and event.key.type == .Escape) {
-                    stop = true;
-                }
+        if (try movy.input.get()) |event| {
+            if (event == .key and event.key.type == .Escape) {
+                state.stop = true;
             }
+            // Outta Space
+            if (event == .key and event.key.type == .Char and
+                event.key.sequence[0] == ' ')
+            {
+                state.togglePause(decoder);
+            }
+        }
+
+        if (state.paused) {
+            std.time.sleep(10_000_000);
+            continue;
         }
 
         // FIRST: Chck if a frame is ready to render (even before decoding more)
@@ -106,19 +147,10 @@ pub fn main() !void {
 
                 decoder.video.pkt_ctr += 1;
 
-                if (!DBG) {
-                    movy.terminal.cursorHome();
-                    movy.terminal.cursorDown(@as(i32, @intCast(screen.height() / 2)) + 1);
-                    movy.terminal.setColor(movy.color.WHITE);
-                    movy.terminal.setBgColor(movy.color.DARK_GRAY);
-                }
-
-                std.debug.print("PEEK PTS: {}, head.pts_ns: {}, audio_time_ns: {}, diff: {}\n", .{
-                    head.pts_ns,
-                    head.pts_ns,
-                    playback_time_ns,
-                    diff,
-                });
+                movy.terminal.cursorHome();
+                movy.terminal.cursorDown(@as(i32, @intCast(screen.height() / 2)));
+                movy.terminal.setColor(movy.color.WHITE);
+                movy.terminal.setBgColor(movy.color.DARK_GRAY);
 
                 if (diff <= SYNC_WINDOW_NS and diff >= -SYNC_WINDOW_NS) {
                     if (decoder.video.popFrameForRender()) |frame_ptr| {
@@ -128,18 +160,18 @@ pub fn main() !void {
                         std.debug.print("POPPED PTS: {}\n", .{frame_ptr.*.pts});
                         std.debug.print("POPPED new tail index: {}\n", .{decoder.video.queue_tail});
 
-                        try stdout.print("loop_ctr: {}, frame_ctr: {}, pkt_ctr: {}\n", .{
-                            loop_ctr,
-                            decoder.video.frame_ctr,
-                            decoder.video.pkt_ctr,
-                        });
-
+                        const t_before = std.time.nanoTimestamp();
                         decoder.video.renderFrameToSurface(frame_ptr, surface);
+                        const t_after = std.time.nanoTimestamp();
+                        const render_ns = t_after - t_before;
 
-                        if (!DBG) {
-                            screen.render();
-                            try screen.output();
+                        if (render_ns > 5_000_000) {
+                            std.debug.print("Decoding frame took {} ns\n", .{render_ns});
+                            return error.ScalingTooSlow;
                         }
+
+                        screen.render();
+                        try screen.output();
 
                         c.av_frame_free(
                             @as(
@@ -148,39 +180,32 @@ pub fn main() !void {
                             ),
                         );
                     }
+                } else if (diff < -SYNC_WINDOW_NS) {
+                    // Video is behind – drop the frame!
+                    _ = decoder.video.popFrameForRender();
+                } else {
+                    // Too early → just wait a bit (add a sleep if you want)
+                    std.time.sleep(500_000); // ~0.5ms
                 }
             }
         }
 
         // THEN: Decode only if queue is not full
-        if (decoder.video.queue_count < MAX_VIDEO_QUEUE) {
-            var frame_decoded = false;
-            while (!frame_decoded) {
-                switch (try decoder.processNextPacket()) {
-                    .eof => {
-                        reached_end = true;
-                    },
-                    .handled_video => frame_decoded = true,
-                    .handled_audio => {},
-                    .skipped => {},
-                }
+        if (decoder.video.queue_count < movy_video.MAX_VIDEO_FRAMES) {
+            const playback_time_ns = decoder.getAudioClock();
+            switch (try decoder.processNextPacket(SYNC_WINDOW_NS, playback_time_ns)) {
+                .eof => reached_end = true,
+                else => {}, // any outcome advances state
             }
         }
 
-        // Small sleep to yield
-        std.time.sleep(10_000); // 0.1ms
-
+        // all frames processed
         if (decoder.video.queue_count == 0 and reached_end) {
-            // all frames processed
-            stop = true;
+            state.stop = true;
         }
+
+        std.time.sleep(1_000); // bit of breathing space for the cpu
     }
 
-    // -- exit
-
-    // -- restore terminal
-    if (!DBG) {
-        movy.terminal.endRawMode();
-        movy.terminal.endAlternateScreen();
-    }
+    // The End
 }

@@ -18,7 +18,7 @@ const SDL = @cImport({
 const AVERROR_EAGAIN = -11; // missing ffmpeg error
 
 const SAMPLE_BUF_SIZE = 1024;
-const MAX_VIDEO_FRAMES = 4096; // max in q
+pub const MAX_VIDEO_FRAMES = 1024; // max in q
 
 // for frame queueing
 
@@ -78,7 +78,11 @@ pub const VideoDecoder = struct {
         allocator.destroy(self);
     }
 
-    pub fn processNextPacket(self: *VideoDecoder) !enum {
+    pub fn processNextPacket(
+        self: *VideoDecoder,
+        sync_window: i32,
+        audio_time_ns: i128,
+    ) !enum {
         eof,
         handled_video,
         handled_audio,
@@ -92,19 +96,8 @@ pub const VideoDecoder = struct {
         defer c.av_packet_unref(&pkt);
 
         if (pkt.stream_index == @as(c_int, @intCast(self.video.stream_index))) {
-            if (self.audio) |*a| {
-                if (a.has_started_playing) {
-                    try self.video.sendAndDecode(&pkt);
-                    return .handled_video;
-                } else {
-                    // Queue this packet for later!
-                    try self.video.sendAndDecode(&pkt);
-                    return .handled_video;
-                }
-            } else {
-                try self.video.sendAndDecode(&pkt);
-                return .handled_video;
-            }
+            try self.video.sendAndDecode(&pkt, sync_window, audio_time_ns);
+            return .handled_video;
         } else if (self.audio) |*a| {
             if (pkt.stream_index == a.stream_index) {
                 try a.sendAndDecode(&pkt);
@@ -348,31 +341,6 @@ const VideoState = struct {
         return error.StreamNotFound;
     }
 
-    pub fn sendAndDecode(self: *VideoState, pkt: *const c.AVPacket) !void {
-        if (self.queue_count >= MAX_VIDEO_FRAMES) {
-            // Don't decode more — skip
-            return;
-        }
-
-        const res_send = c.avcodec_send_packet(self.codec_ctx, pkt);
-        if (res_send == AVERROR_EAGAIN) return error.SendAgain;
-        if (res_send < 0) return error.SendFailed;
-
-        while (true) {
-            const res_recv =
-                c.avcodec_receive_frame(self.codec_ctx, self.frame);
-            if (res_recv == AVERROR_EAGAIN or res_recv == c.AVERROR_EOF) break;
-            if (res_recv < 0) return error.ReceiveFailed;
-
-            // Enqueue the decoded frame
-
-            if (self.start_time_ns == 0) {
-                self.start_time_ns = std.time.nanoTimestamp();
-            }
-            try self.enqueueDecodedFrame();
-        }
-    }
-
     pub fn getFramePtsNS(self: *VideoState, frame: *c.AVFrame) !u64 {
         const pts = if (frame.*.pts != c.AV_NOPTS_VALUE)
             frame.*.pts
@@ -392,47 +360,72 @@ const VideoState = struct {
         return @intFromFloat(seconds * 1_000_000_000.0);
     }
 
-    pub fn convertFrameToSurface(
+    // -- stream handling
+
+    pub fn sendAndDecode(
         self: *VideoState,
-        surface: *movy.RenderSurface,
-    ) void {
-        const src_data: [*c]const [*c]const u8 =
-            @ptrCast(&self.frame.*.data[0]);
-        const dst_data: [*c][*c]u8 = @ptrCast(&self.rgb_frame.*.data[0]);
+        pkt: *const c.AVPacket,
+        sync_window: i32,
+        audio_time_ns: i128,
+    ) !void {
+        if (self.queue_count >= MAX_VIDEO_FRAMES) {
+            // Don't decode more — skip
+            return;
+        }
 
-        const src_stride: [*c]const c_int = &self.frame.*.linesize[0];
-        const dst_stride: [*c]c_int = &self.rgb_frame.*.linesize[0];
+        const res_send = c.avcodec_send_packet(self.codec_ctx, pkt);
+        if (res_send == AVERROR_EAGAIN) return error.SendAgain;
+        if (res_send < 0) return error.SendFailed;
 
-        _ = c.sws_scale(
-            self.sws_ctx,
-            src_data,
-            src_stride,
-            0,
-            self.codec_ctx.height,
-            dst_data,
-            dst_stride,
-        );
+        var decode_attempts: usize = 0;
+        while (decode_attempts < 5) { // you can tweak this number!
 
-        const pitch: usize = @as(usize, @intCast(self.rgb_frame.*.linesize[0]));
-        var y: usize = 0;
-        while (y < self.target_height) : (y += 1) {
-            var x: usize = 0;
-            while (x < self.target_width) : (x += 1) {
-                const offset = y * pitch + x * 3;
-                const r = self.rgb_buf[offset];
-                const g = self.rgb_buf[offset + 1];
-                const b = self.rgb_buf[offset + 2];
+            const t_before = std.time.nanoTimestamp();
+            const res_recv = c.avcodec_receive_frame(self.codec_ctx, self.frame);
+            const t_after = std.time.nanoTimestamp();
+            const decode_ns = t_after - t_before;
 
-                surface.color_map[y * self.target_width + x] =
-                    movy.core.types.Rgb{ .r = r, .g = g, .b = b };
+            if (decode_ns > 10_000_000) {
+                // std.debug.print("Decoding frame took {} ns\n", .{decode_ns});
+                return error.DecodingTooSlow;
             }
+
+            if (res_recv == AVERROR_EAGAIN or res_recv == c.AVERROR_EOF) {
+                // std.debug.print("No frame returned (res = {})\n", .{res_recv});
+                break;
+            }
+            if (res_recv < 0) return error.ReceiveFailed;
+
+            const pts_ns = try self.getFramePtsNS(self.frame);
+            const diff = @as(i64, @intCast(pts_ns)) - @as(i64, @intCast(audio_time_ns));
+            if (diff < -sync_window * 2) {
+                // std.debug.print("Dropping late frame (diff = {})\n", .{diff});
+                decode_attempts += 1;
+                continue;
+            }
+
+            if (self.start_time_ns == 0) {
+                self.start_time_ns = std.time.nanoTimestamp();
+            }
+
+            try self.enqueueDecodedFrame();
+            decode_attempts += 1;
         }
     }
 
     // -- q
 
     pub fn enqueueDecodedFrame(self: *VideoState) !void {
-        if (self.queue_count >= MAX_VIDEO_FRAMES) return error.QueueFull;
+        // Drop the oldest if we're full
+        if (self.queue_count >= MAX_VIDEO_FRAMES) {
+            const drop_idx = self.queue_tail;
+            if (self.video_queue[drop_idx]) |old_vf| {
+                c.av_frame_free(@constCast(@ptrCast(&old_vf.frame)));
+                self.video_queue[drop_idx] = null;
+            }
+            self.queue_tail = (self.queue_tail + 1) % MAX_VIDEO_FRAMES;
+            self.queue_count -= 1;
+        }
 
         const cloned_frame = c.av_frame_alloc() orelse return error.AllocFailed;
         if (c.av_frame_ref(cloned_frame, self.frame) < 0)
@@ -440,9 +433,11 @@ const VideoState = struct {
 
         const pts_ns = try self.getFramePtsNS(cloned_frame);
         if (pts_ns == self.last_enqueued_pts_ns) {
+            // Still need to free cloned_frame if not used!
+            c.av_frame_free(@constCast(@ptrCast(&cloned_frame)));
             return;
         }
-
+        // std.debug.print("Enqueued frame with PTS {}\n", .{pts_ns});
         self.last_enqueued_pts_ns = pts_ns;
 
         const index = (self.queue_tail + self.queue_count) % MAX_VIDEO_FRAMES;
@@ -451,8 +446,19 @@ const VideoState = struct {
             .pts_ns = pts_ns,
         };
         self.queue_count += 1;
+    }
 
-        // std.debug.print("Enqueued frame PTS: {}\n", .{pts_ns});
+    pub fn clearQueue(self: *VideoState) void {
+        var i: usize = 0;
+        while (i < self.queue_count) : (i += 1) {
+            const idx = (self.queue_tail + i) % MAX_VIDEO_FRAMES;
+            if (self.video_queue[idx]) |vf| {
+                c.av_frame_free(@constCast(@ptrCast(&vf.frame)));
+                self.video_queue[idx] = null;
+            }
+        }
+        self.queue_tail = 0;
+        self.queue_count = 0;
     }
 
     pub fn popFrameForRender(self: *VideoState) ?*c.AVFrame {
@@ -487,6 +493,8 @@ const VideoState = struct {
 
         return frame;
     }
+
+    // -- output
 
     pub fn renderFrameToSurface(
         self: *VideoState,
