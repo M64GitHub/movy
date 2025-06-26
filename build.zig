@@ -6,7 +6,7 @@ const ffmpeg_include_path = "/usr/include/x86_64-linux-gnu"; // for ffmpeg
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
-    const optimize = std.builtin.OptimizeMode.Debug;
+    const optimize = std.builtin.OptimizeMode.ReleaseFast;
     // const optimize = b.option(std.builtin.OptimizeMode, "optimize", "") orelse .Debug;
 
     // -- build options
