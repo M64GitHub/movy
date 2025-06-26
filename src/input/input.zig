@@ -233,38 +233,40 @@ fn getKeyPosix() !?Key {
     }
 
     // F5-F12, Page Up/Down (moved up to catch before fragment check)
-    if (remaining[0] == 0x1b and remaining[1] == '[' and remaining.len >= 4) {
-        var i: usize = 2;
-        while (i < remaining.len and remaining[i] != '~') : (i += 1) {}
-        if (i < remaining.len and remaining[i] == '~') {
-            var num: u32 = 0;
-            for (remaining[2..i]) |digit| {
-                if (digit >= '0' and digit <= '9') {
-                    num = num * 10 + (digit - '0');
-                } else {
-                    break;
+    if (input_len > 1) {
+        if (remaining[0] == 0x1b and remaining[1] == '[' and remaining.len >= 4) {
+            var i: usize = 2;
+            while (i < remaining.len and remaining[i] != '~') : (i += 1) {}
+            if (i < remaining.len and remaining[i] == '~') {
+                var num: u32 = 0;
+                for (remaining[2..i]) |digit| {
+                    if (digit >= '0' and digit <= '9') {
+                        num = num * 10 + (digit - '0');
+                    } else {
+                        break;
+                    }
                 }
+                const seq_len = i + 1;
+                const sequence = remaining[0..seq_len];
+                input_offset += seq_len;
+                return Key{
+                    .type = switch (num) {
+                        3 => .Delete,
+                        5 => .PageUp,
+                        6 => .PageDown,
+                        15 => .F5,
+                        17 => .F6,
+                        18 => .F7,
+                        19 => .F8,
+                        20 => .F9,
+                        21 => .F10,
+                        23 => .F11,
+                        24 => .F12,
+                        else => .Other,
+                    },
+                    .sequence = sequence,
+                };
             }
-            const seq_len = i + 1;
-            const sequence = remaining[0..seq_len];
-            input_offset += seq_len;
-            return Key{
-                .type = switch (num) {
-                    3 => .Delete,
-                    5 => .PageUp,
-                    6 => .PageDown,
-                    15 => .F5,
-                    17 => .F6,
-                    18 => .F7,
-                    19 => .F8,
-                    20 => .F9,
-                    21 => .F10,
-                    23 => .F11,
-                    24 => .F12,
-                    else => .Other,
-                },
-                .sequence = sequence,
-            };
         }
     }
 
