@@ -1,7 +1,6 @@
 const std = @import("std");
 const movy = @import("movy");
 
-// include ffmpeg-dev for video decoding
 const c = @cImport({
     @cInclude("libavformat/avformat.h");
     @cInclude("libavcodec/avcodec.h");
@@ -10,25 +9,24 @@ const c = @cImport({
     @cInclude("libswresample/swresample.h"); // audio
 });
 
-// include sdl2 for audio
+// SDL2 for audio
 const SDL = @cImport({
     @cInclude("SDL2/SDL.h");
 });
 
-const AVERROR_EAGAIN = -11; // missing ffmpeg error
+const AVERROR_EAGAIN = -11; // missing ffmpeg error definition
 
-const SAMPLE_BUF_SIZE = 1024;
-pub const MAX_VIDEO_FRAMES = 1024; // max in q
+const SAMPLE_BUF_SIZE = 1024; // SLD2 audio buffer size
+pub const MAX_VIDEO_FRAMES = 1024; // max frame queue size
 
-// for frame queueing
-
+/// video frames will be queued with timestamp
 const VideoFrame = struct {
     frame: *c.AVFrame,
     pts_ns: u64,
 };
 
-// decoder structs
-
+/// Main decoder struct to interface with a player
+/// Contains a VideoState, and optional AudioState
 pub const VideoDecoder = struct {
     surface: *movy.RenderSurface,
 
@@ -43,7 +41,7 @@ pub const VideoDecoder = struct {
         const decoder = try allocator.create(VideoDecoder);
         errdefer allocator.destroy(decoder);
 
-        _ = c.av_log_set_level(c.AV_LOG_QUIET);
+        _ = c.av_log_set_level(c.AV_LOG_QUIET); // we no wanna output mess
 
         var video = try VideoState.init(allocator, filename, surface);
         errdefer video.deinit(allocator);
@@ -55,9 +53,10 @@ pub const VideoDecoder = struct {
             findStreamIndex(fmt_ctx, c.AVMEDIA_TYPE_AUDIO) catch null;
         if (audio_stream_index) |idx| {
             audio = try AudioState.init(allocator, fmt_ctx, idx);
-            errdefer audio.deinit(allocator); // in case something fails after
+            errdefer audio.deinit(allocator);
         }
 
+        // AV sync needs reference start time
         const start_time_ns = std.time.nanoTimestamp();
         video.start_time_ns = start_time_ns;
 
@@ -78,15 +77,7 @@ pub const VideoDecoder = struct {
         allocator.destroy(self);
     }
 
-    pub fn freeAVFrame(frame: *c.AVFrame) void {
-        c.av_frame_free(
-            @as(
-                [*c][*c]c.AVFrame,
-                @constCast(@ptrCast(&frame)),
-            ),
-        );
-    }
-
+    /// Main function for stream processing
     pub fn processNextPacket(
         self: *VideoDecoder,
         sync_window: i32,
@@ -141,6 +132,7 @@ pub const VideoDecoder = struct {
         if (self.audio) |*a| {
             return a.getAudioClock();
         } else {
+            // emulate continuous time
             return std.time.nanoTimestamp() - self.video.start_time_ns;
         }
     }
@@ -158,31 +150,26 @@ pub const VideoDecoder = struct {
         return error.StreamNotFound;
     }
 
-    pub fn syncFrame(self: *VideoDecoder) bool {
-        const now_ns = self.getAudioClock(); // current audio time in nanosecs
-        const frame_time = self.video.frame_pts_ns;
-
-        if (frame_time > now_ns + 15_000_000) {
-            // Too early! Let the main loop skip this frame render call for now
-            return false;
-        }
-
-        // Otherwise, time to show this frame
-        return true;
-    }
-
-    pub fn shouldRenderNow(self: *VideoDecoder) bool {
-        const audio_time = self.getAudioClock();
-        const frame_time = self.video.frame_pts_ns;
-
-        // only render when audio has reached or passed the frame
-        return frame_time <= audio_time;
+    pub fn freeAVFrame(frame: *c.AVFrame) void {
+        c.av_frame_free(@as([*c][*c]c.AVFrame, @constCast(@ptrCast(&frame))));
     }
 };
 
 const VideoState = struct {
-    fmt_ctx: *c.AVFormatContext,
     stream_index: usize,
+    target_width: usize,
+    target_height: usize,
+
+    // av sync
+    start_time_ns: i128 = 0,
+    frame_duration_ns: u64 = 41_666_666, // fallback: ~24fps
+
+    // use or not
+    frame_ctr: usize = 0,
+    pkt_ctr: usize = 0,
+
+    // ffmpeg
+    fmt_ctx: *c.AVFormatContext,
     codec_ctx: *c.AVCodecContext,
     sws_ctx: *c.SwsContext,
 
@@ -192,29 +179,13 @@ const VideoState = struct {
 
     time_base: c.AVRational,
 
-    target_width: usize,
-    target_height: usize,
-
-    // av sync
-    pending_pkt: ?c.AVPacket = null,
-    start_time_ns: i128 = 0,
-    frame_duration_ns: u64 = 41_666_666, // fallback: ~24fps
-
-    has_reference_error: bool = false,
-    has_seen_keyframe: bool = false,
-    frame_pts_ns: u64 = 0,
-
     // frame q
 
     video_queue: [MAX_VIDEO_FRAMES]?VideoFrame = .{null} ** MAX_VIDEO_FRAMES,
-    queue_head: usize = 0,
     queue_tail: usize = 0,
     queue_count: usize = 0,
-
+    // to avoid enqueueing duplicate timestamps
     last_enqueued_pts_ns: u64 = 0,
-
-    frame_ctr: usize = 0,
-    pkt_ctr: usize = 0,
 
     pub fn init(
         allocator: std.mem.Allocator,
@@ -313,7 +284,6 @@ const VideoState = struct {
             .frame_duration_ns = @as(u64, @intCast(frame_duration_ns)),
             .target_width = surface.w,
             .target_height = surface.h,
-            .pending_pkt = null,
         };
     }
 
@@ -333,6 +303,8 @@ const VideoState = struct {
             @as([*c][*c]c.AVFormatContext, @ptrCast(&self.fmt_ctx)),
         );
     }
+
+    // -- helpers
 
     pub fn findStreamIndex(
         fmt_ctx: *c.AVFormatContext,
@@ -466,7 +438,7 @@ const VideoState = struct {
         self.queue_count = 0;
     }
 
-    pub fn popFrameForRender(self: *VideoState) ?*c.AVFrame {
+    pub fn popFrame(self: *VideoState) ?*c.AVFrame {
         if (self.queue_count == 0) return null;
 
         const maybe_vf = self.video_queue[self.queue_tail];
@@ -486,17 +458,6 @@ const VideoState = struct {
     pub fn peekFrame(self: *VideoState) ?VideoFrame {
         if (self.queue_count == 0) return null;
         return self.video_queue[self.queue_tail] orelse null;
-    }
-
-    pub fn popFrame(self: *VideoState) !VideoFrame {
-        if (self.queue_count == 0) return error.EmptyQueue;
-
-        const frame = self.video_queue[self.queue_head].?;
-        self.video_queue[self.queue_head] = null;
-        self.queue_head = (self.queue_head + 1) % MAX_VIDEO_FRAMES;
-        self.queue_count -= 1;
-
-        return frame;
     }
 
     // -- output
@@ -541,19 +502,20 @@ const VideoState = struct {
 
 const AudioState = struct {
     stream_index: usize,
-    codec_ctx: *c.AVCodecContext,
-    swr_ctx: *c.SwrContext,
+    start_time_ns: i128 = 0,
+    last_audio_ns: i128 = 0,
+    has_started_playing: bool = false,
 
+    // SDL
     audio_buf: []u8,
     audio_device: SDL.SDL_AudioDeviceID,
     audio_sample_rate: u32,
     audio_channels: u32,
 
-    start_time_ns: i128 = 0,
-
+    // ffmpeg
+    codec_ctx: *c.AVCodecContext,
+    swr_ctx: *c.SwrContext,
     frame: *c.AVFrame,
-    has_started_playing: bool = false,
-    last_audio_ns: i128 = 0,
 
     pub fn init(
         allocator: std.mem.Allocator,
@@ -579,6 +541,7 @@ const AudioState = struct {
         if (SDL.SDL_Init(SDL.SDL_INIT_AUDIO) != 0)
             return error.SDLInitFailed;
 
+        // get codec audio specs
         const audio_sample_rate = @as(u32, @intCast(codec_ctx.*.sample_rate));
         const audio_channels = @as(u32, @intCast(codec_ctx.*.channels));
 
@@ -601,14 +564,14 @@ const AudioState = struct {
         if (c.swr_init(swr_ctx) < 0)
             return error.SwrInitFailed;
 
-        // allocate audio buffer
+        // allocate SDL audio buffer
         const audio_buf = try allocator.alloc(u8, SAMPLE_BUF_SIZE * 2);
 
         // open SDL audio device
         var want: SDL.SDL_AudioSpec = .{
             .format = SDL.AUDIO_S16SYS,
-            .freq = @as(c_int, @intCast(codec_ctx.*.sample_rate)),
-            .channels = @as(u8, @intCast(codec_ctx.*.channels)),
+            .freq = @as(c_int, @intCast(audio_sample_rate)),
+            .channels = @as(u8, @intCast(audio_channels)),
             // .freq = 48000,
             // .channels = 2,
             .samples = SAMPLE_BUF_SIZE,
@@ -703,17 +666,12 @@ const AudioState = struct {
         if (res_send == AVERROR_EAGAIN) return error.SendAgain;
         if (res_send < 0) return error.SendFailed;
 
-        // Now decode all available audio frames
-        // while (true) {
         const res_recv = c.avcodec_receive_frame(self.codec_ctx, self.frame);
         // if (res_recv == c.AVERROR_EOF or res_recv == AVERROR_EAGAIN) break;
         if (res_recv < 0) return error.ReceiveFailed;
 
-        // Push it into your SDL queue or audio buffer
-        self.pushDecodedAudio(self.frame) catch {
-            std.log.err("Failed to push decoded audio!", .{});
-        };
-        // }
+        // Push it into SDL queue
+        self.pushDecodedAudio(self.frame) catch {};
     }
 
     pub fn pushDecodedAudio(self: *AudioState, frame: *c.AVFrame) !void {
