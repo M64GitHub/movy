@@ -3,17 +3,6 @@ const movy = @import("movy");
 const movy_video = @import("movy_video");
 const stdout = std.io.getStdOut().writer();
 
-const c = @cImport({
-    @cInclude("libavformat/avformat.h");
-    @cInclude("libavcodec/avcodec.h");
-    @cInclude("libswscale/swscale.h");
-    @cInclude("libavutil/imgutils.h");
-});
-
-const SDL = @cImport({
-    @cInclude("SDL2/SDL.h");
-});
-
 const target_width: usize = 160;
 const target_height: usize = 90;
 
@@ -35,7 +24,7 @@ const PlayerState = struct {
             if (self.paused) {
                 // Pause audio and measure pause time
                 self.pause_start_ns = a.getAudioClock();
-                SDL.SDL_PauseAudioDevice(a.audio_device, 1);
+                a.pauseAudioPlayback(true);
             } else {
                 // Continue audio and update clocks for av sync
                 const pause_end_ns = a.getAudioClock();
@@ -44,7 +33,7 @@ const PlayerState = struct {
                 decoder.video.start_time_ns += pause_end_ns - self.pause_start_ns;
                 a.start_time_ns += pause_end_ns - self.pause_start_ns;
 
-                SDL.SDL_PauseAudioDevice(a.audio_device, 0);
+                a.pauseAudioPlayback(false);
             }
         }
     }
@@ -173,12 +162,7 @@ pub fn main() !void {
                         screen.render();
                         try screen.output();
 
-                        c.av_frame_free(
-                            @as(
-                                [*c][*c]c.AVFrame,
-                                @constCast(@ptrCast(&frame_ptr)),
-                            ),
-                        );
+                        movy_video.VideoDecoder.freeAVFrame(frame_ptr);
                     }
                 } else if (diff < -SYNC_WINDOW_NS) {
                     // Video is behind – drop the frame!

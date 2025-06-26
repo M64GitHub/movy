@@ -78,6 +78,15 @@ pub const VideoDecoder = struct {
         allocator.destroy(self);
     }
 
+    pub fn freeAVFrame(frame: *c.AVFrame) void {
+        c.av_frame_free(
+            @as(
+                [*c][*c]c.AVFrame,
+                @constCast(@ptrCast(&frame)),
+            ),
+        );
+    }
+
     pub fn processNextPacket(
         self: *VideoDecoder,
         sync_window: i32,
@@ -106,10 +115,6 @@ pub const VideoDecoder = struct {
         }
 
         return .skipped;
-    }
-
-    pub fn renderCurrentFrame(self: *VideoDecoder) void {
-        self.video.convertFrameToSurface(self.surface);
     }
 
     pub fn seekToTimestamp(self: *VideoDecoder, timestamp_ns: i64) !void {
@@ -634,6 +639,25 @@ const AudioState = struct {
         };
     }
 
+    pub fn deinit(self: *AudioState, allocator: std.mem.Allocator) void {
+        allocator.free(self.audio_buf);
+        SDL.SDL_CloseAudioDevice(self.audio_device);
+        c.swr_free(@as([*c]?*c.SwrContext, @ptrCast(&self.swr_ctx)));
+        c.avcodec_free_context(
+            @as([*c][*c]c.AVCodecContext, @ptrCast(&self.codec_ctx)),
+        );
+
+        SDL.SDL_Quit();
+    }
+
+    pub fn pauseAudioPlayback(self: *AudioState, pause_state: bool) void {
+        if (pause_state) {
+            SDL.SDL_PauseAudioDevice(self.audio_device, 1);
+        } else {
+            SDL.SDL_PauseAudioDevice(self.audio_device, 0);
+        }
+    }
+
     pub fn decodePacket(self: *AudioState, pkt: *const c.AVPacket) !void {
         if (c.avcodec_send_packet(self.codec_ctx, pkt) < 0) return;
 
@@ -672,17 +696,6 @@ const AudioState = struct {
 
         self.last_audio_ns = elapsed_ns;
         return elapsed_ns;
-    }
-
-    pub fn deinit(self: *AudioState, allocator: std.mem.Allocator) void {
-        allocator.free(self.audio_buf);
-        SDL.SDL_CloseAudioDevice(self.audio_device);
-        c.swr_free(@as([*c]?*c.SwrContext, @ptrCast(&self.swr_ctx)));
-        c.avcodec_free_context(
-            @as([*c][*c]c.AVCodecContext, @ptrCast(&self.codec_ctx)),
-        );
-
-        SDL.SDL_Quit();
     }
 
     pub fn sendAndDecode(self: *AudioState, pkt: *const c.AVPacket) !void {
