@@ -57,6 +57,8 @@ pub fn main() !void {
     // -- Setup movy screen
     try movy.terminal.beginRawMode();
     defer movy.terminal.endRawMode();
+
+    // Looks cooler, when last video frame stays on screen, on exit
     // try movy.terminal.beginAlternateScreen();
     // defer movy.terminal.endAlternateScreen();
 
@@ -142,7 +144,7 @@ pub fn main() !void {
                 movy.terminal.setBgColor(movy.color.DARK_GRAY);
 
                 if (diff <= SYNC_WINDOW_NS and diff >= -SYNC_WINDOW_NS) {
-                    if (decoder.video.popFrameForRender()) |frame_ptr| {
+                    if (decoder.video.popFrame()) |frame_ptr| {
                         decoder.video.frame_ctr += 1;
 
                         std.debug.print("POPPED  q-size: {}\n", .{decoder.video.queue_count});
@@ -154,7 +156,7 @@ pub fn main() !void {
                         const t_after = std.time.nanoTimestamp();
                         const render_ns = t_after - t_before;
 
-                        if (render_ns > 5_000_000) {
+                        if (render_ns > 10_000_000) {
                             std.debug.print("Decoding frame took {} ns\n", .{render_ns});
                             return error.ScalingTooSlow;
                         }
@@ -166,10 +168,10 @@ pub fn main() !void {
                     }
                 } else if (diff < -SYNC_WINDOW_NS) {
                     // Video is behind – drop the frame!
-                    _ = decoder.video.popFrameForRender();
+                    _ = decoder.video.popFrame();
                 } else {
-                    // Too early → just wait a bit (add a sleep if you want)
-                    std.time.sleep(500_000); // ~0.5ms
+                    // Too early ->  just wait a bit
+                    std.time.sleep(500_000);
                 }
             }
         }
@@ -183,7 +185,7 @@ pub fn main() !void {
             }
         }
 
-        // all frames processed
+        // All frames processed
         if (decoder.video.queue_count == 0 and reached_end) {
             state.stop = true;
         }
