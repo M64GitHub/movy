@@ -136,7 +136,6 @@ pub fn build(b: *std.Build) void {
 
         const names = [_][]const u8{
             "mplayer",
-            "movycat",
         };
 
         for (names) |name| {
