@@ -355,7 +355,7 @@ const VideoState = struct {
         if (res_send < 0) return error.SendFailed;
 
         var decode_attempts: usize = 0;
-        while (decode_attempts < 5) { // you can tweak this number!
+        while (decode_attempts < 5) { // tweak this number!
 
             const t_before = std.time.nanoTimestamp();
             const res_recv = c.avcodec_receive_frame(self.codec_ctx, self.frame);
@@ -506,6 +506,9 @@ const AudioState = struct {
     last_audio_ns: i128 = 0,
     has_started_playing: bool = false,
 
+    // general audio properties
+    // bytes_per_sampe: usize,
+
     // SDL
     audio_buf: []u8,
     audio_device: SDL.SDL_AudioDeviceID,
@@ -572,8 +575,6 @@ const AudioState = struct {
             .format = SDL.AUDIO_S16SYS,
             .freq = @as(c_int, @intCast(audio_sample_rate)),
             .channels = @as(u8, @intCast(audio_channels)),
-            // .freq = 48000,
-            // .channels = 2,
             .samples = SAMPLE_BUF_SIZE,
             .callback = null,
             .userdata = null,
@@ -621,41 +622,9 @@ const AudioState = struct {
         }
     }
 
-    pub fn decodePacket(self: *AudioState, pkt: *const c.AVPacket) !void {
-        if (c.avcodec_send_packet(self.codec_ctx, pkt) < 0) return;
-
-        var frame = c.av_frame_alloc() orelse return;
-        defer c.av_frame_free(&frame);
-
-        while (c.avcodec_receive_frame(self.codec_ctx, frame) == 0) {
-            const audio_buf_ptr: [*c][*c]u8 = @ptrCast(&self.audio_buf);
-            const out_samples = c.swr_convert(
-                self.swr_ctx,
-                audio_buf_ptr,
-                SAMPLE_BUF_SIZE,
-                @ptrCast(&frame.*.data[0]),
-                frame.*.nb_samples,
-            );
-
-            const bytes: u32 = @as(u32, @intCast(out_samples)) *
-                @as(u32, @intCast(c.av_get_bytes_per_sample(
-                    c.AV_SAMPLE_FMT_S16,
-                ))) *
-                self.audio_channels;
-
-            _ = SDL.SDL_QueueAudio(
-                self.audio_device,
-                self.audio_buf.ptr,
-                @intCast(bytes),
-            );
-        }
-    }
-
     pub fn getAudioClock(self: *AudioState) i128 {
         if (!self.has_started_playing) return 0;
-
-        const now = std.time.nanoTimestamp();
-        const elapsed_ns = now - self.start_time_ns;
+        const elapsed_ns = std.time.nanoTimestamp() - self.start_time_ns;
 
         self.last_audio_ns = elapsed_ns;
         return elapsed_ns;
@@ -674,12 +643,13 @@ const AudioState = struct {
         self.pushDecodedAudio(self.frame) catch {};
     }
 
+    // push to SDL audio queue
     pub fn pushDecodedAudio(self: *AudioState, frame: *c.AVFrame) !void {
         const audio_buf_ptr: [*c][*c]u8 = @ptrCast(&self.audio_buf);
         const out_samples = c.swr_convert(
             self.swr_ctx,
             audio_buf_ptr,
-            4096,
+            SAMPLE_BUF_SIZE,
             @ptrCast(&frame.*.data[0]),
             frame.*.nb_samples,
         );
