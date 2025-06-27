@@ -17,7 +17,7 @@ const SDL = @cImport({
 const AVERROR_EAGAIN = -11; // missing ffmpeg error definition
 
 const SAMPLE_BUF_SIZE = 1024; // SLD2 audio buffer size
-pub const MAX_VIDEO_FRAMES = 1024; // max frame queue size
+pub const DECODE_TIMEOUT_NS = 8_000_000;
 
 /// video frames will be queued with timestamp
 const VideoFrame = struct {
@@ -96,7 +96,7 @@ pub const VideoDecoder = struct {
         defer c.av_packet_unref(&pkt);
 
         if (pkt.stream_index == @as(c_int, @intCast(self.video.stream_index))) {
-            try self.video.sendAndDecode(&pkt, sync_window, audio_time_ns);
+            try self.video.processVideoPacket(&pkt, sync_window, audio_time_ns);
             return .handled_video;
         } else if (self.audio) |*a| {
             if (pkt.stream_index == a.stream_index) {
@@ -155,18 +155,31 @@ pub const VideoDecoder = struct {
     }
 };
 
-const VideoState = struct {
+/// Holds all state and resources for decoding video frames with FFmpeg
+/// and converting them to RGB format suitable for rendering into a movy surface.
+///
+/// This struct owns:
+/// - The FFmpeg context, codec, scaling, and frame buffers
+/// - The decode-to-RGB conversion pipeline (via `sws_scale`)
+/// - A ring buffer queue of decoded frames with timestamps
+/// - AV sync information and stream metadata
+///
+/// VIDEO DECODING FLOW:
+/// 1. decoder.video.sendPacket(pkt)
+/// 2. decoder.video.drainAndQueueFrames(sync_window, audio_time_ns)
+///    -> internally calls tryReceiveFrame()
+///    -> runs AV sync filter via shouldEnqueue()
+///    -> calls enqueueDecodedFrame() if accepted
+pub const VideoState = struct {
+    pub const MAX_VIDEO_FRAMES = 1024; // max frame queue size
+    pub const FALLBACK_FPS_NS = 41_666_666; // ~24 fps
     stream_index: usize,
     target_width: usize,
     target_height: usize,
 
     // av sync
     start_time_ns: i128 = 0,
-    frame_duration_ns: u64 = 41_666_666, // fallback: ~24fps
-
-    // use or not
-    frame_ctr: usize = 0,
-    pkt_ctr: usize = 0,
+    frame_duration_ns: u64 = FALLBACK_FPS_NS,
 
     // ffmpeg
     fmt_ctx: *c.AVFormatContext,
@@ -180,13 +193,18 @@ const VideoState = struct {
     time_base: c.AVRational,
 
     // frame q
-
-    video_queue: [MAX_VIDEO_FRAMES]?VideoFrame = .{null} ** MAX_VIDEO_FRAMES,
+    frame_queue: [MAX_VIDEO_FRAMES]?VideoFrame = .{null} ** MAX_VIDEO_FRAMES,
     queue_tail: usize = 0,
     queue_count: usize = 0,
-    // to avoid enqueueing duplicate timestamps
-    last_enqueued_pts_ns: u64 = 0,
+    last_enqueued_pts_ns: u64 = 0, // to detect duplicate frames
 
+    /// Initializes the video decoder pipeline from a given input file and render surface.
+    ///
+    /// - Opens the file using FFmpeg
+    /// - Locates the video stream and sets up the codec context
+    /// - Initializes threaded decoding
+    /// - Sets up swscale to convert frames to RGB format
+    /// - Allocates buffers for decoding and RGB frames
     pub fn init(
         allocator: std.mem.Allocator,
         filename: []const u8,
@@ -214,6 +232,10 @@ const VideoState = struct {
 
         if (c.avcodec_parameters_to_context(codec_ctx, codec_params) < 0)
             return error.CodecContextFailed;
+
+        const thread_count = @as(c_int, @intCast(try std.Thread.getCpuCount()));
+        codec_ctx.*.thread_count = thread_count;
+        codec_ctx.*.thread_type = c.FF_THREAD_FRAME;
 
         if (c.avcodec_open2(codec_ctx, codec, null) < 0)
             return error.CodecOpenFailed;
@@ -287,10 +309,11 @@ const VideoState = struct {
         };
     }
 
+    /// Frees all allocated FFmpeg contexts, buffers, and RGB surfaces.
+    ///
+    /// Should be called once decoding is finished.
     pub fn deinit(self: *VideoState, allocator: std.mem.Allocator) void {
-        if (self.rgb_buf.len > 0) {
-            allocator.free(self.rgb_buf);
-        }
+        allocator.free(self.rgb_buf);
 
         c.av_frame_free(@as([*c][*c]c.AVFrame, @ptrCast(&self.frame)));
         c.av_frame_free(@as([*c][*c]c.AVFrame, @ptrCast(&self.rgb_frame)));
@@ -306,6 +329,8 @@ const VideoState = struct {
 
     // -- helpers
 
+    /// Finds the index of the first stream in the given format context
+    /// that matches the requested media type.
     pub fn findStreamIndex(
         fmt_ctx: *c.AVFormatContext,
         media_type: c.enum_AVMediaType,
@@ -318,6 +343,9 @@ const VideoState = struct {
         return error.StreamNotFound;
     }
 
+    /// Converts the presentation timestamp of the given frame to nanoseconds.
+    ///
+    /// Returns an error if the PTS is not available.
     pub fn getFramePtsNS(self: *VideoState, frame: *c.AVFrame) !u64 {
         const pts = if (frame.*.pts != c.AV_NOPTS_VALUE)
             frame.*.pts
@@ -327,67 +355,110 @@ const VideoState = struct {
         if (pts == c.AV_NOPTS_VALUE)
             return error.MissingPTS;
 
-        const stream = self.fmt_ctx.*.streams[self.stream_index];
-        const time_base = stream.*.time_base;
-
         // Just convert the raw pts to nanoseconds, do NOT subtract anything!
         const pts_f64 = @as(f64, @floatFromInt(pts));
-        const seconds = pts_f64 * @as(f64, @floatFromInt(time_base.num)) /
-            @as(f64, @floatFromInt(time_base.den));
+        const seconds = pts_f64 * @as(f64, @floatFromInt(self.time_base.num)) /
+            @as(f64, @floatFromInt(self.time_base.den));
         return @intFromFloat(seconds * 1_000_000_000.0);
     }
 
     // -- stream handling
 
-    pub fn sendAndDecode(
+    /// Sends a compressed video packet to the codec decoder.
+    ///
+    /// This corresponds to `avcodec_send_packet()`. It queues the packet for decoding,
+    /// but does not retrieve any frames yet. Call `drainAndQueueFrames()` after this
+    /// to attempt to receive and enqueue decoded frames.
+    ///
+    /// Errors if the decoder can't accept a packet at this moment or the send failed.
+    pub fn sendPacket(self: *VideoState, pkt: *const c.AVPacket) !void {
+        const res = c.avcodec_send_packet(self.codec_ctx, pkt);
+        if (res == AVERROR_EAGAIN) return error.SendAgain;
+        if (res < 0) return error.SendFailed;
+    }
+
+    /// Attempts to receive one decoded video frame from the codec.
+    ///
+    /// If a frame is available, this returns a pointer to the shared internal
+    /// `self.frame`, which remains valid until the next call to this function.
+    /// Returns `null` if the decoder has no frames ready yet.
+    ///
+    /// Note: This does not enqueue the frame — use `drainAndQueueFrames()` for that.
+    pub fn tryReceiveFrame(self: *VideoState) !?*c.AVFrame {
+        const t_before = std.time.nanoTimestamp();
+        const res = c.avcodec_receive_frame(self.codec_ctx, self.frame);
+        const t_after = std.time.nanoTimestamp();
+
+        const decode_ns = t_after - t_before;
+        if (decode_ns > DECODE_TIMEOUT_NS) {
+            return error.DecodingTooSlow;
+        }
+
+        if (res == AVERROR_EAGAIN or res == c.AVERROR_EOF) return null;
+        if (res < 0) return error.ReceiveFailed;
+        return self.frame;
+    }
+
+    /// Determines whether a decoded frame should be enqueued based on AV sync.
+    ///
+    /// Compares the frame's PTS (presentation timestamp) against the current
+    /// audio clock (`audio_time_ns`). Returns true if the frame is within the
+    /// acceptable sync window; otherwise, the frame is dropped.
+    ///
+    /// This helps reduce A/V desync by dropping outdated video frames.
+    fn shouldEnqueue(
         self: *VideoState,
-        pkt: *const c.AVPacket,
+        frame: *c.AVFrame,
+        audio_time_ns: i128,
+        sync_window: i32,
+    ) bool {
+        const pts_ns = self.getFramePtsNS(frame) catch return false;
+        const diff = @as(i64, @intCast(pts_ns)) -
+            @as(i64, @intCast(audio_time_ns));
+        return diff >= -sync_window * 2;
+    }
+
+    /// Attempts to dequeue up to 5 decoded frames and enqueue valid ones.
+    ///
+    /// This is typically called after `sendPacket()`. It runs a short receive loop
+    /// (max 5 iterations) and enqueues any frame that passes `shouldEnqueue()`.
+    ///
+    /// If a frame is late (outside sync window), it's dropped. If the queue is full,
+    /// enqueueing will drop the oldest frame to make space.
+    pub fn drainAndQueueFrames(
+        self: *VideoState,
         sync_window: i32,
         audio_time_ns: i128,
     ) !void {
-        if (self.queue_count >= MAX_VIDEO_FRAMES) {
-            // Don't decode more — skip
-            return;
-        }
-
-        const res_send = c.avcodec_send_packet(self.codec_ctx, pkt);
-        if (res_send == AVERROR_EAGAIN) return error.SendAgain;
-        if (res_send < 0) return error.SendFailed;
-
         var decode_attempts: usize = 0;
-        while (decode_attempts < 5) { // tweak this number!
+        while (decode_attempts < 5) {
+            const frame = try self.tryReceiveFrame() orelse break;
 
-            const t_before = std.time.nanoTimestamp();
-            const res_recv = c.avcodec_receive_frame(self.codec_ctx, self.frame);
-            const t_after = std.time.nanoTimestamp();
-            const decode_ns = t_after - t_before;
-
-            if (decode_ns > 10_000_000) {
-                // std.debug.print("Decoding frame took {} ns\n", .{decode_ns});
-                return error.DecodingTooSlow;
-            }
-
-            if (res_recv == AVERROR_EAGAIN or res_recv == c.AVERROR_EOF) {
-                // std.debug.print("No frame returned (res = {})\n", .{res_recv});
-                break;
-            }
-            if (res_recv < 0) return error.ReceiveFailed;
-
-            const pts_ns = try self.getFramePtsNS(self.frame);
-            const diff = @as(i64, @intCast(pts_ns)) - @as(i64, @intCast(audio_time_ns));
-            if (diff < -sync_window * 2) {
-                // std.debug.print("Dropping late frame (diff = {})\n", .{diff});
+            if (!self.shouldEnqueue(frame, audio_time_ns, sync_window)) {
                 decode_attempts += 1;
                 continue;
-            }
-
-            if (self.start_time_ns == 0) {
-                self.start_time_ns = std.time.nanoTimestamp();
             }
 
             try self.enqueueDecodedFrame();
             decode_attempts += 1;
         }
+    }
+
+    /// High-level handler: sends one video packet and queues resulting frames.
+    ///
+    /// Combines `sendPacket()` and `drainAndQueueFrames()` into a single
+    /// operation to process one packet completely, including AV sync enforcement
+    /// and frame queue management.
+    ///
+    /// Use this from the main decoding loop for clean packet-by-packet handling.
+    pub fn processVideoPacket(
+        self: *VideoState,
+        pkt: *const c.AVPacket,
+        sync_window: i32,
+        audio_time_ns: i128,
+    ) !void {
+        try self.sendPacket(pkt);
+        try self.drainAndQueueFrames(sync_window, audio_time_ns);
     }
 
     // -- q
@@ -396,9 +467,9 @@ const VideoState = struct {
         // Drop the oldest if we're full
         if (self.queue_count >= MAX_VIDEO_FRAMES) {
             const drop_idx = self.queue_tail;
-            if (self.video_queue[drop_idx]) |old_vf| {
+            if (self.frame_queue[drop_idx]) |old_vf| {
                 c.av_frame_free(@constCast(@ptrCast(&old_vf.frame)));
-                self.video_queue[drop_idx] = null;
+                self.frame_queue[drop_idx] = null;
             }
             self.queue_tail = (self.queue_tail + 1) % MAX_VIDEO_FRAMES;
             self.queue_count -= 1;
@@ -418,7 +489,7 @@ const VideoState = struct {
         self.last_enqueued_pts_ns = pts_ns;
 
         const index = (self.queue_tail + self.queue_count) % MAX_VIDEO_FRAMES;
-        self.video_queue[index] = VideoFrame{
+        self.frame_queue[index] = VideoFrame{
             .frame = cloned_frame,
             .pts_ns = pts_ns,
         };
@@ -429,9 +500,9 @@ const VideoState = struct {
         var i: usize = 0;
         while (i < self.queue_count) : (i += 1) {
             const idx = (self.queue_tail + i) % MAX_VIDEO_FRAMES;
-            if (self.video_queue[idx]) |vf| {
+            if (self.frame_queue[idx]) |vf| {
                 c.av_frame_free(@constCast(@ptrCast(&vf.frame)));
-                self.video_queue[idx] = null;
+                self.frame_queue[idx] = null;
             }
         }
         self.queue_tail = 0;
@@ -441,11 +512,11 @@ const VideoState = struct {
     pub fn popFrame(self: *VideoState) ?*c.AVFrame {
         if (self.queue_count == 0) return null;
 
-        const maybe_vf = self.video_queue[self.queue_tail];
+        const maybe_vf = self.frame_queue[self.queue_tail];
         if (maybe_vf) |vf| {
             const frame = vf.frame;
 
-            self.video_queue[self.queue_tail] = null;
+            self.frame_queue[self.queue_tail] = null;
             self.queue_tail = (self.queue_tail + 1) % MAX_VIDEO_FRAMES;
             self.queue_count -= 1;
 
@@ -457,11 +528,16 @@ const VideoState = struct {
 
     pub fn peekFrame(self: *VideoState) ?VideoFrame {
         if (self.queue_count == 0) return null;
-        return self.video_queue[self.queue_tail] orelse null;
+        return self.frame_queue[self.queue_tail] orelse null;
     }
 
     // -- output
 
+    /// Converts a decoded YUV video frame into RGB format and writes it into
+    /// the movy render surface.
+    ///
+    /// This uses `sws_scale()` to convert the frame to RGB24 and then maps
+    /// the RGB values onto the `surface.color_map`, ready for terminal rendering.
     pub fn renderFrameToSurface(
         self: *VideoState,
         frame: *c.AVFrame,
@@ -500,7 +576,7 @@ const VideoState = struct {
     }
 };
 
-const AudioState = struct {
+pub const AudioState = struct {
     stream_index: usize,
     start_time_ns: i128 = 0,
     last_audio_ns: i128 = 0,
