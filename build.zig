@@ -11,8 +11,7 @@ pub fn build(b: *std.Build) void {
 
     // -- build options
     // apt-get install libavcodec-dev libavutil-dev libswresample-dev libavformat-dev libswscale-dev
-    // const enable_ffmpeg = b.option(bool, "ffmpeg", "Enable ffmpeg support in movy") orelse false;
-    const enable_ffmpeg = true;
+    const enable_ffmpeg = b.option(bool, "video", "Enable ffmpeg/SDL2 audio support in movy") orelse false;
 
     // -- movy
     const movy_mod = b.addModule("movy", .{
@@ -133,7 +132,6 @@ pub fn build(b: *std.Build) void {
         movy_video_mod.linkSystemLibrary("SDL2", .{});
 
         // Executables for movy_video
-
         const names = [_][]const u8{
             "mplayer",
         };
