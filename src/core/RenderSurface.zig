@@ -102,6 +102,56 @@ pub const RenderSurface = struct {
         return surface;
     }
 
+    /// Loads an RGBA32 PNG from a memory buffer into a new RenderSurface
+    pub fn createFromPngData(
+        allocator: std.mem.Allocator,
+        png_data: []const u8,
+    ) !*RenderSurface {
+        var w: c_uint = 0;
+        var h: c_uint = 0;
+        var rgba_data: [*c]u8 = null;
+
+        const error_code = cimp.lodepng_decode_memory(
+            &rgba_data,
+            &w,
+            &h,
+            png_data.ptr,
+            png_data.len,
+            cimp.LCT_RGBA,
+            8,
+        );
+        defer if (rgba_data != null) std.c.free(rgba_data);
+
+        if (error_code != 0) {
+            return error.InvalidPngData;
+        }
+
+        const width = @as(usize, w);
+        const height = @as(usize, h);
+        const pixel_count = width * height;
+
+        const surface = try init(
+            allocator,
+            width,
+            height,
+            movy.core.types.Rgb{ .r = 0, .g = 0, .b = 0 },
+        );
+        errdefer allocator.destroy(surface);
+
+        for (0..pixel_count) |i| {
+            const r = rgba_data[i * 4];
+            const g = rgba_data[i * 4 + 1];
+            const b = rgba_data[i * 4 + 2];
+            // const a = rgba_data[i * 4 + 3];
+            surface.color_map[i] =
+                movy.core.types.Rgb{ .r = r, .g = g, .b = b };
+            // surface.shadow_map[i] = if (a > 0) 1 else 0;
+            surface.shadow_map[i] = 1;
+        }
+
+        return surface;
+    }
+
     /// Creates a new RenderSurface from a catimg ANSI string,
     /// calculating dimensions from the first line.
     pub fn createFromAnsi(

@@ -76,6 +76,10 @@ pub fn setBgColor(color: movy.core.types.Rgb) void {
     ) catch {};
 }
 
+pub fn resetColor() void {
+    stdout.print("\x1b[0m", .{}) catch {};
+}
+
 /// Begins alternate screen mode, preparing the terminal for full-screen use
 pub fn beginAlternateScreen() !void {
     // ESC s: Save current cursor position
