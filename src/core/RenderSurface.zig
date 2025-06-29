@@ -716,4 +716,18 @@ pub const RenderSurface = struct {
             (ch >= 0x2E80 and ch <= 0xA4CF) or
             (ch >= 0x1F300 and ch <= 0x1F64F); // Emoji & CJK
     }
+
+    pub fn print(self: *RenderSurface) !void {
+        const stdout = std.io.getStdOut().writer();
+        // give space for image rendering
+        const h = self.h / 2;
+        for (0..h) |_| {
+            try stdout.print("\n", .{});
+        }
+        movy.terminal.cursorUp(@as(i32, @intCast(h)));
+
+        // print image
+        const str = try self.toAnsi();
+        try stdout.print("{s}\n", .{str});
+    }
 };
