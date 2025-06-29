@@ -17,7 +17,7 @@ const SDL = @cImport({
 const AVERROR_EAGAIN = -11; // missing ffmpeg error definition
 
 const SAMPLE_BUF_SIZE = 1024; // SLD2 audio buffer size
-pub const DECODE_TIMEOUT_NS = 20_000_000;
+pub const DECODE_TIMEOUT_NS = 50_000_000;
 
 /// Represents one decoded video frame, along with its timestamp in nanoseconds.
 /// This is used for queueing and sync comparisons during video playback.
@@ -26,6 +26,9 @@ const VideoFrame = struct {
     pts_ns: u64,
 };
 
+// for aligned alloc of the frame rgb_buf
+const AlignedRgbBuf = []align(32) u8;
+
 /// Top-level AV decoder interface used by the player.
 ///
 /// Holds everything needed to decode video (and optionally audio) from a
@@ -33,7 +36,6 @@ const VideoFrame = struct {
 /// Internally wraps:
 /// - `VideoState`: required for all decoding, surface rendering, and timing
 /// - `AudioState`: optional, used when an audio stream exists
-/// - A pointer to the render surface where decoded frames are displayed
 ///
 /// Use `init()` to set up decoding, then `processNextPacket()` repeatedly
 /// to drive playback.
@@ -51,7 +53,6 @@ const VideoFrame = struct {
 /// }
 /// ```
 pub const VideoDecoder = struct {
-    surface: *movy.RenderSurface,
     video: VideoState,
     audio: ?AudioState = null,
     /// Clock base reference — playback time = now - clock_start_ns
@@ -64,14 +65,13 @@ pub const VideoDecoder = struct {
     pub fn init(
         allocator: std.mem.Allocator,
         filename: []const u8,
-        surface: *movy.RenderSurface,
     ) !*VideoDecoder {
         const decoder = try allocator.create(VideoDecoder);
         errdefer allocator.destroy(decoder);
 
         _ = c.av_log_set_level(c.AV_LOG_QUIET); // silence FFmpeg logs
 
-        var video = try VideoState.init(allocator, filename, surface);
+        var video = try VideoState.init(filename);
         errdefer video.deinit(allocator);
 
         const fmt_ctx = video.fmt_ctx;
@@ -88,10 +88,9 @@ pub const VideoDecoder = struct {
         video.start_time_ns = std.time.nanoTimestamp();
 
         decoder.* = .{
-            .surface = surface,
             .video = video,
             .audio = audio,
-            .clock_start_ns = std.time.nanoTimestamp(),
+            .clock_start_ns = video.start_time_ns,
         };
 
         return decoder;
@@ -108,13 +107,23 @@ pub const VideoDecoder = struct {
         allocator.destroy(self);
     }
 
+    pub fn getVideoDimensions(self: *VideoDecoder) struct {
+        w: usize,
+        h: usize,
+    } {
+        const w: usize = @intCast(self.video.codec_ctx.*.width);
+        const h: usize = @intCast(self.video.codec_ctx.*.height);
+
+        return .{ .w = w, .h = h };
+    }
+
     /// Reads the next packet from the media stream and dispatches it.
     ///
     /// This is the main function to advance decoding. It automatically routes
     /// packets to either the video or audio decoder, or skips unknown packets.
     pub fn processNextPacket(
         self: *VideoDecoder,
-        sync_window: i32,
+        sync_window: i64,
         audio_time_ns: i128,
         bypass_sync: bool,
     ) !enum {
@@ -228,6 +237,44 @@ pub const VideoDecoder = struct {
     pub fn freeAVFrame(frame: *c.AVFrame) void {
         c.av_frame_free(@as([*c][*c]c.AVFrame, @constCast(@ptrCast(&frame))));
     }
+
+    // -- some nice helpers for player coding
+
+    pub fn getPlaybackTimestampStr(self: *VideoDecoder, allocator: std.mem.Allocator) ![]const u8 {
+        const current_ns = self.getPlaybackClock();
+        return formatDuration(allocator, current_ns);
+    }
+
+    pub fn getTotalDurationStr(self: *VideoDecoder, allocator: std.mem.Allocator) ![]const u8 {
+        const duration_us = self.video.fmt_ctx.duration;
+        if (duration_us <= 0) return allocator.dupe(u8, "??:??:??");
+        const duration_ns: u64 = @as(u64, @intCast(duration_us)) * 1000;
+        return formatDuration(allocator, duration_ns);
+    }
+
+    pub fn getPlaybackProgressPercent(self: *VideoDecoder) u8 {
+        const duration_us = self.video.fmt_ctx.duration;
+        if (duration_us <= 0) return 0;
+        const duration_ns: u64 = @as(u64, @intCast(duration_us)) * 1000;
+        const current_ns: u64 = @as(u64, @intCast(self.getPlaybackClock()));
+        const pct = @min((current_ns * 100) / duration_ns, 100);
+        return @as(u8, @intCast(pct));
+    }
+
+    fn formatDuration(allocator: std.mem.Allocator, ns: i128) ![]const u8 {
+        const total_seconds = @divTrunc(ns, std.time.ns_per_s);
+        const hours = @divTrunc(total_seconds, 3600);
+        const minutes = @divTrunc((@mod(total_seconds, 3600)), 60);
+        const seconds = @mod(total_seconds, 60);
+
+        const h = @as(u64, @intCast(hours));
+        const m = @as(u64, @intCast(minutes));
+        const s = @as(u64, @intCast(seconds));
+
+        return std.fmt.allocPrint(allocator, "{d:0>2}:{d:0>2}:{d:0>2}", .{
+            h, m, s,
+        });
+    }
 };
 
 /// Holds all state and resources for decoding video frames with FFmpeg
@@ -249,8 +296,8 @@ pub const VideoState = struct {
     pub const MAX_VIDEO_FRAMES = 1024; // max frame queue size
     pub const FALLBACK_FPS_NS = 41_666_666; // ~24 fps
     stream_index: usize,
-    target_width: usize,
-    target_height: usize,
+    target_width: usize = 0,
+    target_height: usize = 0,
 
     // av sync
     start_time_ns: i128 = 0,
@@ -259,11 +306,13 @@ pub const VideoState = struct {
     // ffmpeg
     fmt_ctx: *c.AVFormatContext,
     codec_ctx: *c.AVCodecContext,
-    sws_ctx: *c.SwsContext,
+    stream: *c.AVStream,
 
-    frame: *c.AVFrame,
-    rgb_frame: *c.AVFrame,
-    rgb_buf: []u8,
+    sws_ctx: ?*c.SwsContext = null,
+    frame: ?*c.AVFrame = null,
+    rgb_frame: ?*c.AVFrame = null,
+
+    rgb_buf: ?AlignedRgbBuf = null,
 
     time_base: c.AVRational,
 
@@ -279,12 +328,8 @@ pub const VideoState = struct {
     /// - Opens the file using FFmpeg
     /// - Locates the video stream and sets up the codec context
     /// - Initializes threaded decoding
-    /// - Sets up swscale to convert frames to RGB format
-    /// - Allocates buffers for decoding and RGB frames
     pub fn init(
-        allocator: std.mem.Allocator,
         filename: []const u8,
-        surface: *movy.RenderSurface,
     ) !VideoState {
         var fmt_ctx: ?*c.AVFormatContext = null;
         if (c.avformat_open_input(&fmt_ctx, filename.ptr, null, null) != 0) {
@@ -314,42 +359,6 @@ pub const VideoState = struct {
         if (c.avcodec_open2(codec_ctx, codec, null) < 0)
             return error.CodecOpenFailed;
 
-        const sws_ctx = c.sws_getContext(
-            codec_ctx.*.width,
-            codec_ctx.*.height,
-            codec_ctx.*.pix_fmt,
-            @as(i32, @intCast(surface.w)),
-            @as(i32, @intCast(surface.h)),
-            c.AV_PIX_FMT_RGB24,
-            c.SWS_BILINEAR,
-            null,
-            null,
-            null,
-        ) orelse return error.SwsInitFailed;
-
-        const frame = c.av_frame_alloc() orelse return error.AllocFailed;
-        const rgb_frame = c.av_frame_alloc() orelse return error.AllocFailed;
-
-        const rgb_buf_size: usize = @intCast(c.av_image_get_buffer_size(
-            c.AV_PIX_FMT_RGB24,
-            @as(c_int, @intCast(surface.w)),
-            @as(c_int, @intCast(surface.h)),
-            1,
-        ));
-
-        const rgb_buf = try allocator.alignedAlloc(u8, 32, rgb_buf_size);
-
-        if (c.av_image_fill_arrays(
-            &rgb_frame.*.data[0],
-            &rgb_frame.*.linesize[0],
-            rgb_buf.ptr,
-            c.AV_PIX_FMT_RGB24,
-            @as(c_int, @intCast(surface.w)),
-            @as(c_int, @intCast(surface.h)),
-            1,
-        ) < 0)
-            return error.FillArrayFailed;
-
         const time_base = stream.*.time_base;
         var frame_duration_ns: u64 =
             @as(
@@ -372,14 +381,9 @@ pub const VideoState = struct {
             .fmt_ctx = fmt_ctx.?,
             .stream_index = stream_index,
             .codec_ctx = codec_ctx,
-            .sws_ctx = sws_ctx,
-            .frame = frame,
-            .rgb_frame = rgb_frame,
-            .rgb_buf = rgb_buf,
             .time_base = time_base,
             .frame_duration_ns = @as(u64, @intCast(frame_duration_ns)),
-            .target_width = surface.w,
-            .target_height = surface.h,
+            .stream = stream,
         };
     }
 
@@ -387,11 +391,24 @@ pub const VideoState = struct {
     ///
     /// Should be called once decoding is finished.
     pub fn deinit(self: *VideoState, allocator: std.mem.Allocator) void {
-        allocator.free(self.rgb_buf);
+        if (self.rgb_buf) |rgb_buf| {
+            allocator.free(rgb_buf);
+        }
+        if (self.frame) |frame| {
+            c.av_frame_free(
+                @as([*c][*c]c.AVFrame, @constCast(@ptrCast(&frame))),
+            );
+        }
 
-        c.av_frame_free(@as([*c][*c]c.AVFrame, @ptrCast(&self.frame)));
-        c.av_frame_free(@as([*c][*c]c.AVFrame, @ptrCast(&self.rgb_frame)));
-        c.sws_freeContext(self.sws_ctx);
+        if (self.rgb_frame) |rgb_frame| {
+            c.av_frame_free(
+                @as([*c][*c]c.AVFrame, @constCast(@ptrCast(&rgb_frame))),
+            );
+        }
+
+        if (self.sws_ctx) |sws_ctx| {
+            c.sws_freeContext(sws_ctx);
+        }
 
         c.avcodec_free_context(
             @as([*c][*c]c.AVCodecContext, @ptrCast(&self.codec_ctx)),
@@ -399,6 +416,59 @@ pub const VideoState = struct {
         c.avformat_close_input(
             @as([*c][*c]c.AVFormatContext, @ptrCast(&self.fmt_ctx)),
         );
+    }
+
+    /// - Sets up swscale to convert frames to RGB format
+    /// - Allocates buffers for decoding and RGB frames
+    pub fn setDimensions(
+        self: *VideoState,
+        allocator: std.mem.Allocator,
+        w: usize,
+        h: usize,
+    ) !void {
+        const sws_ctx = c.sws_getContext(
+            self.codec_ctx.*.width,
+            self.codec_ctx.*.height,
+            self.codec_ctx.*.pix_fmt,
+            @as(i32, @intCast(w)),
+            @as(i32, @intCast(h)),
+            c.AV_PIX_FMT_RGB24,
+            c.SWS_BILINEAR,
+            null,
+            null,
+            null,
+        ) orelse return error.SwsInitFailed;
+        self.sws_ctx = sws_ctx;
+
+        const frame = c.av_frame_alloc() orelse return error.AllocFailed;
+        self.frame = frame;
+
+        const rgb_frame = c.av_frame_alloc() orelse return error.AllocFailed;
+        self.rgb_frame = rgb_frame;
+
+        const rgb_buf_size: usize = @intCast(c.av_image_get_buffer_size(
+            c.AV_PIX_FMT_RGB24,
+            @as(c_int, @intCast(w)),
+            @as(c_int, @intCast(h)),
+            1,
+        ));
+
+        const rgb_buf = try allocator.alignedAlloc(u8, 32, rgb_buf_size);
+        self.rgb_buf = rgb_buf;
+
+        if (c.av_image_fill_arrays(
+            &rgb_frame.*.data[0],
+            &rgb_frame.*.linesize[0],
+            rgb_buf.ptr,
+            c.AV_PIX_FMT_RGB24,
+            @as(c_int, @intCast(w)),
+            @as(c_int, @intCast(h)),
+            1,
+        ) < 0)
+            return error.FillArrayFailed;
+
+        self.target_width = w;
+        self.target_height = h;
     }
 
     // -- helpers
@@ -469,6 +539,7 @@ pub const VideoState = struct {
         self: *VideoState,
         pkt: *const c.AVPacket,
     ) !void {
+        const frame = self.frame orelse return error.NoFrame;
         if (pkt.size <= 0 or pkt.pts == c.AV_NOPTS_VALUE) {
             std.debug.print(
                 "Skipping invalid packet: size={}, pts={}\n",
@@ -482,7 +553,7 @@ pub const VideoState = struct {
             // Decoder full — try draining to make room
             while (true) {
                 const drain_result =
-                    c.avcodec_receive_frame(self.codec_ctx, self.frame);
+                    c.avcodec_receive_frame(self.codec_ctx, frame);
                 if (drain_result == AVERROR_EAGAIN or
                     drain_result == c.AVERROR_EOF) break;
                 // else we discard the frame silently; we’re just clearing space
@@ -541,7 +612,7 @@ pub const VideoState = struct {
         self: *VideoState,
         frame: *c.AVFrame,
         audio_time_ns: i128,
-        sync_window: i32,
+        sync_window: i64,
         bypass_sync: bool,
     ) bool {
         if (bypass_sync) return true;
@@ -562,7 +633,7 @@ pub const VideoState = struct {
     /// make space.
     pub fn drainAndQueueFrames(
         self: *VideoState,
-        sync_window: i32,
+        sync_window: i64,
         audio_time_ns: i128,
         bypass_sync: bool,
     ) !void {
@@ -595,7 +666,7 @@ pub const VideoState = struct {
     pub fn processVideoPacket(
         self: *VideoState,
         pkt: *const c.AVPacket,
-        sync_window: i32,
+        sync_window: i64,
         audio_time_ns: i128,
         bypass_sync: bool,
     ) !void {
@@ -685,14 +756,18 @@ pub const VideoState = struct {
         frame: *c.AVFrame,
         surface: *movy.RenderSurface,
     ) void {
+        const sws_ctx = self.sws_ctx orelse return;
+        const rgb_buf = self.rgb_buf orelse return;
+        const rgb_frame = self.rgb_frame orelse return;
+
         const src_data: [*c]const [*c]const u8 = @ptrCast(&frame.*.data[0]);
         const src_stride: [*c]const c_int = &frame.*.linesize[0];
 
-        const dst_data: [*c][*c]u8 = @ptrCast(&self.rgb_frame.*.data[0]);
-        const dst_stride: [*c]c_int = &self.rgb_frame.*.linesize[0];
+        const dst_data: [*c][*c]u8 = @ptrCast(&rgb_frame.*.data[0]);
+        const dst_stride: [*c]c_int = &rgb_frame.*.linesize[0];
 
         _ = c.sws_scale(
-            self.sws_ctx,
+            sws_ctx,
             src_data,
             src_stride,
             0,
@@ -701,15 +776,15 @@ pub const VideoState = struct {
             dst_stride,
         );
 
-        const pitch: usize = @as(usize, @intCast(self.rgb_frame.*.linesize[0]));
+        const pitch: usize = @as(usize, @intCast(rgb_frame.*.linesize[0]));
         var y: usize = 0;
         while (y < self.target_height) : (y += 1) {
             var x: usize = 0;
             while (x < self.target_width) : (x += 1) {
                 const offset = y * pitch + x * 3;
-                const r = self.rgb_buf[offset];
-                const g = self.rgb_buf[offset + 1];
-                const b = self.rgb_buf[offset + 2];
+                const r = rgb_buf[offset];
+                const g = rgb_buf[offset + 1];
+                const b = rgb_buf[offset + 2];
 
                 surface.color_map[y * self.target_width + x] =
                     movy.core.types.Rgb{ .r = r, .g = g, .b = b };
