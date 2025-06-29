@@ -71,5 +71,5 @@ At its heart, **movy** is built on composable rendering, effect-driven visuals, 
 # Building
 
 ```
-zig build -Dffmpeg=true
+zig build -Dvideo=true
 ```
