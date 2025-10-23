@@ -292,24 +292,48 @@ pub const RenderSurface = struct {
             if (y % 2 != 0) continue; // Step by 2—half-block pairs
             for (0..self.w) |x| {
                 const idx = x + y * self.w;
-                const char = self.char_map[idx];
+                const char1 = self.char_map[idx];
+                var char2: u21 = 0;
 
-                const line = if (char != 0) blk: { // Char present? Render it
-                    const slice = try std.fmt.bufPrint(
-                        self.rendered_str[tmpstr_idx..],
-                        "\x1b[38;2;{};{};{}m\x1b[48;2;{};{};{}m{u}",
-                        .{
-                            self.color_map[idx].r,
-                            self.color_map[idx].g,
-                            self.color_map[idx].b,
-                            self.color_map[idx + self.w].r,
-                            self.color_map[idx + self.w].g,
-                            self.color_map[idx + self.w].b,
-                            char,
-                        },
-                    );
-                    break :blk slice;
+                if (char1 == 0) {
+                    if (idx > self.w) char2 = self.char_map[idx - self.w];
+                }
+
+                const line = if ((char1 != 0) or (char2 != 0)) blk: { // Char present? Render it
+                    if (char1 != 0) {
+                        const slice1 = try std.fmt.bufPrint(
+                            self.rendered_str[tmpstr_idx..],
+                            "\x1b[38;2;{};{};{}m\x1b[48;2;{};{};{}m{u}",
+                            .{
+                                self.color_map[idx].r,
+                                self.color_map[idx].g,
+                                self.color_map[idx].b,
+                                self.color_map[idx + self.w].r,
+                                self.color_map[idx + self.w].g,
+                                self.color_map[idx + self.w].b,
+                                char1,
+                            },
+                        );
+                        break :blk slice1;
+                    } else {
+                        const slice2 = try std.fmt.bufPrint(
+                            self.rendered_str[tmpstr_idx..],
+                            "\x1b[48;2;{};{};{}m\x1b[38;2;{};{};{}m{u}",
+                            .{
+                                self.color_map[idx].r,
+                                self.color_map[idx].g,
+                                self.color_map[idx].b,
+                                self.color_map[idx + self.w].r,
+                                self.color_map[idx + self.w].g,
+                                self.color_map[idx + self.w].b,
+                                char2,
+                            },
+                        );
+                        break :blk slice2;
+                    }
                 } else blk: { // No char? Render pixels in half-blocks
+                    // char present above? skip
+
                     const upper = self.color_map[idx];
                     const lower = self.color_map[x + (y + 1) * self.w];
                     const upper_trans = self.shadow_map[idx] == 0;
