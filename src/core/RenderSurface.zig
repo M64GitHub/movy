@@ -584,6 +584,57 @@ pub const RenderSurface = struct {
         return idx;
     }
 
+    /// Writes a string to the RenderSurface starting at the specified
+    /// coordinates with foreground and background colors.
+    /// Steps x per char, wraps to xpos and y += 2 on width exceed or \n
+    /// clips if y exceeds h/2.
+    /// returns index into maps for next cursor position
+    pub fn putStrXYTransparent(
+        self: *RenderSurface,
+        str: []const u8,
+        xpos: usize,
+        ypos: usize,
+        fg_color: movy.core.types.Rgb,
+        bg_color: movy.core.types.Rgb,
+    ) usize {
+        var x = xpos;
+        var y = ypos;
+        if (y >= self.h / 2) return 0; // Clip at half height
+        var y_pixel = y * 2; // Line to pixel, even rows
+
+        var idx: usize = 0;
+
+        for (str) |char| {
+            if (char == '\n' or x >= (self.w - 1)) { // Wrap on \n or width
+                x = xpos;
+                y += 1;
+                if (y >= (self.h / 2) - 1) return 0; // Clip
+                y_pixel = y * 2;
+                if (char == '\n') continue; // only when not clipping, on '\n'
+            }
+            idx = x + y_pixel * self.w;
+            if (x < self.w and y_pixel + 1 < self.h) { // Bounds check
+                if (char != ' ') {
+                    self.char_map[idx] = char;
+                    self.color_map[idx] = fg_color; // fg at y
+                    self.color_map[idx + self.w] = bg_color; // bg at y+1
+                    self.shadow_map[idx] = 1;
+                }
+            }
+            x += 1;
+        }
+
+        // return idx, but check wrap first
+        if (x >= (self.w - 1)) { // Wrap on width
+            x = xpos;
+            y += 1;
+            if (y >= (self.h / 2) - 1) return 0; // Clip
+            y_pixel = y * 2;
+        }
+        idx = x + y_pixel * self.w;
+        return idx;
+    }
+
     /// Writes an StyledTextBuffer to the RenderSurface starting at the
     /// specified coordinates with foreground and background colors.
     /// StyledChar colors override the given colores.
