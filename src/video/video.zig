@@ -14,7 +14,8 @@ const SDL = @cImport({
     @cInclude("SDL2/SDL.h");
 });
 
-const AVERROR_EAGAIN = -11; // missing ffmpeg error definition
+// Use platform-specific EAGAIN via FFmpeg's AVERROR macro
+const AVERROR_EAGAIN = c.AVERROR(@as(c_int, @intCast(@intFromEnum(std.posix.E.AGAIN))));
 
 const SAMPLE_BUF_SIZE = 1024; // SLD2 audio buffer size
 pub const DECODE_TIMEOUT_NS = 50_000_000;
@@ -852,23 +853,21 @@ pub const AudioState = struct {
             return error.OpenCodecFailed;
 
         const audio_sample_rate = @as(u32, @intCast(codec_ctx.*.sample_rate));
-        const audio_channels = @as(u32, @intCast(codec_ctx.*.channels));
+        const audio_channels = @as(u32, @intCast(codec_ctx.*.ch_layout.nb_channels));
 
-        const swr_ctx = c.swr_alloc_set_opts(
-            null,
-            c.av_get_default_channel_layout(
-                @as(c_int, @intCast(audio_channels)),
-            ),
+        var swr_ctx: ?*c.SwrContext = null;
+        const ret = c.swr_alloc_set_opts2(
+            &swr_ctx,
+            &codec_ctx.*.ch_layout,
             c.AV_SAMPLE_FMT_S16,
             codec_ctx.*.sample_rate,
-            c.av_get_default_channel_layout(
-                @as(c_int, @intCast(audio_channels)),
-            ),
+            &codec_ctx.*.ch_layout,
             codec_ctx.*.sample_fmt,
             codec_ctx.*.sample_rate,
             0,
             null,
-        ) orelse return error.SwrAllocFailed;
+        );
+        if (ret < 0 or swr_ctx == null) return error.SwrAllocFailed;
 
         if (c.swr_init(swr_ctx) < 0)
             return error.SwrInitFailed;
@@ -900,7 +899,7 @@ pub const AudioState = struct {
         return AudioState{
             .stream_index = stream_index,
             .codec_ctx = codec_ctx,
-            .swr_ctx = swr_ctx,
+            .swr_ctx = swr_ctx.?,
             .audio_buf = audio_buf,
             .audio_device = audio_device,
             .audio_sample_rate = audio_sample_rate,

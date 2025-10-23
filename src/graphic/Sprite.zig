@@ -539,7 +539,7 @@ pub const Sprite = struct {
         try output_surface.copy(frame.data_surface);
 
         const effect_ctx = movy.render.Effect.RenderEffectContext{
-            .infput_surface = frame_set.frames.items[0].data_surface,
+            .input_surface = frame_set.frames.items[0].data_surface,
             .output_surface = output_surface,
         };
 
