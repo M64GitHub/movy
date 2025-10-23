@@ -68,6 +68,30 @@ At its heart, **movy** is built on composable rendering, effect-driven visuals, 
 - **TrigWave** provides reusable sine and cosine generators with internal state. These simplify wave-based animations such as pulsing highlights, bobbing motion, or cyclic transitions.
 - **Easing** - for easing curve based animations, functions for easing -in/-out/-inout are provided.
 
+## movy_video
+
+A latest addition to **movy** is **movy_video** — a video decoding and rendering module that brings full-motion video playback directly to the terminal.
+
+**movy_video** provides a complete video decoding pipeline using FFmpeg, with support for:
+- **Video decoding** for all FFmpeg-supported formats (.mp4, .h264, .avi, .mkv, .webm, etc.)
+- **Audio playback** with synchronized timing using SDL2
+- **Frame scaling** and conversion to RGB for terminal rendering
+- **Audio/video synchronization** with configurable sync windows
+- **Seeking** with forward/backward navigation
+- **Frame queueing** for smooth playback
+
+The module exposes a `VideoDecoder` type that manages the entire decode pipeline, from opening media files to extracting frames and audio samples. Video frames are automatically scaled and rendered to **movy** `RenderSurface` objects, allowing seamless integration with the rest of the rendering engine.
+
+See [movycat](https://github.com/M64GitHub/movycat) for a complete terminal video player built with **movy_video**.
+
+### FFmpeg Compatibility
+
+**movy_video** has been tested and confirmed working with:
+- **FFmpeg 8.0** (macOS via Homebrew)
+- **FFmpeg 7.1.1** (Ubuntu via apt)
+
+The module uses the modern FFmpeg channel layout API (`AVChannelLayout`) and is compatible with both FFmpeg 7.x and 8.x versions.
+
 # Building
 
 ```
