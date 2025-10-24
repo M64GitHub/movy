@@ -99,6 +99,400 @@ zig build -Dvideo=true
 ```
 # TECH DOCS
 
+## DISPLAY A RENDERSURFACE (FROM PNG) ON THE SCREEN
+
+```
+Basic Primitive Rendering: Render a PNG File to Screen
+========================================================
+
+Use Case: Load a PNG and display it in the terminal (simplest approach)
+
+
+STEP 1: LOAD PNG FILE
+======================
+        ┌──────────────────────────────────────────────────────────┐
+        │                    PNG FILE                              │
+        │  ┌────────────────────────────────────────────────────┐  │
+        │  │  "image.png"                                       │  │
+        │  │  ┌──────────────────────────────────────────────┐  │  │
+        │  │  │ RGBA32 pixel data                            │  │  │
+        │  │  │ • Red channel   (0-255)                      │  │  │
+        │  │  │ • Green channel (0-255)                      │  │  │
+        │  │  │ • Blue channel  (0-255)                      │  │  │
+        │  │  │ • Alpha channel (0-255) transparency         │  │  │
+        │  │  └──────────────────────────────────────────────┘  │  │
+        │  └────────────────────────────────────────────────────┘  │
+        └────────────────────────────┬─────────────────────────────┘
+                                     │
+                                     │ lodepng_decode32_file()
+                                     │ (C library: src/core/lodepng/)
+                                     ▼
+        ┌──────────────────────────────────────────────────────────┐
+        │            RenderSurface.createFromPng()                 │
+        │  ┌────────────────────────────────────────────────────┐  │
+        │  │ 1. Decode PNG → RGBA buffer in memory              │  │
+        │  │ 2. Extract width × height dimensions               │  │
+        │  │ 3. Allocate RenderSurface(width, height)           │  │
+        │  │ 4. For each pixel:                                 │  │
+        │  │    • Copy RGB → color_map[i]                       │  │
+        │  │    • Set shadow_map[i] = (alpha > 0) ? 1 : 0       │  │
+        │  │    • Clear char_map[i] = 0                         │  │
+        │  └────────────────────────────────────────────────────┘  │
+        └────────────────────────────┬─────────────────────────────┘
+                                     │
+                                     ▼
+
+
+STEP 2: RENDERSURFACE CREATED
+==============================
+        ┌──────────────────────────────────────────────────────────┐
+        │                   RenderSurface                          │
+        │  ┌────────────────────────────────────────────────────┐  │
+        │  │ Data members:                                      │  │
+        │  │                                                    │  │
+        │  │  color_map: []Rgb                                  │  │
+        │  │  ┌─────────────────────────────────────────────┐   │  │
+        │  │  │ [0]: {r: 255, g: 100, b: 50}                │   │  │
+        │  │  │ [1]: {r: 120, g: 200, b: 80}                │   │  │
+        │  │  │ [2]: {r:  50, g:  75, b: 150}               │   │  │
+        │  │  │ ...                                         │   │  │
+        │  │  │ [w×h-1]: {r: 0, g: 0, b: 0}                 │   │  │
+        │  │  └─────────────────────────────────────────────┘   │  │
+        │  │                                                    │  │
+        │  │  shadow_map: []u8                                  │  │
+        │  │  ┌─────────────────────────────────────────────┐   │  │
+        │  │  │ [0]: 1   (opaque)                           │   │  │
+        │  │  │ [1]: 1   (opaque)                           │   │  │
+        │  │  │ [2]: 0   (transparent, from alpha=0)        │   │  │
+        │  │  │ ...                                         │   │  │
+        │  │  │ [w×h-1]: 1                                  │   │  │
+        │  │  └─────────────────────────────────────────────┘   │  │
+        │  │                                                    │  │
+        │  │  char_map: []u21                                   │  │
+        │  │  ┌─────────────────────────────────────────────┐   │  │
+        │  │  │ All zeros (no text overlay)                 │   │  │
+        │  │  └─────────────────────────────────────────────┘   │  │
+        │  │                                                    │  │
+        │  │  Dimensions & Position:                            │  │
+        │  │  • w: width in pixels                              │  │
+        │  │  • h: height in pixels (rows)                      │  │
+        │  │  • x: 0 (default position)                         │  │
+        │  │  • y: 0 (default position)                         │  │
+        │  │  • z: 0 (default z-order)                          │  │
+        │  └────────────────────────────────────────────────────┘  │
+        └────────────────────────────┬─────────────────────────────┘
+                                     │
+                                     │ Optional: Set position
+                                     │ surface.x = 10
+                                     │ surface.y = 5
+                                     │ surface.z = 1
+                                     ▼
+
+
+STEP 3: INITIALIZE SCREEN
+==========================
+        ┌──────────────────────────────────────────────────────────┐
+        │         Screen.init(allocator, width, height)            │
+        │  ┌────────────────────────────────────────────────────┐  │
+        │  │ Creates:                                           │  │
+        │  │  • output_surface: RenderSurface(w, h*2)           │  │
+        │  │  • sprites: ArrayList (empty)                      │  │
+        │  │  • output_surfaces: ArrayList (empty)              │  │
+        │  │                                                    │  │
+        │  │ Initializes terminal:                              │  │
+        │  │  • Hides cursor                                    │  │
+        │  │  • Clears screen with bg_color                     │  │
+        │  └────────────────────────────────────────────────────┘  │
+        └────────────────────────────┬─────────────────────────────┘
+                                     │
+                                     ▼
+        ┌──────────────────────────────────────────────────────────┐
+        │                       Screen                             │
+        │  ┌────────────────────────────────────────────────────┐  │
+        │  │ w: 80            (screen width in chars)           │  │
+        │  │ h: 50×2 = 100    (height in pixel rows)            │  │
+        │  │ bg_color: {r: 0x20, g: 0x20, b: 0x20}              │  │
+        │  │                                                    │  │
+        │  │ output_surface: *RenderSurface                     │  │
+        │  │ ┌──────────────────────────────────────────────┐   │  │
+        │  │ │ Initially filled with bg_color               │   │  │
+        │  │ │ All pixels opaque                            │   │  │
+        │  │ └──────────────────────────────────────────────┘   │  │
+        │  │                                                    │  │
+        │  │ sprites: []          (empty)                       │  │
+        │  │ output_surfaces: []  (empty)                       │  │
+        │  └────────────────────────────────────────────────────┘  │
+        └────────────────────────────┬─────────────────────────────┘
+                                     │
+                                     ▼
+
+
+STEP 4: ADD RENDERSURFACE TO SCREEN
+====================================
+        ┌──────────────────────────────────────────────────────────┐
+        │          screen.addRenderSurface(surface)                │
+        │  ┌────────────────────────────────────────────────────┐  │
+        │  │ Appends the surface pointer to:                    │  │
+        │  │   screen.output_surfaces.append(surface)           │  │
+        │  └────────────────────────────────────────────────────┘  │
+        └────────────────────────────┬─────────────────────────────┘
+                                     │
+                                     ▼
+        ┌──────────────────────────────────────────────────────────┐
+        │                  Screen (updated)                        │
+        │  ┌────────────────────────────────────────────────────┐  │
+        │  │ output_surfaces: [*RenderSurface]                  │  │
+        │  │  ┌──────────────────────────────────────────────┐  │  │
+        │  │  │ [0]: pointer to our PNG-loaded surface       │  │  │
+        │  │  │      (with x, y, z coordinates)              │  │  │
+        │  │  └──────────────────────────────────────────────┘  │  │
+        │  └────────────────────────────────────────────────────┘  │
+        └────────────────────────────┬─────────────────────────────┘
+                                     │
+                                     ▼
+
+
+STEP 5: RENDER (COMPOSITE SURFACES)
+====================================
+        ┌──────────────────────────────────────────────────────────┐
+        │                   screen.render()                        │
+        │  ┌────────────────────────────────────────────────────┐  │
+        │  │ 1. Clear output_surface based on screen_mode:      │  │
+        │  │    • transparent: clearTransparent()               │  │
+        │  │    • bgcolor: clearColored(bg_color)               │  │
+        │  │                                                    │  │
+        │  │ 2. Call RenderEngine.render():                     │  │
+        │  │    ┌────────────────────────────────────────────┐  │  │
+        │  │    │ RenderEngine.render(                       │  │  │
+        │  │    │   surfaces_in: output_surfaces.items,      │  │  │
+        │  │    │   out_surface: screen.output_surface       │  │  │
+        │  │    │ )                                          │  │  │
+        │  │    └────────────────────────────────────────────┘  │  │
+        │  └────────────────────────────────────────────────────┘  │
+        └────────────────────────────┬─────────────────────────────┘
+                                     │
+                                     ▼
+        ┌──────────────────────────────────────────────────────────┐
+        │               RenderEngine.render()                      │
+        │  ┌────────────────────────────────────────────────────┐  │
+        │  │ For each surface in surfaces_in:                   │  │
+        │  │                                                    │  │
+        │  │ 1. Calculate clipping boundaries:                  │  │
+        │  │    • Handle negative x, y (off-screen)             │  │
+        │  │    • Clip to output surface bounds                 │  │
+        │  │                                                    │  │
+        │  │ 2. For each pixel (y_start..y_end, x_start..x_end) │  │
+        │  │    • Check shadow_map[idx] != 0 (is opaque?)       │  │
+        │  │    • If opaque and not yet drawn:                  │  │
+        │  │      - Copy color_map[in] → color_map[out]         │  │
+        │  │      - Set shadow_map[out] = 1                     │  │
+        │  │      - Copy char_map[in] → char_map[out]           │  │
+        │  │                                                    │  │
+        │  │ Result: All surfaces merged into output_surface    │  │
+        │  │         with proper z-ordering and transparency    │  │
+        │  └────────────────────────────────────────────────────┘  │
+        └────────────────────────────┬─────────────────────────────┘
+                                     │
+                                     ▼
+        ┌──────────────────────────────────────────────────────────┐
+        │           Screen.output_surface (composited)             │
+        │  ┌────────────────────────────────────────────────────┐  │
+        │  │ Contains merged result of all added surfaces       │  │
+        │  │ • Background pixels from screen bg_color           │  │
+        │  │ • PNG pixels overlaid at (x, y) position           │  │
+        │  │ • Transparent PNG pixels don't overwrite           │  │
+        │  └────────────────────────────────────────────────────┘  │
+        └────────────────────────────┬─────────────────────────────┘
+                                     │
+                                     ▼
+
+
+STEP 6: OUTPUT TO TERMINAL
+===========================
+        ┌──────────────────────────────────────────────────────────┐
+        │                   screen.output()                        │
+        │  ┌────────────────────────────────────────────────────┐  │
+        │  │ 1. Position cursor:                                │  │
+        │  │    • cursorHome()                                  │  │
+        │  │    • cursorRight(screen.x) if x > 0                │  │
+        │  │    • cursorDown(screen.y / 2) if y > 0             │  │
+        │  │                                                    │  │
+        │  │ 2. Convert to ANSI:                                │  │
+        │  │    rendered_ansi = output_surface.toAnsi()         │  │
+        │  │                                                    │  │
+        │  │ 3. Write to stdout:                                │  │
+        │  │    stdout.writeAll(rendered_ansi)                  │  │
+        │  └────────────────────────────────────────────────────┘  │
+        └────────────────────────────┬─────────────────────────────┘
+                                     │
+                                     ▼
+        ┌──────────────────────────────────────────────────────────┐
+        │            RenderSurface.toAnsi()                        │
+        │  ┌────────────────────────────────────────────────────┐  │
+        │  │ Half-block rendering (processes 2 rows at a time): │  │
+        │  │                                                    │  │
+        │  │ For y = 0, 2, 4, ... (step by 2):                  │  │
+        │  │   For each x:                                      │  │
+        │  │     idx_upper = x + y * w                          │  │
+        │  │     idx_lower = x + (y+1) * w                      │  │
+        │  │                                                    │  │
+        │  │     upper_pixel = color_map[idx_upper]             │  │
+        │  │     lower_pixel = color_map[idx_lower]             │  │
+        │  │     upper_opaque = shadow_map[idx_upper] != 0      │  │
+        │  │     lower_opaque = shadow_map[idx_lower] != 0      │  │
+        │  │                                                    │  │
+        │  │     ┌─────────────────────────────────────────┐    │  │
+        │  │     │ Determine block character:              │    │  │
+        │  │     │  • Both opaque:   '▀' (upper half)      │    │  │
+        │  │     │    FG=upper, BG=lower                   │    │  │
+        │  │     │  • Upper only:    '▀' (upper half)      │    │  │
+        │  │     │    FG=upper, BG=transparent             │    │  │
+        │  │     │  • Lower only:    '▄' (lower half)      │    │  │
+        │  │     │    FG=lower, BG=transparent             │    │  │
+        │  │     │  • Neither:       ' ' (space)           │    │  │
+        │  │     └─────────────────────────────────────────┘    │  │
+        │  │                                                    │  │
+        │  │     Generate ANSI sequence:                        │  │
+        │  │     "\x1b[38;2;{r};{g};{b}m"  (foreground color)   │  │
+        │  │     "\x1b[48;2;{r};{g};{b}m"  (background color)   │  │
+        │  │     "{block_char}"             (▀ or ▄ or ' ')     │  │
+        │  │                                                    │  │
+        │  │   Add line terminator: "\x1b[0m\n"                 │  │
+        │  │                                                    │  │
+        │  │ Result: Complete ANSI string with RGB codes        │  │
+        │  └────────────────────────────────────────────────────┘  │
+        └────────────────────────────┬─────────────────────────────┘
+                                     │
+                                     ▼
+        ┌──────────────────────────────────────────────────────────┐
+        │                  TERMINAL OUTPUT                         │
+        │  ┌────────────────────────────────────────────────────┐  │
+        │  │ ANSI escape sequences displayed as:                │  │
+        │  │                                                    │  │
+        │  │  ████████████                                      │  │
+        │  │  ██        ██    ← PNG image rendered              │  │
+        │  │  ██  IMG   ██      with half-blocks                │  │
+        │  │  ██        ██      2× vertical resolution          │  │
+        │  │  ████████████                                      │  │
+        │  │                                                    │  │
+        │  │ Each terminal character represents 2 pixels:       │  │
+        │  │  • Top pixel: foreground color                     │  │
+        │  │  • Bottom pixel: background color                  │  │
+        │  │  • Character: ▀ (upper), ▄ (lower), or ' '         │  │
+        │  └────────────────────────────────────────────────────┘  │
+        └──────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════
+COMPLETE CODE EXAMPLE
+═══════════════════════════════════════════════════════════════════
+
+const std = @import("std");
+const movy = @import("movy");
+
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    // STEP 1: Load PNG file
+    const surface = try movy.RenderSurface.createFromPng(
+        allocator,
+        "image.png"
+    );
+    defer surface.deinit(allocator);
+
+    // STEP 2: Set position (optional)
+    surface.x = 10;
+    surface.y = 5;
+    surface.z = 0;
+
+    // STEP 3: Initialize screen
+    var screen = try movy.Screen.init(allocator, 80, 50);
+    defer screen.deinit(allocator);
+
+    // STEP 4: Add surface to screen
+    try screen.addRenderSurface(surface);
+
+    // STEP 5: Render (composite all surfaces)
+    screen.render();
+
+    // STEP 6: Output to terminal
+    try screen.output();
+}
+
+═══════════════════════════════════════════════════════════════════
+
+
+KEY CONCEPTS:
+=============
+
+RenderSurface.createFromPng():
+    • Decodes PNG using lodepng C library
+    • Extracts RGBA data into color_map and shadow_map
+    • Alpha > 0 → opaque (shadow_map=1), else transparent (shadow_map=0)
+
+Screen:
+    • Container for multiple surfaces/sprites
+    • Has its own output_surface for final composition
+    • Maintains list of surfaces to render
+
+screen.addRenderSurface():
+    • Registers a surface for rendering
+    • Surfaces rendered in order added (first-to-last)
+
+screen.render():
+    • Clears output_surface
+    • Calls RenderEngine.render() to merge all surfaces
+    • Respects x, y positioning and z-ordering
+    • Handles transparency via shadow_map
+
+RenderEngine.render():
+    • Merges multiple surfaces into one
+    • Clips surfaces to output bounds
+    • Only draws opaque pixels (shadow_map != 0)
+    • First-opaque-wins (no overdraw of already-set pixels)
+
+screen.output():
+    • Converts output_surface to ANSI via toAnsi()
+    • Prints to terminal stdout
+
+RenderSurface.toAnsi():
+    • Half-block rendering: 2 vertical pixels per character
+    • Uses ▀ (upper half block) and ▄ (lower half block)
+    • Generates RGB ANSI codes: \x1b[38;2;r;g;bm (FG), \x1b[48;2;r;g;bm (BG)
+    • Achieves double vertical resolution in terminal
+
+
+RENDERING MODES:
+================
+
+Screen.screen_mode:
+    • .transparent: Transparent background (clearTransparent)
+    • .bgcolor: Solid background color (clearColored)
+
+Set via: screen.setScreenMode(.transparent)
+
+
+COORDINATE SYSTEM:
+==================
+
+Position (x, y):
+    • x: horizontal position (characters)
+    • y: vertical position (pixel rows, not character rows)
+    • Supports negative values (off-screen clipping)
+
+Z-order (z):
+    • Higher z-values render on top
+    • Default: 0
+    • RenderEngine respects z when merging
+
+Dimensions (w, h):
+    • w: width in characters/pixels
+    • h: height in pixel rows (2 pixels per terminal line)
+
+```
+
 ## RENDERING A SPRITE TO THE SCREEN
 
 ```
@@ -927,6 +1321,789 @@ TIPS:
 • Set sprite z-index to control draw order
 • Use speed parameter to fine-tune animation timing
 • Test with different loop modes to find the right feel
+```
+
+## EFFECTS  AND RENDERPIPELINE GUIDE
+
+```
+Effects Application Guide: Multiple Approaches
+==============================================
+
+How to apply visual effects to RenderSurfaces using different methods
+
+
+PRIMITIVES OVERVIEW
+===================
+
+┌─────────────────────────────────────────────────────────────────┐
+│                     CORE PRIMITIVES                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  RenderSurface                                                  │
+│  ──────────────                                                 │
+│  • 2D pixel matrix (color_map, shadow_map, char_map)            │
+│  • Basic building block for all visuals                         │
+│  • Can be input or output for effects                           │
+│                                                                 │
+│  Effect (Fade, Blur, Brighter, Darker, etc.)                    │
+│  ─────────────────────────────────────────                      │
+│  • Concrete effect type with parameters                         │
+│  • Has run() method: processes input → output                   │
+│  • Has validate() method: checks parameters                     │
+│  • Has surface_expand: optional expansion requirements          │
+│  • Example: Fade { alpha_start, alpha_end, duration }           │
+│                                                                 │
+│  RenderEffect                                                   │
+│  ─────────────                                                  │
+│  • Type-erased wrapper around any Effect                        │
+│  • Enables polymorphism (different effects in same chain)       │
+│  • Created via: effect.asEffect() or RenderEffect.init()        │
+│  • Can be used in chains, pipelines, or standalone              │
+│                                                                 │
+│  RenderEffectContext                                            │
+│  ────────────────────                                           │
+│  • Bundles input_surface + output_surface                       │
+│  • Tracks expansion_applied (for size changes)                  │
+│  • Passed to effects for processing                             │
+│                                                                 │
+│  RenderEffectChain                                              │
+│  ──────────────────                                             │
+│  • Sequence of RenderEffects applied in order                   │
+│  • Manages intermediate surfaces automatically                  │
+│  • Accumulates expansion requirements                           │
+│  • Example: Fade → Blur → Brighter                              │
+│                                                                 │
+│  RenderObject                                                   │
+│  ─────────────                                                  │
+│  • Wraps: input_surface + optional effect_chain                 │
+│  • Unit of rendering in RenderPipeline                          │
+│  • Contains RenderEffectContext internally                      │
+│  • process() applies effects and returns output                 │
+│                                                                 │
+│  RenderEngine                                                   │
+│  ─────────────                                                  │
+│  • Composites multiple RenderSurfaces into one                  │
+│  • Handles z-ordering, blending, transparency                   │
+│  • Used by RenderPipeline and Screen                            │
+│                                                                 │
+│  RenderPipeline                                                 │
+│  ───────────────                                                │
+│  • Orchestrates multiple RenderObjects                          │
+│  • Processes each object (applies their effect chains)          │
+│  • Merges all outputs via RenderEngine                          │
+│  • Optionally applies final post-processing chain               │
+│  • Outputs to target surface (e.g., Screen.output_surface)      │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════
+METHOD 1: DIRECT EFFECT APPLICATION (runOnSurfaces)
+═══════════════════════════════════════════════════════════════════
+
+Use Case: Apply a single effect manually, full control
+
+┌─────────────────────────────────────────────────────────────────┐
+│                   STEP 1: CREATE SURFACES                       │
+└─────────────────────────────────────────────────────────────────┘
+
+        ┌──────────────────────────────────────────────────────┐
+        │  input_surface = RenderSurface.init(10, 10, ...)     │
+        │  ┌────────────────────────────────────────────────┐  │
+        │  │ 10×10 pixels, filled with gray (128,128,128)   │  │
+        │  │ All pixels opaque (shadow_map = 1)             │  │
+        │  └────────────────────────────────────────────────┘  │
+        └────────────────────────┬─────────────────────────────┘
+                                 │
+                                 ▼
+        ┌──────────────────────────────────────────────────────┐
+        │  output_surface = RenderSurface.init(10, 10, ...)    │
+        │  ┌────────────────────────────────────────────────┐  │
+        │  │ 10×10 pixels, cleared to black (0,0,0)         │  │
+        │  │ Ready to receive effect output                 │  │
+        │  └────────────────────────────────────────────────┘  │
+        └────────────────────────┬─────────────────────────────┘
+                                 │
+                                 ▼
+
+┌─────────────────────────────────────────────────────────────────┐
+│                 STEP 2: CREATE EFFECT INSTANCE                  │
+└─────────────────────────────────────────────────────────────────┘
+
+        ┌──────────────────────────────────────────────────────┐
+        │  var fade = Effect.Fade {                            │
+        │      .alpha_start = 1.0,    // Fully opaque          │
+        │      .alpha_end = 0.0,      // Fully transparent     │
+        │      .duration = 60,        // 60 frames             │
+        │  };                                                  │
+        │  ┌────────────────────────────────────────────────┐  │
+        │  │ Fade Effect Parameters                         │  │
+        │  │  • Interpolates alpha from start to end        │  │
+        │  │  • At frame 0: alpha = 1.0 (full brightness)   │  │
+        │  │  • At frame 30: alpha = 0.5 (half brightness)  │  │
+        │  │  • At frame 60: alpha = 0.0 (invisible)        │  │
+        │  └────────────────────────────────────────────────┘  │
+        └────────────────────────┬─────────────────────────────┘
+                                 │
+                                 ▼
+
+┌─────────────────────────────────────────────────────────────────┐
+│              STEP 3: WRAP AS RENDEREFFECT                       │
+└─────────────────────────────────────────────────────────────────┘
+
+        ┌──────────────────────────────────────────────────────┐
+        │  const fade_effect = fade.asEffect();                │
+        │  ┌────────────────────────────────────────────────┐  │
+        │  │ RenderEffect (type-erased wrapper)             │  │
+        │  │  • instance: pointer to fade                   │  │
+        │  │  • runFn: Fade.run (wrapped)                   │  │
+        │  │  • validateFn: Fade.validate (wrapped)         │  │
+        │  │  • surface_expand: null (Fade doesn't expand)  │  │
+        │  └────────────────────────────────────────────────┘  │
+        └────────────────────────┬─────────────────────────────┘
+                                 │
+                                 ▼
+
+┌─────────────────────────────────────────────────────────────────┐
+│                STEP 4: RUN EFFECT DIRECTLY                      │
+└─────────────────────────────────────────────────────────────────┘
+
+        ┌──────────────────────────────────────────────────────┐
+        │  try fade_effect.runOnSurfaces(                      │
+        │      input_surface,     // Source                    │
+        │      output_surface,    // Destination               │
+        │      30                 // Current frame             │
+        │  );                                                  │
+        │  ┌────────────────────────────────────────────────┐  │
+        │  │ Processing:                                    │  │
+        │  │                                                │  │
+        │  │ 1. Validate parameters (duration > 0, etc.)    │  │
+        │  │                                                │  │
+        │  │ 2. Calculate alpha at frame 30:                │  │
+        │  │    t = 30 / 60 = 0.5                           │  │
+        │  │    alpha = 1.0 + (0.0 - 1.0) × 0.5 = 0.5       │  │
+        │  │                                                │  │
+        │  │ 3. For each pixel in input_surface:            │  │
+        │  │    ┌────────────────────────────────────────┐  │  │
+        │  │    │ Input:  RGB(128, 128, 128)             │  │  │
+        │  │    │         ↓                              │  │  │
+        │  │    │ Apply:  × 0.5 alpha                    │  │  │
+        │  │    │         ↓                              │  │  │
+        │  │    │ Output: RGB(64, 64, 64)                │  │  │
+        │  │    └────────────────────────────────────────┘  │  │
+        │  │                                                │  │
+        │  │ 4. Write to output_surface                     │  │
+        │  └────────────────────────────────────────────────┘  │
+        └────────────────────────┬─────────────────────────────┘
+                                 │
+                                 ▼
+        ┌──────────────────────────────────────────────────────┐
+        │  Result: output_surface has faded pixels             │
+        │  ┌────────────────────────────────────────────────┐  │
+        │  │ All pixels: RGB(64, 64, 64) - half brightness  │  │
+        │  └────────────────────────────────────────────────┘  │
+        └──────────────────────────────────────────────────────┘
+
+
+PROS & CONS:
+────────────
+✓ Simple and direct
+✓ Full manual control
+✓ No intermediate allocations
+✗ Only one effect at a time
+✗ Manual surface management
+✗ No automatic expansion handling
+
+
+CODE EXAMPLE:
+─────────────
+
+const movy = @import("movy");
+
+var input = try movy.RenderSurface.init(
+				allocator, 10, 10, .{.r=128, .g=128, .b=128});
+defer input.deinit(allocator);
+for (input.shadow_map) |*s| s.* = 1;
+
+var output = try movy.RenderSurface.init(allocator, 10, 10, .{.r=0, .g=0, .b=0});
+defer output.deinit(allocator);
+
+var fade = movy.render.Effect.Fade {
+    .alpha_start = 1.0,
+    .alpha_end = 0.0,
+    .duration = 60,
+};
+
+const fade_effect = fade.asEffect();
+try fade_effect.runOnSurfaces(input, output, 30);
+
+// output now contains faded image
+
+
+═══════════════════════════════════════════════════════════════════
+METHOD 2: EFFECT CHAIN (Multiple Effects in Sequence)
+═══════════════════════════════════════════════════════════════════
+
+Use Case: Apply multiple effects in order, automatic management
+
+┌─────────────────────────────────────────────────────────────────┐
+│                   STEP 1: CREATE EFFECTS                        │
+└─────────────────────────────────────────────────────────────────┘
+
+        ┌──────────────────────────────────────────────────────┐
+        │  var fade = Effect.Fade {                            │
+        │      .alpha_start = 0.0,                             │
+        │      .alpha_end = 1.0,                               │
+        │      .duration = 60,                                 │
+        │  };                                                  │
+        │  const fade_effect = fade.asEffect();                │
+        └────────────────────────┬─────────────────────────────┘
+                                 │
+                                 ▼
+        ┌──────────────────────────────────────────────────────┐
+        │  var blur = Effect.Blur {                            │
+        │      .radius = 10,                                   │
+        │  };                                                  │
+        │  const blur_effect = blur.asEffect();                │
+        └────────────────────────┬─────────────────────────────┘
+                                 │
+                                 ▼
+
+┌─────────────────────────────────────────────────────────────────┐
+│              STEP 2: CREATE AND BUILD CHAIN                     │
+└─────────────────────────────────────────────────────────────────┘
+
+        ┌──────────────────────────────────────────────────────┐
+        │  var chain = try RenderEffectChain.init(allocator);  │
+        │  defer chain.deinit(allocator);                      │
+        │                                                      │
+        │  try chain.chainEffect(blur_effect);                 │
+        │  try chain.chainEffect(fade_effect);                 │
+        │  ┌────────────────────────────────────────────────┐  │
+        │  │ RenderEffectChain                              │  │
+        │  │                                                │  │
+        │  │ effect_links: [EffectLink, EffectLink]         │  │
+        │  │  ┌──────────────────────────────────────────┐  │  │
+        │  │  │ [0]: Blur effect                         │  │  │
+        │  │  │      out_surface: null (created on run)  │  │  │
+        │  │  ├──────────────────────────────────────────┤  │  │
+        │  │  │ [1]: Fade effect                         │  │  │
+        │  │  │      out_surface: null (uses ctx output) │  │  │
+        │  │  └──────────────────────────────────────────┘  │  │
+        │  │                                                │  │
+        │  │ total_border_expand: {x: 0, y: 0}              │  │
+        │  │   (accumulated from all effects)               │  │
+        │  └────────────────────────────────────────────────┘  │
+        └────────────────────────┬─────────────────────────────┘
+                                 │
+                                 ▼
+
+┌─────────────────────────────────────────────────────────────────┐
+│            STEP 3: CREATE EFFECT CONTEXT                        │
+└─────────────────────────────────────────────────────────────────┘
+
+        ┌──────────────────────────────────────────────────────┐
+        │  var fx_ctx = RenderEffectContext {                  │
+        │      .input_surface = input_surface,                 │
+        │      .output_surface = output_surface,               │
+        │  };                                                  │
+        │  ┌────────────────────────────────────────────────┐  │
+        │  │ RenderEffectContext                            │  │
+        │  │  • input_surface → 10×10 gray                  │  │
+        │  │  • output_surface → 10×10 black (target)       │  │
+        │  │  • expansion_applied: null (not yet)           │  │
+        │  └────────────────────────────────────────────────┘  │
+        └────────────────────────┬─────────────────────────────┘
+                                 │
+                                 ▼
+
+┌─────────────────────────────────────────────────────────────────┐
+│                  STEP 4: RUN THE CHAIN                          │
+└─────────────────────────────────────────────────────────────────┘
+
+        ┌──────────────────────────────────────────────────────┐
+        │  try chain.run(allocator, &fx_ctx, 30);              │
+        │  ┌────────────────────────────────────────────────┐  │
+        │  │ Chain Execution:                               │  │
+        │  │                                                │  │
+        │  │ PHASE 1: dryResize()                           │  │
+        │  │ ──────────────────────                         │  │
+        │  │  • Calculate required sizes                    │  │
+        │  │  • Allocate intermediate surface for Blur      │  │
+        │  │    (blur.out_surface = 10×10)                  │  │
+        │  │  • Resize output_surface if needed             │  │
+        │  │                                                │  │
+        │  │ PHASE 2: Sequential Effect Execution           │  │
+        │  │ ───────────────────────────────────            │  │
+        │  │                                                │  │
+        │  │  Effect 1: Blur                                │  │
+        │  │  ┌──────────────────────────────────────────┐  │  │
+        │  │  │ Input:  input_surface (10×10 gray)       │  │  │
+        │  │  │         RGB(128, 128, 128)               │  │  │
+        │  │  │         ↓                                │  │  │
+        │  │  │ Blur:   radius = 10                      │  │  │
+        │  │  │         R = 128 + 10 = 138               │  │  │
+        │  │  │         G = 128 + 10 = 138               │  │  │
+        │  │  │         B = 128 + 10 = 138               │  │  │
+        │  │  │         ↓                                │  │  │
+        │  │  │ Output: intermediate_surface             │  │  │
+        │  │  │         RGB(138, 138, 138)               │  │  │
+        │  │  └──────────────────────────────────────────┘  │  │
+        │  │                 ↓                              │  │
+        │  │  Effect 2: Fade                                │  │
+        │  │  ┌──────────────────────────────────────────┐  │  │
+        │  │  │ Input:  intermediate_surface             │  │  │
+        │  │  │         RGB(138, 138, 138)               │  │  │
+        │  │  │         ↓                                │  │  │
+        │  │  │ Fade:   frame 30, duration 60            │  │  │
+        │  │  │         alpha = 0.5                      │  │  │
+        │  │  │         R = 138 × 0.5 = 69               │  │  │
+        │  │  │         G = 138 × 0.5 = 69               │  │  │
+        │  │  │         B = 138 × 0.5 = 69               │  │  │
+        │  │  │         ↓                                │  │  │
+        │  │  │ Output: output_surface                   │  │  │
+        │  │  │         RGB(69, 69, 69)                  │  │  │
+        │  │  └──────────────────────────────────────────┘  │  │
+        │  │                                                │  │
+        │  └────────────────────────────────────────────────┘  │
+        └────────────────────────┬─────────────────────────────┘
+                                 │
+                                 ▼
+        ┌──────────────────────────────────────────────────────┐
+        │  Result: output_surface has both effects applied     │
+        │  ┌────────────────────────────────────────────────┐  │
+        │  │ RGB(69, 69, 69) - blurred then faded           │  │
+        │  └────────────────────────────────────────────────┘  │
+        └──────────────────────────────────────────────────────┘
+
+
+CHAIN DATA FLOW:
+────────────────
+
+  input_surface          intermediate         output_surface
+  ┌──────────┐           ┌──────────┐          ┌──────────┐
+  │ Original │  Effect1  │ After    │ Effect2  │  Final   │
+  │  Image   │  ──────>  │ Effect 1 │ ──────>  │  Result  │
+  │ 128,128  │   Blur    │ 138,138  │  Fade    │  69,69   │
+  └──────────┘           └──────────┘          └──────────┘
+                         (auto-managed)
+
+
+PROS & CONS:
+────────────
+✓ Multiple effects in sequence
+✓ Automatic intermediate surface management
+✓ Automatic expansion handling
+✓ Reusable chains
+✗ More complex than single effect
+✓ Effects processed in order added
+
+
+CODE EXAMPLE:
+─────────────
+
+const movy = @import("movy");
+
+var input = try movy.RenderSurface.init(allocator, 10, 10, .{.r=128, .g=128, .b=128});
+defer input.deinit(allocator);
+
+var output = try movy.RenderSurface.init(allocator, 10, 10, .{.r=0, .g=0, .b=0});
+defer output.deinit(allocator);
+
+var fade = movy.render.Effect.Fade { .alpha_start = 0.0, .alpha_end = 1.0, .duration = 60 };
+var blur = movy.render.Effect.Blur { .radius = 10 };
+
+var chain = try movy.render.RenderEffectChain.init(allocator);
+defer chain.deinit(allocator);
+
+try chain.chainEffect(blur.asEffect());
+try chain.chainEffect(fade.asEffect());
+
+var fx_ctx = movy.render.Effect.RenderEffectContext {
+    .input_surface = input,
+    .output_surface = output,
+};
+
+try chain.run(allocator, &fx_ctx, 30);
+// output has blur + fade applied
+
+
+═══════════════════════════════════════════════════════════════════
+METHOD 3: RENDER PIPELINE (Complete Rendering System)
+═══════════════════════════════════════════════════════════════════
+
+Use Case: Multiple objects with effects, composited together
+
+┌─────────────────────────────────────────────────────────────────┐
+│                   ARCHITECTURE OVERVIEW                         │
+└─────────────────────────────────────────────────────────────────┘
+
+  RenderObject 1        RenderObject 2        RenderObject N
+  ┌────────────┐        ┌────────────┐        ┌────────────┐
+  │ Surface A  │        │ Surface B  │        │ Surface C  │
+  │    +       │        │    +       │        │    +       │
+  │ EffectChain│        │ EffectChain│        │ EffectChain│
+  └─────┬──────┘        └─────┬──────┘        └─────┬──────┘
+        │                     │                     │
+        │ .process()          │ .process()          │ .process()
+        ▼                     ▼                     ▼
+   ┌──────────┐         ┌──────────┐         ┌──────────┐
+   │ Output A │         │ Output B │         │ Output C │
+   └─────┬────┘         └─────┬────┘         └─────┬────┘
+         │                    │                    │
+         └────────────────────┼────────────────────┘
+                              │
+                              ▼
+                  ┌───────────────────────┐
+                  │   RenderEngine.render │
+                  │   (composite/merge)   │
+                  └───────────┬───────────┘
+                              │
+                              ▼
+                       ┌─────────────┐
+                       │   Merged    │
+                       │   Result    │
+                       └──────┬──────┘
+                              │
+               Optional Final Effect Chain
+                              │
+                              ▼
+                    ┌──────────────────┐
+                    │ output_surface   │
+                    │ (Screen, etc.)   │
+                    └──────────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────┐
+│                STEP 1: CREATE SPRITE/SURFACES                   │
+└─────────────────────────────────────────────────────────────────┘
+
+        ┌──────────────────────────────────────────────────────┐
+        │  var sprite = Sprite.initFromPng(                    │
+        │      allocator,                                      │
+        │      "logo.png",                                     │
+        │      "my_sprite"                                     │
+        │  );                                                  │
+        │  defer sprite.deinit(allocator);                     │
+        │                                                      │
+        │  const input_surface = sprite.getCurrentFrameSurface();│
+        │  ┌────────────────────────────────────────────────┐  │
+        │  │ Surface loaded from PNG                        │  │
+        │  │  • Contains sprite pixel data                  │  │
+        │  │  • Will be input to RenderObject               │  │
+        │  └────────────────────────────────────────────────┘  │
+        └────────────────────────┬─────────────────────────────┘
+                                 │
+                                 ▼
+
+┌─────────────────────────────────────────────────────────────────┐
+│             STEP 2: CREATE EFFECT CHAIN                         │
+└─────────────────────────────────────────────────────────────────┘
+
+        ┌──────────────────────────────────────────────────────┐
+        │  var fade = Effect.Fade {                            │
+        │      .alpha_start = 0.0,                             │
+        │      .alpha_end = 1.0,                               │
+        │      .duration = 60,                                 │
+        │  };                                                  │
+        │  var blur = Effect.Blur { .radius = 10 };            │
+        │                                                      │
+        │  var chain = try RenderEffectChain.init(allocator);  │
+        │  defer chain.deinit(allocator);                      │
+        │                                                      │
+        │  try chain.chainEffect(fade.asEffect());             │
+        │  try chain.chainEffect(blur.asEffect());             │
+        └────────────────────────┬─────────────────────────────┘
+                                 │
+                                 ▼
+
+┌─────────────────────────────────────────────────────────────────┐
+│          STEP 3: CREATE RENDER PIPELINE & OBJECT                │
+└─────────────────────────────────────────────────────────────────┘
+
+        ┌──────────────────────────────────────────────────────┐
+        │  var pipeline = try RenderPipeline.init(             │
+        │      allocator,                                      │
+        │      screen.output_surface  // Target                │
+        │  );                                                  │
+        │  defer pipeline.deinit(allocator);                   │
+        │  ┌────────────────────────────────────────────────┐  │
+        │  │ RenderPipeline                                 │  │
+        │  │  • render_objects: []                          │  │
+        │  │  • effect_chain: null (optional final chain)   │  │
+        │  │  • output_surface: screen.output_surface       │  │
+        │  │  • result_surface: intermediate (auto-created) │  │
+        │  └────────────────────────────────────────────────┘  │
+        └────────────────────────┬─────────────────────────────┘
+                                 │
+                                 ▼
+        ┌──────────────────────────────────────────────────────┐
+        │  const render_obj = try RenderObject.init(           │
+        │      allocator,                                      │
+        │      input_surface,    // Sprite surface             │
+        │      &chain            // Effect chain               │
+        │  );                                                  │
+        │  ┌────────────────────────────────────────────────┐  │
+        │  │ RenderObject                                   │  │
+        │  │  • effect_ctx:                                 │  │
+        │  │    - input_surface: sprite surface             │  │
+        │  │    - output_surface: auto-created              │  │
+        │  │  • effect_chain: pointer to chain              │  │
+        │  └────────────────────────────────────────────────┘  │
+        └────────────────────────┬─────────────────────────────┘
+                                 │
+                                 ▼
+        ┌──────────────────────────────────────────────────────┐
+        │  try pipeline.addObject(render_obj);                 │
+        │  ┌────────────────────────────────────────────────┐  │
+        │  │ RenderPipeline.render_objects                  │  │
+        │  │  ┌──────────────────────────────────────────┐  │  │
+        │  │  │ [0]: RenderObject (sprite + chain)       │  │  │
+        │  │  └──────────────────────────────────────────┘  │  │
+        │  │                                                │  │
+        │  │ Can add more objects:                          │  │
+        │  │  • Each with own surface                       │  │
+        │  │  • Each with own effect chain (or null)        │  │
+        │  │  • All will be composited together             │  │
+        │  └────────────────────────────────────────────────┘  │
+        └────────────────────────┬─────────────────────────────┘
+                                 │
+                                 ▼
+
+┌─────────────────────────────────────────────────────────────────┐
+│                 STEP 4: RUN THE PIPELINE                        │
+└─────────────────────────────────────────────────────────────────┘
+
+        ┌──────────────────────────────────────────────────────┐
+        │  try pipeline.run(allocator, 30);  // frame = 30     │
+        │  ┌────────────────────────────────────────────────┐  │
+        │  │ Pipeline Execution:                            │  │
+        │  │                                                │  │
+        │  │ PHASE 1: Process RenderObjects                 │  │
+        │  │ ────────────────────────────                   │  │
+        │  │                                                │  │
+        │  │  For each RenderObject:                        │  │
+        │  │   ┌──────────────────────────────────────────┐ │  │
+        │  │   │ Object 1: process()                      │ │  │
+        │  │   │                                          │ │  │
+        │  │   │  • Run effect_chain if present:          │ │  │
+        │  │   │    Input: sprite surface                 │ │  │
+        │  │   │      ↓                                   │ │  │
+        │  │   │    Fade: alpha = 0.5 (frame 30)          │ │  │
+        │  │   │      ↓                                   │ │  │
+        │  │   │    Blur: radius = 10                     │ │  │
+        │  │   │      ↓                                   │ │  │
+        │  │   │    Output: processed surface             │ │  │
+        │  │   │                                          │ │  │
+        │  │   │  • Return output_surface                 │ │  │
+        │  │   └──────────────────────────────────────────┘ │  │
+        │  │                                                │  │
+        │  │  Collect all outputs: [output1, output2, ...]  │  │
+        │  │                                                │  │
+        │  │ PHASE 2: Composite Outputs                     │  │
+        │  │ ────────────────────────                       │  │
+        │  │                                                │  │
+        │  │   ┌──────────────────────────────────────────┐ │  │
+        │  │   │ RenderEngine.render(                     │ │  │
+        │  │   │     [output1, output2, ...],             │ │  │
+        │  │   │     result_surface                       │ │  │
+        │  │   │ )                                        │ │  │
+        │  │   │                                          │ │  │
+        │  │   │  • Merge all outputs into one            │ │  │
+        │  │   │  • Apply z-ordering                      │ │  │
+        │  │   │  • Handle transparency                   │ │  │
+        │  │   │  • Clip to bounds                        │ │  │
+        │  │   └──────────────────────────────────────────┘ │  │
+        │  │                                                │  │
+        │  │ PHASE 3: Optional Final Effect Chain           │  │
+        │  │ ──────────────────────────────────             │  │
+        │  │                                                │  │
+        │  │  If pipeline.effect_chain is set:              │  │
+        │  │   ┌──────────────────────────────────────────┐ │  │
+        │  │   │ Input: result_surface                    │ │  │
+        │  │   │   ↓                                      │ │  │
+        │  │   │ Apply final chain (e.g., screen fade)    │ │  │
+        │  │   │   ↓                                      │ │  │
+        │  │   │ Output: output_surface                   │ │  │
+        │  │   └──────────────────────────────────────────┘ │  │
+        │  │                                                │  │
+        │  │  Else (no final chain):                        │  │
+        │  │   ┌──────────────────────────────────────────┐ │  │
+        │  │   │ Copy result_surface → output_surface     │ │  │
+        │  │   └──────────────────────────────────────────┘ │  │
+        │  │                                                │  │
+        │  └────────────────────────────────────────────────┘  │
+        └────────────────────────┬─────────────────────────────┘
+                                 │
+                                 ▼
+        ┌──────────────────────────────────────────────────────┐
+        │  Result: screen.output_surface ready to display      │
+        │  ┌────────────────────────────────────────────────┐  │
+        │  │ All objects composited with effects applied    │  │
+        │  └────────────────────────────────────────────────┘  │
+        └──────────────────────────────────────────────────────┘
+
+
+PIPELINE DATA FLOW (Multiple Objects):
+───────────────────────────────────────
+
+  Object 1              Object 2              Object 3
+  ┌────────┐            ┌────────┐            ┌────────┐
+  │Surface │            │Surface │            │Surface │
+  │   +    │            │   +    │            │   +    │
+  │ Chain  │            │ Chain  │            │  null  │
+  └───┬────┘            └───┬────┘            └───┬────┘
+      │                     │                     │
+      │ .process()          │ .process()          │ (no effects)
+      ▼                     ▼                     ▼
+  ┌────────┐            ┌────────┐            ┌────────┐
+  │Output1 │            │Output2 │            │Output3 │
+  └───┬────┘            └───┬────┘            └───┬────┘
+      │                     │                     │
+      └─────────────────────┼─────────────────────┘
+                            │
+                            ▼
+                ┌───────────────────────┐
+                │   RenderEngine.render │
+                │     (composite)       │
+                └───────────┬───────────┘
+                            │
+                            ▼
+                     ┌─────────────┐
+                     │   Merged    │
+                     │   Result    │
+                     └──────┬──────┘
+                            │
+                 Optional Final Chain
+                            │
+                            ▼
+                  ┌──────────────────┐
+                  │ output_surface   │
+                  └──────────────────┘
+
+
+PROS & CONS:
+────────────
+✓ Handles multiple objects with different effects
+✓ Automatic composition via RenderEngine
+✓ Optional final post-processing chain
+✓ Clean separation of concerns
+✓ Perfect for complex scenes
+✓ Automatic z-ordering and blending
+✗ More complex setup
+✗ Overkill for single objects
+
+
+CODE EXAMPLE:
+─────────────
+
+const movy = @import("movy");
+
+var screen = try movy.Screen.init(allocator, 120, 40);
+defer screen.deinit(allocator);
+
+var sprite = try movy.Sprite.initFromPng(allocator, "logo.png", "logo");
+defer sprite.deinit(allocator);
+
+const input_surface = try sprite.getCurrentFrameSurface();
+
+var fade = movy.render.Effect.Fade { .alpha_start = 0.0, .alpha_end = 1.0, .duration = 60 };
+var blur = movy.render.Effect.Blur { .radius = 10 };
+
+var chain = try movy.render.RenderEffectChain.init(allocator);
+defer chain.deinit(allocator);
+try chain.chainEffect(fade.asEffect());
+try chain.chainEffect(blur.asEffect());
+
+var pipeline = try movy.render.RenderPipeline.init(allocator, screen.output_surface);
+defer pipeline.deinit(allocator);
+
+const render_obj = try movy.render.RenderObject.init(allocator, input_surface, &chain);
+try pipeline.addObject(render_obj);
+
+// Add more objects if needed:
+// try pipeline.addObject(render_obj2);
+// try pipeline.addObject(render_obj3);
+
+try pipeline.run(allocator, 30);  // Process at frame 30
+
+// screen.output_surface now has all objects composited with effects
+try screen.output();
+
+
+═══════════════════════════════════════════════════════════════════
+COMPARISON SUMMARY
+═══════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│  Method 1: runOnSurfaces()                                      │
+│  ──────────────────────────                                     │
+│    Use When: Single effect, manual control                      │
+│    Complexity: ★☆☆                                              │
+│    Flexibility: ★☆☆                                             │
+│    Power: ★☆☆                                                   │
+│                                                                 │
+│  Method 2: RenderEffectChain                                    │
+│  ────────────────────────────                                   │
+│    Use When: Multiple effects on single surface                 │
+│    Complexity: ★★☆                                              │
+│    Flexibility: ★★☆                                             │
+│    Power: ★★☆                                                   │
+│                                                                 │
+│  Method 3: RenderPipeline                                       │
+│  ─────────────────────────                                      │
+│    Use When: Multiple objects with effects, complex scenes      │
+│    Complexity: ★★★                                              │
+│    Flexibility: ★★★                                             │
+│    Power: ★★★                                                   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+
+WHEN TO USE EACH METHOD:
+─────────────────────────
+
+runOnSurfaces():
+  • Testing single effects
+  • Simple, one-off transformations
+  • Full manual control needed
+  • Learning/experimentation
+
+RenderEffectChain:
+  • Post-processing single image
+  • Sequential effect application
+  • Automatic intermediate management
+  • Reusable effect sequences
+
+RenderPipeline:
+  • Game rendering (multiple sprites)
+  • UI composition (windows, widgets)
+  • Complex scenes with layers
+  • Each object needs different effects
+  • Screen-wide post-processing
+
+
+AVAILABLE EFFECTS:
+──────────────────
+
+  • Fade       - Alpha blending over time
+  • Blur       - Blur effect with radius
+  • Brighter   - Increase brightness
+  • Darker     - Decrease brightness
+  • OutlineRotator - Rotating outline effect
+  • Dummy      - No-op (for testing)
+
+
+TIPS:
+─────
+
+• Always use .asEffect() to wrap concrete effects
+• Chain order matters: effects applied sequentially
+• RenderPipeline merges with z-ordering (surface.z)
+• Use final chain for screen-wide effects (vignette, etc.)
+• Effects can declare surface_expand for glow/shake
+• RenderEffectContext handles expansion automatically
 ```
 
 
