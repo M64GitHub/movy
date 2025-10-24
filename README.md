@@ -291,3 +291,642 @@ TYPICAL FLOW:
 7. Result written to Screen.output_surface
 8. Screen.output() → converts to ANSI → prints to terminal
 ```
+
+## ANIMATE A SPRITE FROM PNG SPRITESHEET
+
+```
+Animated Sprite Guide: Complete Workflow
+=========================================
+
+Use Case: Load a PNG spritesheet, auto-split into frames, animate, and render
+
+
+STEP 1: PNG SPRITESHEET FILE
+=============================
+        ┌──────────────────────────────────────────────────────────┐
+        │              PNG Spritesheet File                        │
+        │  ┌────────────────────────────────────────────────────┐  │
+        │  │  "character_walk.png"                              │  │
+        │  │                                                    │  │
+        │  │  ┌────┬────┬────┬────┬────┬────┐                   │  │
+        │  │  │ F0 │ F1 │ F2 │ F3 │ F4 │ F5 │  ← 6 frames       │  │
+        │  │  │    │    │    │    │    │    │    horizontally   │  │
+        │  │  └────┴────┴────┴────┴────┴────┘                   │  │
+        │  │                                                    │  │
+        │  │  Total width:  384 pixels (64 × 6 frames)          │  │
+        │  │  Frame height:  64 pixels                          │  │
+        │  │  Frame width:   64 pixels                          │  │
+        │  └────────────────────────────────────────────────────┘  │
+        └────────────────────────────┬─────────────────────────────┘
+                                     │
+                                     ▼
+
+
+STEP 2: LOAD SPRITESHEET AS SPRITE
+===================================
+        ┌──────────────────────────────────────────────────────────┐
+        │    Sprite.initFromPng("character_walk.png", "walk")      │
+        │  ┌────────────────────────────────────────────────────┐  │
+        │  │ Loads entire PNG as single frame (frame 0)         │  │
+        │  │  • Creates Sprite with 1 frame                     │  │
+        │  │  • frame_set.frames[0] = entire spritesheet        │  │
+        │  │  • w = 384, h = 64 (full spritesheet dimensions)   │  │
+        │  └────────────────────────────────────────────────────┘  │
+        └────────────────────────────┬─────────────────────────────┘
+                                     │
+                                     ▼
+        ┌──────────────────────────────────────────────────────────┐
+        │          Initial Sprite Structure                        │
+        │  ┌────────────────────────────────────────────────────┐  │
+        │  │ Sprite: "walk"                                     │  │
+        │  │  • w: 384, h: 64 (full spritesheet size)           │  │
+        │  │                                                    │  │
+        │  │  frame_set:                                        │  │
+        │  │  ┌──────────────────────────────────────────────┐  │  │
+        │  │  │ frame_idx: 0                                 │  │  │
+        │  │  │ frames: [*SpriteFrame]                       │  │  │
+        │  │  │  ┌────────────────────────────────────────┐  │  │  │
+        │  │  │  │ [0]: SpriteFrame                       │  │  │  │
+        │  │  │  │      w: 384, h: 64                     │  │  │  │
+        │  │  │  │      data_surface: 384×64              │  │  │  │
+        │  │  │  │      ┌─────────────────────────────┐   │  │  │  │
+        │  │  │  │      │ ┌──┬──┬──┬──┬──┬──┐         │   │  │  │  │
+        │  │  │  │      │ │F0│F1│F2│F3│F4│F5│ (full)  │   │  │  │  │
+        │  │  │  │      │ └──┴──┴──┴──┴──┴──┘         │   │  │  │  │
+        │  │  │  │      └─────────────────────────────┘   │  │  │  │
+        │  │  │  │      output_surface: 384×64            │  │  │  │
+        │  │  │  └────────────────────────────────────────┘  │  │  │
+        │  │  └──────────────────────────────────────────────┘  │  │
+        │  └────────────────────────────────────────────────────┘  │
+        └────────────────────────────┬─────────────────────────────┘
+                                     │
+                                     ▼
+
+
+STEP 3: SPLIT SPRITESHEET INTO FRAMES
+======================================
+        ┌──────────────────────────────────────────────────────────┐
+        │         sprite.splitByWidth(allocator, 64)               │
+        │  ┌────────────────────────────────────────────────────┐  │
+        │  │ Parameters:                                        │  │
+        │  │  • split_width: 64 (width of each frame)           │  │
+        │  │                                                    │  │
+        │  │ Process:                                           │  │
+        │  │  1. Calculate: num_frames = 384 / 64 = 6           │  │
+        │  │                                                    │  │
+        │  │  2. For each frame (0..5):                         │  │
+        │  │     • Create new SpriteFrame(64, 64)               │  │
+        │  │     • Copy region from frames[0].data_surface:     │  │
+        │  │       - source_x = frame_idx × 64                  │  │
+        │  │       - source_y = 0                               │  │
+        │  │       - Copy 64×64 pixels (color, shadow, char)    │  │
+        │  │     • Append to frame_set.frames                   │  │
+        │  │                                                    │  │
+        │  │  3. Set frame_idx = 1 (skip original spritesheet)  │  │
+        │  │  4. Update sprite.w = 64 (individual frame width)  │  │
+        │  │                                                    │  │
+        │  │ Result:                                            │  │
+        │  │  • frames[0]: Original 384×64 spritesheet (kept)   │  │
+        │  │  • frames[1]: Frame 0 (64×64)                      │  │
+        │  │  • frames[2]: Frame 1 (64×64)                      │  │
+        │  │  • frames[3]: Frame 2 (64×64)                      │  │
+        │  │  • frames[4]: Frame 3 (64×64)                      │  │
+        │  │  • frames[5]: Frame 4 (64×64)                      │  │
+        │  │  • frames[6]: Frame 5 (64×64)                      │  │
+        │  └────────────────────────────────────────────────────┘  │
+        └────────────────────────────┬─────────────────────────────┘
+                                     │
+                                     ▼
+        ┌──────────────────────────────────────────────────────────┐
+        │           Sprite After Split                             │
+        │  ┌────────────────────────────────────────────────────┐  │
+        │  │ Sprite: "walk"                                     │  │
+        │  │  • w: 64 (updated to frame width)                  │  │
+        │  │  • h: 64                                           │  │
+        │  │                                                    │  │
+        │  │  frame_set:                                        │  │
+        │  │  ┌──────────────────────────────────────────────┐  │  │
+        │  │  │ frame_idx: 1 (starts at first split frame)   │  │  │
+        │  │  │                                              │  │  │
+        │  │  │ frames: [*SpriteFrame] (7 total)             │  │  │
+        │  │  │  ┌────────────────────────────────────────┐  │  │  │
+        │  │  │  │ [0]: Original spritesheet 384×64       │  │  │  │
+        │  │  │  │      (kept but not used for animation) │  │  │  │
+        │  │  │  ├────────────────────────────────────────┤  │  │  │
+        │  │  │  │ [1]: Frame 0 (64×64) ← frame_idx       │  │  │  │
+        │  │  │  │      data_surface:   ┌──┐              │  │  │  │
+        │  │  │  │                      │F0│              │  │  │  │
+        │  │  │  │                      └──┘              │  │  │  │
+        │  │  │  │      output_surface: 64×64             │  │  │  │
+        │  │  │  ├────────────────────────────────────────┤  │  │  │
+        │  │  │  │ [2]: Frame 1 (64×64)                   │  │  │  │
+        │  │  │  │      data_surface:   ┌──┐              │  │  │  │
+        │  │  │  │                      │F1│              │  │  │  │
+        │  │  │  │                      └──┘              │  │  │  │
+        │  │  │  ├────────────────────────────────────────┤  │  │  │
+        │  │  │  │ [3]: Frame 2 (64×64) ┌──┐              │  │  │  │
+        │  │  │  │                      │F2│              │  │  │  │
+        │  │  │  │                      └──┘              │  │  │  │
+        │  │  │  ├────────────────────────────────────────┤  │  │  │
+        │  │  │  │ [4]: Frame 3 (64×64) ┌──┐              │  │  │  │
+        │  │  │  │                      │F3│              │  │  │  │
+        │  │  │  │                      └──┘              │  │  │  │
+        │  │  │  ├────────────────────────────────────────┤  │  │  │
+        │  │  │  │ [5]: Frame 4 (64×64) ┌──┐              │  │  │  │
+        │  │  │  │                      │F4│              │  │  │  │
+        │  │  │  │                      └──┘              │  │  │  │
+        │  │  │  ├────────────────────────────────────────┤  │  │  │
+        │  │  │  │ [6]: Frame 5 (64×64) ┌──┐              │  │  │  │
+        │  │  │  │                      │F5│              │  │  │  │
+        │  │  │  │                      └──┘              │  │  │  │
+        │  │  │  └────────────────────────────────────────┘  │  │  │
+        │  │  └──────────────────────────────────────────────┘  │  │
+        │  └────────────────────────────────────────────────────┘  │
+        └────────────────────────────┬─────────────────────────────┘
+                                     │
+                                     ▼
+
+
+STEP 4: CREATE ANIMATION WITH LOOP MODE
+========================================
+        ┌──────────────────────────────────────────────────────────┐
+        │        Sprite.FrameAnimation.init()                      │
+        │  ┌────────────────────────────────────────────────────┐  │
+        │  │ Parameters:                                        │  │
+        │  │  • start: 1   (frame index 1 = first split frame)  │  │
+        │  │  • end: 6     (frame index 6 = last split frame)   │  │
+        │  │  • mode: .loopForward                              │  │
+        │  │  • speed: 1   (update every frame)                 │  │
+        │  │                                                    │  │
+        │  │ IMPORTANT: Animation indices start at 1, not 0!    │  │
+        │  │  • Index 0 = original spritesheet (unused)         │  │
+        │  │  • Index 1-6 = individual frames (used)            │  │
+        │  │                                                    │  │
+        │  │ var anim = Sprite.FrameAnimation.init(             │  │
+        │  │     1,              // start (first split frame)   │  │
+        │  │     6,              // end (last split frame)      │  │
+        │  │     .loopForward,   // mode                        │  │
+        │  │     1               // speed                       │  │
+        │  │ );                                                 │  │
+        │  └────────────────────────────────────────────────────┘  │
+        └────────────────────────────┬─────────────────────────────┘
+                                     │
+                                     ▼
+        ┌──────────────────────────────────────────────────────────┐
+        │              FrameAnimation Structure                    │
+        │  ┌────────────────────────────────────────────────────┐  │
+        │  │ FrameAnimation                                     │  │
+        │  │  • animator: IndexAnimator                         │  │
+        │  │    ┌────────────────────────────────────────────┐  │  │
+        │  │    │ start: 1   (not 0!)                        │  │  │
+        │  │    │ end: 6                                     │  │  │
+        │  │    │ mode: .loopForward                         │  │  │
+        │  │    │ current: 1 (starts at frame index 1)       │  │  │
+        │  │    │ direction: 1                               │  │  │
+        │  │    │ once_finished: false                       │  │  │
+        │  │    └────────────────────────────────────────────┘  │  │
+        │  │                                                    │  │
+        │  │  • speed: 1                                        │  │
+        │  │  • speed_ctr: 1                                    │  │
+        │  │  • just_started: true                              │  │
+        │  └────────────────────────────────────────────────────┘  │
+        │                                                          │
+        │  Loop Modes Available:                                   │
+        │  ┌────────────────────────────────────────────────────┐  │
+        │  │ • .once:          1→2→3→4→5→6 [STOP]               │  │
+        │  │ • .loopForward:   1→2→3→4→5→6→1→2→3...             │  │
+        │  │ • .loopBackwards: 6→5→4→3→2→1→6→5→4...             │  │
+        │  │ • .loopBounce:    1→2→3→4→5→6→5→4→3→2→1→2...       │  │
+        │  └────────────────────────────────────────────────────┘  │
+        └────────────────────────────┬─────────────────────────────┘
+                                     │
+                                     ▼
+
+
+STEP 5: INITIALIZE SCREEN
+==========================
+        ┌──────────────────────────────────────────────────────────┐
+        │         screen = Screen.init(allocator, 80, 40)          │
+        │  ┌────────────────────────────────────────────────────┐  │
+        │  │ • w: 80 chars                                      │  │
+        │  │ • h: 80 pixel rows (40 × 2)                        │  │
+        │  │ • output_surface: RenderSurface(80, 80)            │  │
+        │  │ • sprites: [] (empty)                              │  │
+        │  │ • output_surfaces: [] (empty)                      │  │
+        │  └────────────────────────────────────────────────────┘  │
+        └────────────────────────────┬─────────────────────────────┘
+                                     │
+                                     ▼
+
+
+STEP 6: POSITION SPRITE & ADD TO SCREEN
+========================================
+        ┌──────────────────────────────────────────────────────────┐
+        │             sprite.output_surface.x = 20                 │
+        │             sprite.output_surface.y = 10                 │
+        │             sprite.output_surface.z = 1                  │
+        │                                                          │
+        │             screen.addSprite(sprite)                     │
+        │  ┌────────────────────────────────────────────────────┐  │
+        │  │ Appends sprite pointer to screen.sprites list      │  │
+        │  └────────────────────────────────────────────────────┘  │
+        └────────────────────────────┬─────────────────────────────┘
+                                     │
+                                     ▼
+
+
+STEP 7: MAIN RENDER LOOP
+=========================
+        ┌──────────────────────────────────────────────────────────┐
+        │                    MAIN LOOP                             │
+        │  ┌────────────────────────────────────────────────────┐  │
+        │  │ while (running) {                                  │  │
+        │  │                                                    │  │
+        │  │   ┌─────────────────────────────────────────────┐  │  │
+        │  │   │ STEP 7A: UPDATE ANIMATION                   │  │  │
+        │  │   │ ──────────────────────────────────────────  │  │  │
+        │  │   │                                             │  │  │
+        │  │   │ anim.step(sprite)                           │  │  │
+        │  │   │                                             │  │  │
+        │  │   └─────────────────────────────────────────────┘  │  │
+        │  │                        │                           │  │
+        │  │                        ▼                           │  │
+        │  │   ┌─────────────────────────────────────────────┐  │  │
+        │  │   │ Inside anim.step():                         │  │  │
+        │  │   │                                             │  │  │
+        │  │   │ 1. Check speed_ctr:                         │  │  │
+        │  │   │    if speed_ctr > 0:                        │  │  │
+        │  │   │      speed_ctr--                            │  │  │
+        │  │   │      return (wait)                          │  │  │
+        │  │   │                                             │  │  │
+        │  │   │ 2. Reset speed_ctr = speed                  │  │  │
+        │  │   │                                             │  │  │
+        │  │   │ 3. Call animator.step():                    │  │  │
+        │  │   │    ┌───────────────────────────────────┐    │  │  │
+        │  │   │    │ IndexAnimator.step()              │    │  │  │
+        │  │   │    │                                   │    │  │  │
+        │  │   │    │ For .loopForward (start=1, end=6):│    │  │  │
+        │  │   │    │   if current >= 6:                │    │  │  │
+        │  │   │    │     current = 1 (wrap to start)   │    │  │  │
+        │  │   │    │   else:                           │    │  │  │
+        │  │   │    │     current++ (1→2, 2→3, etc.)    │    │  │  │
+        │  │   │    │                                   │    │  │  │
+        │  │   │    │ Returns: new current index        │    │  │  │
+        │  │   │    └───────────────────────────────────┘    │  │  │
+        │  │   │                                             │  │  │
+        │  │   │ 4. Update sprite frame:                     │  │  │
+        │  │   │    sprite.frame_set.frame_idx = current     │  │  │
+        │  │   │                                             │  │  │
+        │  │   └─────────────────────────────────────────────┘  │  │
+        │  │                        │                           │  │
+        │  │                        ▼                           │  │
+        │  │   ┌─────────────────────────────────────────────┐  │  │
+        │  │   │ Frame Index Updated (cycles 1-6):           │  │  │
+        │  │   │   Loop iter 0: frame_idx = 1 (Frame 0)      │  │  │
+        │  │   │   Loop iter 1: frame_idx = 2 (Frame 1)      │  │  │
+        │  │   │   Loop iter 2: frame_idx = 3 (Frame 2)      │  │  │
+        │  │   │   Loop iter 3: frame_idx = 4 (Frame 3)      │  │  │
+        │  │   │   Loop iter 4: frame_idx = 5 (Frame 4)      │  │  │
+        │  │   │   Loop iter 5: frame_idx = 6 (Frame 5)      │  │  │
+        │  │   │   Loop iter 6: frame_idx = 1 (wrapped!)     │  │  │
+        │  │   │   ...                                       │  │  │
+        │  │   └─────────────────────────────────────────────┘  │  │
+        │  │                        │                           │  │
+        │  │                        ▼                           │  │
+        │  │   ┌─────────────────────────────────────────────┐  │  │
+        │  │   │ STEP 7B: RENDER TO SCREEN                   │  │  │
+        │  │   │ ──────────────────────────────────────────  │  │  │
+        │  │   │                                             │  │  │
+        │  │   │ screen.renderWithSprites()                  │  │  │
+        │  │   │                                             │  │  │
+        │  │   └─────────────────────────────────────────────┘  │  │
+        │  │                        │                           │  │
+        │  │                        ▼                           │  │
+        │  │   ┌─────────────────────────────────────────────┐  │  │
+        │  │   │ Inside screen.renderWithSprites():          │  │  │
+        │  │   │                                             │  │  │
+        │  │   │ 1. For each sprite in screen.sprites:       │  │  │
+        │  │   │    surface = sprite.getCurrentFrameSurface()│  │  │
+        │  │   │      → returns frames[frame_idx].data_surface│  │  │
+        │  │   │      → frames[1].data_surface (Frame 0)     │  │  │
+        │  │   │      → frames[2].data_surface (Frame 1)     │  │  │
+        │  │   │      → ... etc based on current frame_idx   │  │  │
+        │  │   │    screen.addRenderSurface(surface)         │  │  │
+        │  │   │                                             │  │  │
+        │  │   │ 2. Clear screen output_surface              │  │  │
+        │  │   │                                             │  │  │
+        │  │   │ 3. RenderEngine.render():                   │  │  │
+        │  │   │    • Merge all surfaces into output_surface │  │  │
+        │  │   │    • Apply x, y positioning                 │  │  │
+        │  │   │    • Handle z-ordering                      │  │  │
+        │  │   │    • Respect transparency (shadow_map)      │  │  │
+        │  │   │                                             │  │  │
+        │  │   └─────────────────────────────────────────────┘  │  │
+        │  │                        │                           │  │
+        │  │                        ▼                           │  │
+        │  │   ┌─────────────────────────────────────────────┐  │  │
+        │  │   │ STEP 7C: OUTPUT TO TERMINAL                 │  │  │
+        │  │   │ ──────────────────────────────────────────  │  │  │
+        │  │   │                                             │  │  │
+        │  │   │ screen.output()                             │  │  │
+        │  │   │   • Convert output_surface.toAnsi()         │  │  │
+        │  │   │   • Print ANSI to terminal                  │  │  │
+        │  │   │   • Current frame visible on screen         │  │  │
+        │  │   │                                             │  │  │
+        │  │   └─────────────────────────────────────────────┘  │  │
+        │  │                        │                           │  │
+        │  │                        ▼                           │  │
+        │  │   ┌─────────────────────────────────────────────┐  │  │
+        │  │   │ STEP 7D: FRAME TIMING                       │  │  │
+        │  │   │ ──────────────────────────────────────────  │  │  │
+        │  │   │                                             │  │  │
+        │  │   │ std.time.sleep(16_000_000); // ~60 FPS      │  │  │
+        │  │   │   OR                                        │  │  │
+        │  │   │ std.time.sleep(33_000_000); // ~30 FPS      │  │  │
+        │  │   │                                             │  │  │
+        │  │   └─────────────────────────────────────────────┘  │  │
+        │  │                        │                           │  │
+        │  │                        │                           │  │
+        │  │   ┌────────────────────┘                           │  │
+        │  │   │                                                │  │
+        │  │   └─────────> LOOP BACK TO TOP                     │  │
+        │  │                                                    │  │
+        │  │ } // end while                                     │  │
+        │  └────────────────────────────────────────────────────┘  │
+        └──────────────────────────────────────────────────────────┘
+
+
+FRAME INDEX MAPPING:
+====================
+
+After splitByWidth(), frame indices are offset by 1:
+
+  Spritesheet Frame   →   Frame Index   →   Animation Frame
+  ─────────────────────────────────────────────────────────
+  Frame 0             →   Index 1       →   Animation frame 0
+  Frame 1             →   Index 2       →   Animation frame 1
+  Frame 2             →   Index 3       →   Animation frame 2
+  Frame 3             →   Index 4       →   Animation frame 3
+  Frame 4             →   Index 5       →   Animation frame 4
+  Frame 5             →   Index 6       →   Animation frame 5
+
+  Index 0 = Original full spritesheet (not used in animation)
+
+
+ANIMATION FLOW VISUALIZATION:
+==============================
+
+Frame Index Changes Over Time (.loopForward mode, indices 1-6):
+
+ Time  →
+ ────────────────────────────────────────────────────────────────>
+
+ Index: 1   2   3   4   5   6   1   2   3   4   5   6   1   2 ...
+ Frame: F0  F1  F2  F3  F4  F5  F0  F1  F2  F3  F4  F5  F0  F1...
+        │   │   │   │   │   │   │   │   │   │   │   │   │   │
+        ▼   ▼   ▼   ▼   ▼   ▼   ▼   ▼   ▼   ▼   ▼   ▼   ▼   ▼
+       ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐
+       │█│ │▓│ │▒│ │░│ │ │ │█│ │█│ │▓│ │▒│ │░│ │ │ │█│ │█│ │▓│
+       │█│ │▓│ │▒│ │░│ │ │ │█│ │█│ │▓│ │▒│ │░│ │ │ │█│ │█│ │▓│
+       └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘
+                                └───┘
+                          Wraps back to index 1
+
+
+═══════════════════════════════════════════════════════════════════
+COMPLETE CODE EXAMPLE
+═══════════════════════════════════════════════════════════════════
+
+const std = @import("std");
+const movy = @import("movy");
+
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    // Setup terminal
+    try movy.terminal.beginRawMode();
+    defer movy.terminal.endRawMode();
+    try movy.terminal.beginAlternateScreen();
+    defer movy.terminal.endAlternateScreen();
+
+    // STEP 1-2: Load spritesheet as sprite
+    // ─────────────────────────────────────
+    var sprite = try movy.Sprite.initFromPng(
+        allocator,
+        "character_walk.png",  // 384×64 spritesheet (6 frames)
+        "character"
+    );
+    defer sprite.deinit(allocator);
+
+    // STEP 3: Split spritesheet into individual frames
+    // ─────────────────────────────────────────────────
+    try sprite.splitByWidth(allocator, 64);
+    // Now sprite has 7 frames:
+    //   [0] = original spritesheet (unused)
+    //   [1-6] = individual 64×64 frames
+
+    // STEP 4: Create animation (indices 1-6, not 0-5!)
+    // ─────────────────────────────────────────────────
+    var walk_anim = movy.Sprite.FrameAnimation.init(
+        1,              // start frame INDEX (not frame number!)
+        6,              // end frame INDEX
+        .loopForward,   // loop mode
+        1               // speed (1 = update every frame)
+    );
+
+    // STEP 5: Create screen
+    // ─────────────────────
+    var screen = try movy.Screen.init(allocator, 80, 40);
+    defer screen.deinit(allocator);
+    screen.setScreenMode(.bgcolor);
+
+    // STEP 6: Position and add sprite
+    // ────────────────────────────────
+    sprite.output_surface.x = 20;
+    sprite.output_surface.y = 10;
+    sprite.output_surface.z = 1;
+
+    try screen.addSprite(sprite);
+
+    // STEP 7: Main render loop
+    // ─────────────────────────
+    var running = true;
+    while (running) {
+        // Handle input (optional)
+        if (try movy.input.get()) |in| {
+            switch (in) {
+                .key => |key| {
+                    if (key.type == .Escape) running = false;
+                },
+                else => {},
+            }
+        }
+
+        // STEP 7A: Update animation
+        walk_anim.step(sprite);
+
+        // STEP 7B: Render to screen
+        try screen.renderWithSprites();
+
+        // STEP 7C: Output to terminal
+        try screen.output();
+
+        // STEP 7D: Frame timing (60 FPS)
+        std.time.sleep(16_000_000);
+    }
+}
+
+═══════════════════════════════════════════════════════════════════
+
+
+ALTERNATIVE: USING NAMED ANIMATIONS
+====================================
+
+For sprites with multiple animation states:
+
+// After splitByWidth()...
+
+// Create multiple animations
+var walk_anim = movy.Sprite.FrameAnimation.init(1, 6, .loopForward, 1);
+var idle_anim = movy.Sprite.FrameAnimation.init(7, 10, .loopForward, 2);
+var jump_anim = movy.Sprite.FrameAnimation.init(11, 15, .once, 1);
+
+// Add to sprite
+try sprite.addAnimation(allocator, "walk", walk_anim);
+try sprite.addAnimation(allocator, "idle", idle_anim);
+try sprite.addAnimation(allocator, "jump", jump_anim);
+
+// Start animation
+try sprite.startAnimation("walk");
+
+// In game loop:
+sprite.stepActiveAnimation();  // Automatically updates active animation
+
+// Switch animations:
+try sprite.startAnimation("jump");
+
+
+═══════════════════════════════════════════════════════════════════
+
+
+KEY CONCEPTS:
+=============
+
+Sprite.initFromPng():
+    • Loads entire PNG as frames[0]
+    • Initial sprite dimensions = full PNG dimensions
+
+Sprite.splitByWidth():
+    • Splits frames[0] horizontally by split_width
+    • Creates num_frames = full_width / split_width
+    • Appends new frames as [1], [2], [3]... [n]
+    • Sets frame_idx = 1 (start at first split frame)
+    • Updates sprite.w = split_width
+    • Keeps original spritesheet at frames[0] (can be removed later)
+
+Frame Indexing After Split:
+    • frames[0] = Original spritesheet (384×64)
+    • frames[1] = First animation frame (64×64)
+    • frames[2] = Second animation frame (64×64)
+    • ... and so on
+
+Animation Start/End:
+    • IMPORTANT: Use indices 1-6, NOT 0-5!
+    • start: 1 (first split frame, NOT the spritesheet)
+    • end: 6 (last split frame)
+    • Index 0 is the original spritesheet and is skipped
+
+FrameAnimation:
+    • Wraps IndexAnimator for frame control
+    • step(): Updates sprite.frame_set.frame_idx
+    • Works with frame indices (1-6), not frame numbers (0-5)
+
+Why Keep Original Spritesheet?
+    • Optional - can be removed if not needed
+    • Useful for debugging or re-splitting with different widths
+    • Minimal memory overhead (shared pixel data)
+
+
+LOOP MODES EXPLAINED:
+======================
+
+.once (indices 1-6):
+    1 → 2 → 3 → 4 → 5 → 6 [STOP]
+    Use: One-shot animations (death, explosion, etc.)
+
+.loopForward (indices 1-6):
+    1 → 2 → 3 → 4 → 5 → 6 → 1 → 2 → 3 → 4 → 5 → 6 → ...
+    Use: Continuous animations (walking, running, idle)
+
+.loopBackwards (indices 1-6):
+    6 → 5 → 4 → 3 → 2 → 1 → 6 → 5 → 4 → 3 → 2 → 1 → ...
+    Use: Reverse cycling (rewind effects)
+
+.loopBounce (indices 1-6):
+    1 → 2 → 3 → 4 → 5 → 6 → 5 → 4 → 3 → 2 → 1 → 2 → 3 → ...
+    Use: Smooth back-and-forth (breathing, swaying)
+
+
+SPEED CONTROL:
+==============
+
+speed parameter controls update frequency:
+
+speed = 1:  Updates every frame
+    Index: 1, 2, 3, 4, 5, 6, 1, 2, 3...
+
+speed = 2:  Waits 2 frames between updates
+    Index: 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 1, 1...
+
+speed = 5:  Waits 5 frames between updates
+    Index: 1,1,1,1,1, 2,2,2,2,2, 3,3,3,3,3...
+
+Higher speed = slower animation
+
+
+COMMON SPRITESHEET LAYOUTS:
+============================
+
+Horizontal Strip (this guide):
+  ┌────┬────┬────┬────┬────┬────┐
+  │ F0 │ F1 │ F2 │ F3 │ F4 │ F5 │
+  └────┴────┴────┴────┴────┴────┘
+  Use: sprite.splitByWidth(allocator, frame_width)
+
+Vertical Strip (not directly supported):
+  ┌────┐
+  │ F0 │
+  ├────┤
+  │ F1 │
+  ├────┤
+  │ F2 │
+  └────┘
+  Need: Custom split function or pre-split images
+
+Grid Layout (multiple animations):
+  ┌────┬────┬────┬────┐
+  │ W0 │ W1 │ W2 │ W3 │  Walk animation
+  ├────┼────┼────┼────┤
+  │ R0 │ R1 │ R2 │ R3 │  Run animation
+  ├────┼────┼────┼────┤
+  │ J0 │ J1 │ J2 │ J3 │  Jump animation
+  └────┴────┴────┴────┘
+  Solution: Load each row as separate spritesheet
+
+
+TIPS:
+=====
+
+• Always use sprite.splitByWidth() after initFromPng()
+• Remember: animation indices start at 1, not 0!
+• For 6 frames: use init(1, 6, ...) not init(0, 5, ...)
+• Check spritesheet dimensions: width must divide evenly by frame_width
+• Use renderWithSprites() for automatic frame rendering
+• Set sprite z-index to control draw order
+• Use speed parameter to fine-tune animation timing
+• Test with different loop modes to find the right feel
+```
+
+
