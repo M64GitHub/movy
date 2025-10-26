@@ -1,0 +1,107 @@
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                            RENDERENGINE OVERVIEW                          ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+
+═══════════════════════════════════════════════════════════════════════════════
+RenderEngine                                      [src/render/RenderEngine.zig]
+═══════════════════════════════════════════════════════════════════════════════
+
+  The compositor that merges multiple RenderSurfaces into a single output surface.
+
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ PURPOSE                                                                 │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │                                                                         │
+  │  Composites multiple input surfaces with different positions into       │
+  │  a single output surface, handling:                                     │
+  │                                                                         │
+  │  • Position offsets (x, y coordinates)                                  │
+  │  • Transparency (shadow_map opacity)                                    │
+  │  • Clipping (surfaces partially off-screen)                             │
+  │  • Layering (first opaque pixel wins)                                   │
+  │                                                                         │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ render() METHOD                                                         │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │                                                                         │
+  │  Signature:                                                             │
+  │    render(surfaces_in: []const *RenderSurface,                          │
+  │           out_surface: *RenderSurface) void                             │
+  │                                                                         │
+  │  Parameters:                                                            │
+  │    surfaces_in   - Array of input RenderSurfaces to composite           │
+  │    out_surface   - Destination RenderSurface for merged result          │
+  │                                                                         │
+  │  Behavior:                                                              │
+  │    1. Iterates through each input surface                               │
+  │    2. Clips surface to visible region (handles off-screen coords)       │
+  │    3. Copies visible pixels to output:                                  │
+  │       - Respects transparency (shadow_map == 0 → skip)                  │
+  │       - First opaque pixel wins (doesn't overwrite if already set)      │
+  │       - Copies color_map, shadow_map, and char_map                      │
+  │                                                                         │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ VISUAL EXAMPLE                                                          │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │                                                                         │
+  │  Input Surfaces:                                                        │
+  │                                                                         │
+  │    Surface A (x=2, y=1)       Surface B (x=5, y=2)                      │
+  │    ┌────┐                     ┌────┐                                    │
+  │    │████│                     │▓▓▓▓│                                    │
+  │    │████│                     │▓▓▓▓│                                    │
+  │    └────┘                     └────┘                                    │
+  │                                                                         │
+  │  Output Surface (after render):                                         │
+  │    ┌──────────────┐                                                     │
+  │    │              │  ← Empty background                                 │
+  │    │  ████        │  ← Surface A at (2,1)                               │
+  │    │  ████ ▓▓▓▓   │  ← Surface B at (5,2), overlaps partially           │
+  │    │       ▓▓▓▓   │  ← Where they overlap, first opaque pixel wins      │
+  │    └──────────────┘                                                     │
+  │                                                                         │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ USAGE IN SCREEN                                                         │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │                                                                         │
+  │  Screen.render() calls RenderEngine.render() internally:                │
+  │                                                                         │
+  │    screen.addRenderSurface(sprite.output_surface)                       │
+  │    screen.addRenderSurface(background_surface)                          │
+  │    screen.render()  // ← Calls RenderEngine.render(...)                 │
+  │    screen.output()  // Print to terminal                                │
+  │                                                                         │
+  │  Process:                                                               │
+  │    1. Screen collects all surfaces to render                            │
+  │    2. RenderEngine.render() composites them into screen.output_surface  │
+  │    3. screen.output_surface.toAnsi() converts to ANSI                   │
+  │    4. Terminal displays the result                                      │
+  │                                                                         │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ KEY FEATURES                                                            │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │                                                                         │
+  │  ✓ Handles negative coordinates (off-screen positioning)                │
+  │  ✓ Clips surfaces that extend beyond output bounds                      │
+  │  ✓ Respects transparency (shadow_map == 0 means transparent)            │
+  │  ✓ First-write-wins for overlapping opaque pixels                       │
+  │  ✓ Copies text overlays (char_map) along with colors                    │
+  │                                                                         │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════
