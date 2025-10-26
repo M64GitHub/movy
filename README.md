@@ -1,6 +1,6 @@
 ![License](https://img.shields.io/badge/License-MIT-85adf2?style=flat)
 ![Version](https://img.shields.io/badge/Version-0.0.0-85adf2?style=flat)
-![Zig](https://img.shields.io/badge/Zig-0.14.0-orange?style=flat)
+![Zig](https://img.shields.io/badge/Zig-0.14.1-orange?style=flat)
 
 ![get-movy](https://github.com/user-attachments/assets/aa86dded-8e47-404c-bdbe-7db8b04bdbaf)
 
@@ -9,15 +9,20 @@ It turns text mode into a vibrant, graphical playground — combining pixel-leve
 
 ## The Idea Behind movy
 
-**movy** began as a hacker’s dream: to build a full rendering engine for the terminal — layered drawing, alpha blending, z-index ordering, and a programmable pipeline that brings motion and color to the terminal.  
+**movy** is a graphics, effects, and animation engine for the terminal.  
+It turns text mode into a vibrant graphical playground — combining pixel-level rendering with event-driven interaction.
+
+movy began as a hacker’s dream: to build a full rendering engine for the terminal — with layered drawing, alpha blending, z-index ordering, and a programmable pipeline that brings motion and color to text mode.
 
 Designed for visual expressiveness and high frame rates, it draws with ANSI half-blocks to double vertical resolution, supports sprite rendering with transparency, and enables per-frame composition with rich visual effects.
 
-Visual elements render into pixel matrices that can be transformed through reusable effect chains, applied in sequence to build up layered visuals and transitions. Final output is composed through a rendering pipeline that merges all surfaces into a single frame.
+Visual elements render into pixel matrices that can be transformed through reusable effect chains, applied in sequence to build layered visuals and transitions.  
+The final output is composed through a rendering pipeline that merges all surfaces into a single frame.
 
-Animations are driven by reusable components that modulate indices and values over time. Frames can be cycled through index-based animation, while motion and transitions are controlled using waveform generators or easing curves. This makes it easy to animate frame sets, coordinates, palettes, or entire visual sequences in a smooth and expressive way.
+Animations are driven by reusable components that modulate indices and values over time. Frame-based animations, waveforms, or easing curves can be used to animate sprites, coordinates, palettes, or entire scenes with smooth, expressive motion.
 
 The result is a modular visual engine that invites experimentation — composable, expressive, and built to empower you to create, style, and interact with ease.
+
 
 ![mouse_demo](https://github.com/user-attachments/assets/d9852663-fe6d-4119-8c15-90501a3622c1)
 (alien mouse move demo)
@@ -56,12 +61,12 @@ At its heart, **movy** is built on composable rendering, effect-driven visuals, 
 
 
 
-#### Sprite Rendering
+### Sprite Rendering
 
 - Sprites hold a **SpriteFrameSet**: an array of frames, each with its own **RenderSurface**.
 - Changing the current frame index animates the sprite.
 
-#### Animation Helpers
+### Animation Helpers
 
 - **IndexAnimator** is a generic animation helper that updates indices over time. It supports forward, reverse, ping-pong, and one-shot modes, and can also be used for palette cycling, or any index based effects.
 - **TrigWave** provides reusable sine and cosine generators with internal state. These simplify wave-based animations such as pulsing highlights, bobbing motion, or cyclic transitions.
@@ -69,7 +74,7 @@ At its heart, **movy** is built on composable rendering, effect-driven visuals, 
 
 ## movy_video
 
-A latest addition to **movy** is **movy_video** — a video decoding and rendering module that brings full-motion video playback directly to the terminal.
+**movy_video** adds full-motion video playback to the terminal, built on FFmpeg and SDL2.
 
 **movy_video** provides a complete video decoding pipeline using FFmpeg, with support for:
 - **Video decoding** for all FFmpeg-supported formats (.mp4, .h264, .avi, .mkv, .webm, etc.)
@@ -99,5 +104,11 @@ zig build -Dvideo=true
 # TECH DOCS
 
 please see the `doc` folder for comprehensive guides and descriptions!
+
+movy is still evolving — an open playground for anyone who believes the terminal can glow again.
+
+---
+
+**Made with ❤️ and Zig**
 
 
