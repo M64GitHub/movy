@@ -91,7 +91,7 @@ Use Case: Render a sprite with effects and output to terminal
         │  │         └──────────────┼──────────────┘            │  │
         │  │                        ▼                           │  │
         │  │            ┌───────────────────────┐               │  │
-        │  │            │   RenderEngine.merge  │               │  │
+        │  │            │   RenderEngine.render │               │  │
         │  │            │ • Apply z-ordering    │               │  │
         │  │            │ • Blend pixels        │               │  │
         │  │            │ • Handle transparency │               │  │
@@ -114,7 +114,7 @@ Use Case: Render a sprite with effects and output to terminal
         │  │ Manual mode:                                       │  │
         │  │   screen.addSprite(sprite)                         │  │
         │  │   screen.addRenderSurface(surface)                 │  │
-        │  │   screen.render() ── uses RenderEngine.merge ──┐   │  │
+        │  │   screen.render() ── uses RenderEngine.render ─┐   │  │
         │  │                                                │   │  │
         │  │ Pipeline mode:                                 │   │  │
         │  │   pipeline.run() ── outputs to ───────────────┐│   │  │

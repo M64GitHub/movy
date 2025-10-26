@@ -51,7 +51,7 @@ pub const RenderPipeline = struct {
     }
 
     /// Adds an existing RenderObject to the pipeline.
-    pub fn addtRenderObject(
+    pub fn addObject(
         self: *RenderPipeline,
         obj: movy.render.RenderObject,
     ) !void {
@@ -72,15 +72,6 @@ pub const RenderPipeline = struct {
             effect_chain,
         );
         try self.render_objects.append(obj);
-    }
-
-    /// Creates a new RenderObject from an input surface and effect chain, and
-    /// adds it to the pipeline.
-    pub fn addObject(
-        self: *RenderPipeline,
-        input: movy.render.RenderObject,
-    ) !void {
-        try self.render_objects.append(input);
     }
 
     /// Sets the final effect chain for post-processing the merged output.
