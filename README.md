@@ -4,13 +4,12 @@
 
 ![get-movy](https://github.com/user-attachments/assets/aa86dded-8e47-404c-bdbe-7db8b04bdbaf)
 
-**movy** is a graphics rendering-, effects-, and animation engine for the terminal. 
+**movy** is a graphics, effects, and animation engine for the terminal.
+It turns text mode into a vibrant, graphical playground — combining pixel-level rendering with event-driven interaction.
 
-It transforms your terminal into a vibrant, graphical playground — blending pixel-level rendering with event-driven interaction.
+## The Idea Behind movy
 
-## A Hacker’s Dream Canvas
-
-**movy** began as a rendering engine for games — with layered drawing, alpha blending, z-index ordering, and a programmable rendering pipeline that brings motion and color to the terminal.  
+**movy** began as a hacker’s dream: to build a full rendering engine for the terminal — layered drawing, alpha blending, z-index ordering, and a programmable pipeline that brings motion and color to the terminal.  
 
 Designed for visual expressiveness and high frame rates, it draws with ANSI half-blocks to double vertical resolution, supports sprite rendering with transparency, and enables per-frame composition with rich visual effects.
 
