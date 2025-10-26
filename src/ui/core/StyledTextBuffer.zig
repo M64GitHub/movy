@@ -571,7 +571,8 @@ pub const StyledTextBuffer = struct {
     ) void {
         if (self.is_empty) return;
         if (start_keyword.len == 0) return;
-        if (self.text.len < start_keyword.len) return;
+        const text_len = self.last_char_idx + 1;
+        if (text_len < start_keyword.len) return;
 
         const max_index = self.last_char_idx;
         var i: usize = 0;
@@ -667,10 +668,11 @@ pub const StyledTextBuffer = struct {
         bg: Rgb,
     ) void {
         const keyword_len = keyword.len;
+        const text_len = self.last_char_idx + 1;
 
         // Guard against edge cases
         if (self.is_empty or keyword_len == 0 or
-            self.text.len < keyword_len) return;
+            text_len < keyword_len) return;
 
         var i: usize = 0;
 
@@ -710,9 +712,10 @@ pub const StyledTextBuffer = struct {
         bg: Rgb,
     ) void {
         const keyword_len = keyword.len;
+        const text_len = self.last_char_idx + 1;
 
         if (self.is_empty or keyword_len == 0 or
-            self.text.len < keyword_len) return;
+            text_len < keyword_len) return;
 
         var i: usize = 0;
 
@@ -791,7 +794,8 @@ pub const StyledTextBuffer = struct {
         ) void,
     ) void {
         if (self.is_empty) return;
-        if (start_keyword.len == 0 or self.text.len < start_keyword.len) return;
+        const text_len = self.last_char_idx + 1;
+        if (start_keyword.len == 0 or text_len < start_keyword.len) return;
 
         const max_index = self.last_char_idx;
         var i: usize = 0;

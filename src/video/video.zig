@@ -241,12 +241,18 @@ pub const VideoDecoder = struct {
 
     // -- some nice helpers for player coding
 
-    pub fn getPlaybackTimestampStr(self: *VideoDecoder, allocator: std.mem.Allocator) ![]const u8 {
+    pub fn getPlaybackTimestampStr(
+        self: *VideoDecoder,
+        allocator: std.mem.Allocator,
+    ) ![]const u8 {
         const current_ns = self.getPlaybackClock();
         return formatDuration(allocator, current_ns);
     }
 
-    pub fn getTotalDurationStr(self: *VideoDecoder, allocator: std.mem.Allocator) ![]const u8 {
+    pub fn getTotalDurationStr(
+        self: *VideoDecoder,
+        allocator: std.mem.Allocator,
+    ) ![]const u8 {
         const duration_us = self.video.fmt_ctx.duration;
         if (duration_us <= 0) return allocator.dupe(u8, "??:??:??");
         const duration_ns: u64 = @as(u64, @intCast(duration_us)) * 1000;
@@ -672,7 +678,9 @@ pub const VideoState = struct {
         bypass_sync: bool,
     ) !void {
         _ = self.trySendPacket(pkt) catch |err| {
-            if (err == error.SkippedInvalidPacket or err == error.SendAgain) return;
+            if (err == error.SkippedInvalidPacket or err == error.SendAgain)
+                return;
+
             return err;
         };
         try self.drainAndQueueFrames(sync_window, audio_time_ns, bypass_sync);
@@ -853,7 +861,8 @@ pub const AudioState = struct {
             return error.OpenCodecFailed;
 
         const audio_sample_rate = @as(u32, @intCast(codec_ctx.*.sample_rate));
-        const audio_channels = @as(u32, @intCast(codec_ctx.*.ch_layout.nb_channels));
+        const audio_channels =
+            @as(u32, @intCast(codec_ctx.*.ch_layout.nb_channels));
 
         var swr_ctx: ?*c.SwrContext = null;
         const ret = c.swr_alloc_set_opts2(
