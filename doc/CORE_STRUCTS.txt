@@ -1,0 +1,316 @@
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                         MOVY CORE STRUCTS OVERVIEW                          ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+
+═══════════════════════════════════════════════════════════════════════════════
+1. RenderSurface                              [src/core/RenderSurface.zig]
+═══════════════════════════════════════════════════════════════════════════════
+
+  A 2D pixel grid that serves as the foundation for all rendering in movy.
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ STRUCTURE                                                               │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │                                                                         │
+  │  color_map: []Rgb        • RGB color for each pixel                     │
+  │  shadow_map: []u8        • Opacity map (0=transparent, 1+=opaque)       │
+  │  char_map: []u21         • Unicode text overlay (optional)              │
+  │  rendered_str: []u8      • ANSI output buffer                           │
+  │                                                                         │
+  │  w, h: usize             • Dimensions (width × height in pixels)        │
+  │  x, y: i32               • Position in terminal coordinates             │
+  │  z: i32                  • Z-order for layering                         │
+  │                                                                         │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ KEY METHODS                                                             │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │                                                                         │
+  │  init(w, h, color)       • Create new surface with uniform color        │
+  │  createFromPng(path)     • Load RGBA32 PNG file                         │
+  │  createFromAnsi(str)     • Create from ANSI half-block string           │
+  │  toAnsi()                • Convert to ANSI half-block output            │
+  │  clearColored(color)     • Fill with uniform color (opaque)             │
+  │  clearTransparent()      • Clear to fully transparent state             │
+  │  putStrXY(str, x, y)     • Write text with colors                       │
+  │  copy(other)             • Copy content from another surface            │
+  │  resize(w, h)            • Reallocate to new dimensions                 │
+  │                                                                         │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  RENDERING: Uses ANSI half-blocks (▀ ▄) to achieve double vertical resolution.
+             Each terminal character displays two vertically stacked pixels.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+2. Sprite                                        [src/graphic/Sprite.zig]
+═══════════════════════════════════════════════════════════════════════════════
+
+  An animated sprite that holds multiple frames and manages frame-based animations.
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ STRUCTURE                                                               │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │                                                                         │
+  │  name: []u8              • Sprite identifier                            │
+  │  frame_set: FrameSet     • Collection of animation frames               │
+  │  animations: HashMap     • Named animations (string → FrameAnimation)   │
+  │  active_animation: ?str  • Currently playing animation                  │
+  │  output_surface: RS      • RenderSurface for display                    │
+  │                                                                         │
+  │  w, h: usize             • Dimensions (single frame)                    │
+  │  x, y: i32               • Position in terminal coordinates             │
+  │  z: i32                  • Z-order for layering                         │
+  │                                                                         │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ KEY METHODS                                                             │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │                                                                         │
+  │  init(w, h, name)        • Create sprite with single frame              │
+  │  initFromPng(path)       • Load sprite from PNG file                    │
+  │  splitByWidth(w)         • Split horizontal spritesheet into frames     │
+  │  addFrameFromPng(path)   • Add frame from PNG file                      │
+  │  setFrameIndex(idx)      • Change current frame manually                │
+  │                                                                         │
+  │  addAnimation(name, anim)     • Register named animation                │
+  │  startAnimation(name)         • Begin playing named animation           │
+  │  stepActiveAnimation()        • Advance animation one frame             │
+  │  finishedActiveAnimation()    • Check if one-shot animation ended       │
+  │                                                                         │
+  │  setXY(x, y)             • Update position                              │
+  │  toAnsi()                • Convert current frame to ANSI                │
+  │                                                                         │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  WORKFLOW:
+  ┌───────────┐  splitByWidth()  ┌──────────┐  addAnimation()  ┌───────────┐
+  │ PNG File  │ ───────────────> │  Frames  │ ──────────────>  │ Animation │
+  └───────────┘                  └──────────┘                  └───────────┘
+                                       │                              │
+                                       └──────── startAnimation() ────┘
+                                                      │
+                                              stepActiveAnimation()
+                                                      ↓
+                                            [ Animated Output ]
+
+
+═══════════════════════════════════════════════════════════════════════════════
+3. SpriteFrameSet                                [src/graphic/Sprite.zig]
+═══════════════════════════════════════════════════════════════════════════════
+
+  A collection of frames that belong to a sprite, managing the frame index.
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ STRUCTURE                                                               │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │                                                                         │
+  │  frames: ArrayList       • List of SpriteFrame pointers                 │
+  │  frame_idx: usize        • Current active frame index                   │
+  │                                                                         │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ SpriteFrame STRUCTURE                                                   │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │                                                                         │
+  │  data_surface: RS        • Original frame data                          │
+  │  output_surface: RS      • Transformed output (after effects)           │
+  │  x_rel, y_rel: i32       • Relative offset from sprite position         │
+  │  w, h: usize             • Frame dimensions                             │
+  │                                                                         │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ KEY METHODS                                                             │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │                                                                         │
+  │  init(count, w, h)       • Create frameset with N empty frames          │
+  │  addFrameFromPng(path)   • Add frame loaded from PNG                    │
+  │  addFrameFromAnsiStr()   • Add frame from ANSI string                   │
+  │                                                                         │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  FRAMES ARRANGEMENT:
+  ┌───────┬───────┬───────┬───────┐
+  │Frame 0│Frame 1│Frame 2│Frame 3│  ← frames array
+  └───────┴───────┴───────┴───────┘
+      ↑
+  frame_idx  (currently displayed frame)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+4. IndexAnimator                          [src/animation/IndexAnimator.zig]
+═══════════════════════════════════════════════════════════════════════════════
+
+  A generic index-based animator for cycling through values (used for frame 
+  indices).
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ STRUCTURE                                                               │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │                                                                         │
+  │  start: usize            • Starting index (inclusive)                   │
+  │  end: usize              • Ending index (inclusive)                     │
+  │  current: usize          • Current index value                          │
+  │  mode: LoopMode          • Animation behavior                           │
+  │  direction: i8           • Direction (for bounce mode: 1 or -1)         │
+  │  once_finished: bool     • True when 'once' mode completes              │
+  │                                                                         │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ LOOP MODES                                                              │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │                                                                         │
+  │  .once               0 → 1 → 2 → 3 → [stop]                             │
+  │                                                                         │
+  │  .loopForward        0 → 1 → 2 → 3 → 0 → 1 → 2 → 3 → ...                │
+  │                                                                         │
+  │  .loopBackwards      3 → 2 → 1 → 0 → 3 → 2 → 1 → 0 → ...                │
+  │                                                                         │
+  │  .loopBounce         0 → 1 → 2 → 3 → 2 → 1 → 0 → 1 → 2 → ...            │
+  │                                                                         │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ KEY METHODS                                                             │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │                                                                         │
+  │  init(start, end, mode)  • Create new animator                          │
+  │  step()                  • Advance one step, return current index       │
+  │                                                                         │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  USAGE IN SPRITE:
+  Sprite.FrameAnimation wraps IndexAnimator with speed control:
+  - Holds an IndexAnimator instance
+  - speed: number of ticks to wait between frame changes
+  - Calls animator.step() when ready to advance
+
+
+═══════════════════════════════════════════════════════════════════════════════
+5. Screen                                          [src/screen/Screen.zig]
+═══════════════════════════════════════════════════════════════════════════════
+
+  Top-level rendering canvas that composites sprites and surfaces, then outputs
+  to the terminal.
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ STRUCTURE                                                               │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │                                                                         │
+  │  output_surface: RS      • Final composited RenderSurface               │
+  │  sprites: ArrayList      • Sprites to render                            │
+  │  output_surfaces: List   • Additional RenderSurfaces to composite       │
+  │  sub_screens: ArrayList  • Nested screen regions                        │
+  │                                                                         │
+  │  w, h: usize             • Screen dimensions                            │
+  │  x, y: i32               • Screen position (for subscreens)             │
+  │  bg_color: Rgb           • Background color                             │
+  │  screen_mode: Mode       • .transparent or .bgcolor                     │
+  │                                                                         │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │ KEY METHODS                                                             │
+  ├─────────────────────────────────────────────────────────────────────────┤
+  │                                                                         │
+  │  init(w, h)              • Create new screen with dimensions            │
+  │  addSprite(sprite)       • Register sprite for rendering                │
+  │  addRenderSurface(rs)    • Register surface for rendering               │
+  │                                                                         │
+  │  colorClear()            • Clear screen with background color           │
+  │  render()                • Composite all surfaces via RenderEngine      │
+  │  renderWithSprites()     • Include sprite animation frames in render    │
+  │  output()                • Print final ANSI to terminal                 │
+  │                                                                         │
+  │  setScreenMode(mode)     • Set transparent or bgcolor mode              │
+  │  getCenterCoords(w, h)   • Calculate center position for element        │
+  │                                                                         │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+  RENDERING FLOW:
+  ┌──────────┐                ┌──────────┐
+  │ Sprites  │                │ Surfaces │
+  └────┬─────┘                └────┬─────┘
+       │                           │
+       └────── addSprite() ────────┤
+       ┌──────── addRenderSurface()┘
+       │
+       ↓
+  ┌────────────────┐  RenderEngine.render()   ┌────────────────┐
+  │ render() /     │ ─────────────────────>   │ output_surface │
+  │ renderWith     │    (composites by        └────────┬───────┘
+  │ Sprites()      │     z-order, opacity)             │
+  └────────────────┘                                   │
+                                                       ↓
+                                                  output()
+                                                       ↓
+                                              [ Terminal Display ]
+
+
+═══════════════════════════════════════════════════════════════════════════════
+RELATIONSHIPS BETWEEN CORE STRUCTS
+═══════════════════════════════════════════════════════════════════════════════
+
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │                                                                         │
+  │   Screen                                                                │
+  │   ├── output_surface: RenderSurface                                     │
+  │   ├── sprites: []*Sprite                                                │
+  │   │    └── Sprite                                                       │
+  │   │        ├── output_surface: RenderSurface                            │
+  │   │        ├── frame_set: SpriteFrameSet                                │
+  │   │        │   ├── frames: []*SpriteFrame                               │
+  │   │        │   │   └── SpriteFrame                                      │
+  │   │        │   │       ├── data_surface: RenderSurface                  │
+  │   │        │   │       └── output_surface: RenderSurface                │
+  │   │        │   └── frame_idx: usize                                     │
+  │   │        └── animations: HashMap                                      │
+  │   │            └── FrameAnimation                                       │
+  │   │                └── animator: IndexAnimator                          │
+  │   └── output_surfaces: []*RenderSurface                                 │
+  │                                                                         │
+  └─────────────────────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════
+TYPICAL USAGE PATTERN
+═══════════════════════════════════════════════════════════════════════════════
+
+  1. Create a Screen
+     screen = Screen.init(allocator, 80, 24)
+
+  2. Create a Sprite and load frames
+     sprite = Sprite.initFromPng(allocator, "spritesheet.png", "hero")
+     sprite.splitByWidth(32)  // Split into 32px-wide frames
+
+  3. Add animation using IndexAnimator
+     anim = FrameAnimation.init(
+         start: 0,
+         end: 7,
+         mode: .loopForward,
+         speed: 3
+     )
+     sprite.addAnimation(allocator, "walk", anim)
+
+  4. Start animation
+     sprite.startAnimation("walk")
+
+  5. Add sprite to screen
+     screen.addSprite(sprite)
+
+  6. Game loop
+     while (running) {
+         sprite.stepActiveAnimation()    // Advance animation
+         screen.render()                  // Composite all surfaces
+         screen.output()                  // Draw to terminal
+         sleep(frame_time)
+     }
+
+
+═══════════════════════════════════════════════════════════════════════════════
