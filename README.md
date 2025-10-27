@@ -102,6 +102,15 @@ please see the `doc` folder for comprehensive guides and descriptions!
 
 movy is still evolving — an open playground for anyone who believes the terminal can glow again.
 
+# Showcase: Built with movy
+
+| Project | Description | Preview |
+|---------|-------------|---------|
+| [1ST-SHOT](https://github.com/M64GitHub/1st-shot) | Terminal bullet-hell shooter with SID audio | ![preview](link-to-gif) |
+| [movycat](https://github.com/M64GitHub/movycat) | Terminal video player | ![preview](link-to-gif) |
+| *Your project here?* | Submit a PR to add your movy creation! | |
+
+Want to be featured? Create something awesome with movy and open a PR adding your project to this table!
 ---
 
 **Made with ❤️ and Zig**
