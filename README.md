@@ -30,6 +30,10 @@ The result is a **modular visual engine** — composable, expressive, and engine
 ![win_demo](https://github.com/user-attachments/assets/4ceae31d-bbb1-4a2c-95d9-8bd09e2a513b)
 (window demo)
 
+## Made with movy
+
+Check out games, demos, and tools built with movy in the **[Gallery](#showcase-built-with-movy)** below!
+
 ## Core Concepts
 
 At its heart, **movy** is built on composable rendering, effect-driven visuals, and structured interaction. The system is organized around a few core types that coordinate how visuals are drawn, animated, and composed on screen.
