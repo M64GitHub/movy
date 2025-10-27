@@ -72,7 +72,6 @@ At its heart, **movy** is built on composable rendering, effect-driven visuals, 
 
 **movy_video** adds full-motion video playback to the terminal, built on FFmpeg and SDL2.
 
-**movy_video** provides a complete video decoding pipeline using FFmpeg, with support for:
 - **Video decoding** for all FFmpeg-supported formats (.mp4, .h264, .avi, .mkv, .webm, etc.)
 - **Audio playback** with synchronized timing using SDL2
 - **Frame scaling** and conversion to RGB for terminal rendering
