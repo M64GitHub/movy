@@ -111,6 +111,7 @@ movy is still evolving — an open playground for anyone who believes the termin
 | *Your project here?* | Submit a PR to add your movy creation! | |
 
 Want to be featured? Create something awesome with movy and open a PR adding your project to this table!
+
 ---
 
 **Made with ❤️ and Zig**
