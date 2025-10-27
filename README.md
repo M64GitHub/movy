@@ -106,8 +106,8 @@ movy is still evolving — an open playground for anyone who believes the termin
 
 | Project | Description | Preview |
 |---------|-------------|---------|
-| [1ST-SHOT](https://github.com/M64GitHub/1st-shot) | Terminal bullet-hell shooter with SID audio | ![preview](link-to-gif) |
-| [movycat](https://github.com/M64GitHub/movycat) | Terminal video player | ![preview](link-to-gif) |
+| [1ST-SHOT](https://github.com/M64GitHub/1st-shot) | Terminal bullet-hell shooter with SID audio |<img width="1920" height="1080" alt="1st-shot" src="https://github.com/user-attachments/assets/7d720751-f6f4-4451-a509-772ea66cd622" /> |
+| [movycat](https://github.com/M64GitHub/movycat) | Terminal video player |<img width="1300" height="460" alt="459688245-d07e6ecd-2ee4-41f2-a82c-66096de14aed" src="https://github.com/user-attachments/assets/9b67e47b-30bd-4b04-bbd1-99869bba59e3" /> |
 | *Your project here?* | Submit a PR to add your movy creation! | |
 
 Want to be featured? Create something awesome with movy and open a PR adding your project to this table!
