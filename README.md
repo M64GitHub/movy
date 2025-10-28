@@ -119,8 +119,9 @@ Whether it's a game, a demo, an effect, or a tool — if it glows in the termina
 ## Contributing
 
 movy is a work of love and dedicated vision, still evolving rapidly.  
-External code contributions are paused for now, but ideas and feedback are always welcome —  
-see [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
+External code contributions aren’t open yet — I’d like to finish stabilizing the API and architecture first.  
+Ideas and feedback are always welcome in the meantime!  
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
 
 ---
 
