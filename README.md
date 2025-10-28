@@ -9,16 +9,15 @@ It turns text mode into a vibrant, graphical playground — combining pixel-leve
 
 ## The Idea Behind movy
 
-movy began with a vision: to build a full rendering engine for the terminal — with layered drawing, alpha blending, z-index ordering, and a programmable pipeline that brings motion and color to text mode.
+**movy** began with a simple vision — to bring real rendering power to the terminal.
+It features layered drawing, alpha blending, z-index ordering, and a programmable pipeline that adds motion and color to text mode.
 
-Designed for visual expressiveness and performance, **movy** renders with ANSI half-blocks for doubled vertical resolution, supports transparent sprite compositing, and enables per-frame visual effects with smooth real-time composition.
+Using ANSI half-blocks for higher vertical resolution, movy supports transparent sprites, smooth per-frame effects, and real-time composition.  
+Visuals are processed through effect chains — reusable transformations that create layering, transitions, and post-processing.
 
-Visual elements draw into pixel matrices processed through **effect chains** — reusable transformations applied in sequence to create layered visuals, transitions, and post-processing effects. The **rendering pipeline** then merges all active surfaces into a single output frame.
+Animations in movy are modular: they can move sprites, shift colors, or drive whole scenes using waveforms or easing curves.
 
-Animations are driven by modular components that modulate indices, coordinates, or color palettes over time. Using frame-based updates, waveforms, or easing curves, **movy** delivers fluid, expressive motion across sprites and entire scenes.
-
-The result is a **modular visual engine** — composable, expressive, and engineered for experimentation, empowering you to create, style, and interact with ease.
-
+The result is a modular visual engine — expressive, composable, and built for creative experimentation.
 
 ![mouse_demo](https://github.com/user-attachments/assets/d9852663-fe6d-4119-8c15-90501a3622c1)
 (alien mouse move demo)
