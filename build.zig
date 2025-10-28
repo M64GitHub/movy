@@ -72,6 +72,7 @@ pub fn build(b: *std.Build) void {
     const demos = [_][]const u8{
         "mouse_demo",
         "win_demo",
+        "simple_game",
     };
 
     for (demos) |name| {
