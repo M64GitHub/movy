@@ -106,8 +106,6 @@ Please see the [doc](./doc) folder for comprehensive guides and descriptions!
 
 You can use [demos/simple_game.zig](./demos/simple_game.zig) as a starter / template.
 
-movy is still evolving — an open playground for anyone who believes the terminal can glow again.
-
 ## Showcase: Built with movy
 
 | Project | Description | Preview |
