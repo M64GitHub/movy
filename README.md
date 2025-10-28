@@ -100,11 +100,11 @@ The module uses the modern FFmpeg channel layout API (`AVChannelLayout`) and is 
 ```
 zig build -Dvideo=true
 ```
-## TECH DOCS
+## Docs
 
-please see the [doc](./doc) folder for comprehensive guides and descriptions!
+Please see the [doc](./doc) folder for comprehensive guides and descriptions!
 
-movy is still evolving — an open playground for anyone who believes the terminal can glow again.
+You can use [demos/simple_game.zig](./demos/simple_game.zig) as a starter / template.
 
 ## Showcase: Built with movy
 
