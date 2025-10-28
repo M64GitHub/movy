@@ -1,3 +1,12 @@
+// Simple Game Starter
+//
+// - Fullscreen movy init
+// - Sprite sheet + animation handling
+// - Subpixel obstacle movement
+// - Shooting & collision detection
+// - Overlay text rendering
+// - Smooth 60 FPS (adjustable)
+
 const std = @import("std");
 const movy = @import("movy");
 
