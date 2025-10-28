@@ -9,7 +9,7 @@ It turns text mode into a vibrant, graphical playground — combining pixel-leve
 
 ## The Idea Behind movy
 
-movy began as a hacker’s dream: to build a full rendering engine for the terminal — with layered drawing, alpha blending, z-index ordering, and a programmable pipeline that brings motion and color to text mode.
+movy began with a vision: to build a full rendering engine for the terminal — with layered drawing, alpha blending, z-index ordering, and a programmable pipeline that brings motion and color to text mode.
 
 Designed for visual expressiveness and performance, **movy** renders with ANSI half-blocks for doubled vertical resolution, supports transparent sprite compositing, and enables per-frame visual effects with smooth real-time composition.
 
