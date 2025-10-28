@@ -12,10 +12,9 @@ It turns text mode into a vibrant, graphical playground — combining pixel-leve
 **movy** began with a simple vision — to bring real rendering power to the terminal.
 It features layered drawing, alpha blending, z-index ordering, and a programmable pipeline that adds motion and color to text mode.
 
-Using ANSI half-blocks for higher vertical resolution, movy supports transparent sprites, smooth per-frame effects, and real-time composition.  
-Visuals are processed through effect chains — reusable transformations that create layering, transitions, and post-processing.
+Using ANSI half-blocks for higher vertical resolution, movy supports transparent sprites, smooth per-frame effects, and real-time composition. Visuals are processed through effect chains — reusable transformations that create layering, transitions, and post-processing.
 
-Animations in movy are modular: they can move sprites, shift colors, or drive whole scenes using waveforms or easing curves.
+**movy** animates through IndexAnimators (looping, bouncing, or one-shot), waveforms, and easing functions — creating smooth motion across frames, coordinates, and colors.
 
 The result is a modular visual engine — expressive, composable, and built for creative experimentation.
 
