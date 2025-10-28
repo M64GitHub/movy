@@ -116,6 +116,12 @@ You can use [demos/simple_game.zig](./demos/simple_game.zig) as a starter / temp
 Create something awesome with movy and submit a PR adding your project to this table!  
 Whether it's a game, a demo, an effect, or a tool — if it glows in the terminal, it belongs here.
 
+## Contributing
+
+movy is a work of love and dedicated vision, still evolving rapidly.  
+External code contributions are paused for now, but ideas and feedback are always welcome —  
+see [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
+
 ---
 
 **Made with ❤️ and Zig**
