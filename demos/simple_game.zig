@@ -7,6 +7,11 @@
 // - Overlay text rendering
 // - Smooth 60 FPS (adjustable)
 
+// Controls:
+// - move:  cursor up / down / left right
+// - shoot: space
+// - exit:  esc
+
 const std = @import("std");
 const movy = @import("movy");
 
