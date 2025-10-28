@@ -1,18 +1,18 @@
 const std = @import("std");
 const movy = @import("../movy.zig");
-const stdout = std.io.getStdOut().writer();
 
 /// Manages terminal display and renders attached elements like sprites.
 pub const Screen = struct {
     w: usize = 0,
     h: usize = 0,
+    out: *std.io.Writer,
     x: i32 = 0,
     y: i32 = 0,
     bg_color: movy.core.types.Rgb = .{ .r = 0x20, .g = 0x20, .b = 0x20 },
     output_surface: *movy.core.RenderSurface = undefined,
-    sprites: std.ArrayList(*movy.graphic.Sprite),
-    sub_screens: std.ArrayList(*Screen),
-    output_surfaces: std.ArrayList(*movy.core.RenderSurface),
+    sprites: std.array_list.Managed(*movy.graphic.Sprite),
+    sub_screens: std.array_list.Managed(*Screen),
+    output_surfaces: std.array_list.Managed(*movy.core.RenderSurface),
     rendered_ansi: ?[]u8 = null,
     screen_mode: Mode = .transparent,
     clr_line: ?[]u8 = null,
@@ -24,13 +24,14 @@ pub const Screen = struct {
     };
 
     /// Initializes a new Screen with the given width and height in characters
-    pub fn init(allocator: std.mem.Allocator, w: usize, h: usize) !Screen {
+    pub fn init(allocator: std.mem.Allocator, out: *std.io.Writer, w: usize, h: usize) !Screen {
         var screen = Screen{
             .w = w,
             .h = h * 2,
-            .sprites = std.ArrayList(*movy.graphic.Sprite).init(allocator),
-            .sub_screens = std.ArrayList(*Screen).init(allocator),
-            .output_surfaces = std.ArrayList(
+            .out = out,
+            .sprites = std.array_list.Managed(*movy.graphic.Sprite).init(allocator),
+            .sub_screens = std.array_list.Managed(*Screen).init(allocator),
+            .output_surfaces = std.array_list.Managed(
                 *movy.core.RenderSurface,
             ).init(allocator),
         };
@@ -42,7 +43,7 @@ pub const Screen = struct {
         );
         try screen.colorClear(allocator);
 
-        movy.terminal.cursorOff();
+        movy.terminal.cursorOff(out);
         return screen;
     }
 
@@ -53,7 +54,7 @@ pub const Screen = struct {
         self.sub_screens.deinit();
         self.output_surfaces.deinit();
         self.output_surface.deinit(allocator);
-        movy.terminal.cursorOn();
+        movy.terminal.cursorOn(self.out);
     }
 
     /// Adds a Sprite to the Screen for rendering its output_surface
@@ -96,14 +97,15 @@ pub const Screen = struct {
             self.clr_line = clr_line;
         }
 
-        movy.terminal.cursorHome();
-        movy.terminal.setColor(self.bg_color);
-        movy.terminal.setBgColor(self.bg_color);
+        movy.terminal.cursorHome(self.out);
+        movy.terminal.setColor(self.out, self.bg_color);
+        movy.terminal.setBgColor(self.out, self.bg_color);
         const half_h: usize = @as(usize, @intCast(self.h)) / 2;
         for (0..half_h) |_| {
-            try stdout.print("{s}", .{self.clr_line.?});
+            try self.out.print("{s}", .{self.clr_line.?});
         }
-        try stdout.print("\x1b[0m", .{});
+        try self.out.print("\x1b[0m", .{});
+        try self.out.flush();
 
         self.output_surface.clearColored(self.bg_color);
     }
@@ -163,15 +165,16 @@ pub const Screen = struct {
     }
 
     pub fn output(self: *Screen) !void {
-        movy.terminal.cursorHome();
-        if (self.x > 0) movy.terminal.cursorRight(self.x);
+        movy.terminal.cursorHome(self.out);
+        if (self.x > 0) movy.terminal.cursorRight(self.out, self.x);
 
         const half_y = @divTrunc(self.y, 2);
-        if (half_y >= 1) movy.terminal.cursorDown(half_y);
+        if (half_y >= 1) movy.terminal.cursorDown(self.out, half_y);
 
         const rendered_ansi = try self.output_surface.toAnsi();
 
-        try stdout.writeAll(rendered_ansi);
+        try self.out.writeAll(rendered_ansi);
+        try self.out.flush();
     }
 
     /// Sets the rendering mode of the Screen (transparent or bgcolor)

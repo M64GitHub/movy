@@ -116,7 +116,7 @@ pub const StyledTextBuffer = struct {
             .i = 0,
         };
 
-        var result = std.ArrayList(u21).init(allocator);
+        var result = std.array_list.Managed(u21).init(allocator);
 
         while (utf8_stream.nextCodepoint()) |cp| {
             try result.append(cp);

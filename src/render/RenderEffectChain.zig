@@ -15,7 +15,7 @@ pub const Error = error{
 /// effects, producing a final output surface.
 /// Supports dynamic resizing and flexible initialization.
 pub const RenderEffectChain = struct {
-    effect_links: std.ArrayList(EffectLink),
+    effect_links: std.array_list.Managed(EffectLink),
     total_border_expand: movy.render.Effect.SurfaceExpand = .{
         .border_x = 0,
         .border_y = 0,
@@ -33,7 +33,7 @@ pub const RenderEffectChain = struct {
     pub fn init(allocator: std.mem.Allocator) !RenderEffectChain {
         const effect_links =
             // "smart" default
-            try std.ArrayList(EffectLink).initCapacity(allocator, 3);
+            try std.array_list.Managed(EffectLink).initCapacity(allocator, 3);
         return RenderEffectChain{
             .effect_links = effect_links,
         };

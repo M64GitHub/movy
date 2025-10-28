@@ -3,15 +3,17 @@ const movy = @import("movy");
 
 pub fn main() !void {
     const allocator = std.heap.page_allocator;
-    const stdout = std.io.getStdOut().writer();
+    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    const stdout = &stdout_writer.interface;
 
     try movy.terminal.beginRawMode();
     defer movy.terminal.endRawMode();
-    try movy.terminal.beginAlternateScreen();
-    defer movy.terminal.endAlternateScreen();
+    try movy.terminal.beginAlternateScreen(stdout);
+    defer movy.terminal.endAlternateScreen(stdout);
 
     // Initialize screen
-    var screen = try movy.Screen.init(allocator, 120, 40);
+    var screen = try movy.Screen.init(allocator, stdout, 120, 40);
     defer screen.deinit(allocator);
     screen.setScreenMode(movy.Screen.Mode.bgcolor);
 
@@ -64,7 +66,7 @@ pub fn main() !void {
     // Output to screen
     try screen.output();
 
-    movy.terminal.setColor(movy.color.LIGHT_BLUE);
+    movy.terminal.setColor(stdout, movy.color.LIGHT_BLUE);
     try stdout.print(
         "\n\nSprite faded at frame 30! Press Escape to quit...\n",
         .{},
@@ -79,6 +81,6 @@ pub fn main() !void {
                 else => {},
             }
         }
-        std.time.sleep(10_000_000); // ~100 FPS
+        std.Thread.sleep(10_000_000); // ~100 FPS
     }
 }

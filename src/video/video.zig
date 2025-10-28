@@ -236,7 +236,7 @@ pub const VideoDecoder = struct {
     ///
     /// Used by video queue cleanup.
     pub fn freeAVFrame(frame: *c.AVFrame) void {
-        c.av_frame_free(@as([*c][*c]c.AVFrame, @constCast(@ptrCast(&frame))));
+        c.av_frame_free(@as([*c][*c]c.AVFrame, @ptrCast(@constCast(&frame))));
     }
 
     // -- some nice helpers for player coding
@@ -403,13 +403,13 @@ pub const VideoState = struct {
         }
         if (self.frame) |frame| {
             c.av_frame_free(
-                @as([*c][*c]c.AVFrame, @constCast(@ptrCast(&frame))),
+                @as([*c][*c]c.AVFrame, @ptrCast(@constCast(&frame))),
             );
         }
 
         if (self.rgb_frame) |rgb_frame| {
             c.av_frame_free(
-                @as([*c][*c]c.AVFrame, @constCast(@ptrCast(&rgb_frame))),
+                @as([*c][*c]c.AVFrame, @ptrCast(@constCast(&rgb_frame))),
             );
         }
 
@@ -693,7 +693,7 @@ pub const VideoState = struct {
         if (self.queue_count >= MAX_VIDEO_FRAMES) {
             const drop_idx = self.queue_tail;
             if (self.frame_queue[drop_idx]) |old_vf| {
-                c.av_frame_free(@constCast(@ptrCast(&old_vf.frame)));
+                c.av_frame_free(@ptrCast(@constCast(&old_vf.frame)));
                 self.frame_queue[drop_idx] = null;
             }
             self.queue_tail = (self.queue_tail + 1) % MAX_VIDEO_FRAMES;
@@ -707,7 +707,7 @@ pub const VideoState = struct {
         const pts_ns = try self.getFramePtsNS(cloned_frame);
         if (pts_ns == self.last_enqueued_pts_ns) {
             // Still need to free cloned_frame if not used!
-            c.av_frame_free(@constCast(@ptrCast(&cloned_frame)));
+            c.av_frame_free(@ptrCast(@constCast(&cloned_frame)));
             return;
         }
         // std.debug.print("Enqueued frame with PTS {}\n", .{pts_ns});

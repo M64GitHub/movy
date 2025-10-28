@@ -6,12 +6,12 @@ const movy = @import("../../movy.zig");
 pub const Manager = struct {
     allocator: std.mem.Allocator,
     // tracked ui items
-    widgets: std.ArrayList(*movy.ui.Widget),
-    bordered_windows: std.ArrayList(*movy.ui.BorderedWindow),
-    title_windows: std.ArrayList(*movy.ui.TitleWindow),
-    text_windows: std.ArrayList(*movy.ui.TextWindow),
-    windows: std.ArrayList(*movy.ui.Window),
-    sprites: std.ArrayList(*movy.graphic.Sprite),
+    widgets: std.array_list.Managed(*movy.ui.Widget),
+    bordered_windows: std.array_list.Managed(*movy.ui.BorderedWindow),
+    title_windows: std.array_list.Managed(*movy.ui.TitleWindow),
+    text_windows: std.array_list.Managed(*movy.ui.TextWindow),
+    windows: std.array_list.Managed(*movy.ui.Window),
+    sprites: std.array_list.Managed(*movy.graphic.Sprite),
     // managed screen
     screen: *movy.Screen,
 
@@ -36,18 +36,18 @@ pub const Manager = struct {
         screen: *movy.Screen,
     ) movy.ui.Manager {
         return Manager{
-            .widgets = std.ArrayList(*movy.ui.Widget).init(allocator),
-            .bordered_windows = std.ArrayList(*movy.ui.BorderedWindow).init(
+            .widgets = std.array_list.Managed(*movy.ui.Widget).init(allocator),
+            .bordered_windows = std.array_list.Managed(*movy.ui.BorderedWindow).init(
                 allocator,
             ),
-            .title_windows = std.ArrayList(*movy.ui.TitleWindow).init(
+            .title_windows = std.array_list.Managed(*movy.ui.TitleWindow).init(
                 allocator,
             ),
-            .text_windows = std.ArrayList(*movy.ui.TextWindow).init(
+            .text_windows = std.array_list.Managed(*movy.ui.TextWindow).init(
                 allocator,
             ),
-            .windows = std.ArrayList(*movy.ui.Window).init(allocator),
-            .sprites = std.ArrayList(*movy.graphic.Sprite).init(allocator),
+            .windows = std.array_list.Managed(*movy.ui.Window).init(allocator),
+            .sprites = std.array_list.Managed(*movy.graphic.Sprite).init(allocator),
             .active_widget = null,
             .screen = screen,
             .allocator = allocator,

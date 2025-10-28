@@ -3,14 +3,16 @@ const movy = @import("movy");
 
 pub fn main() !void {
     const allocator = std.heap.page_allocator;
-    const stdout = std.io.getStdOut().writer();
+    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    const stdout = &stdout_writer.interface;
 
     try movy.terminal.beginRawMode();
     defer movy.terminal.endRawMode();
-    try movy.terminal.beginAlternateScreen();
-    defer movy.terminal.endAlternateScreen();
+    try movy.terminal.beginAlternateScreen(stdout);
+    defer movy.terminal.endAlternateScreen(stdout);
 
-    var screen = try movy.Screen.init(allocator, 120, 40);
+    var screen = try movy.Screen.init(allocator, stdout, 120, 40);
     defer screen.deinit(allocator);
     screen.setScreenMode(movy.Screen.Mode.bgcolor);
 
@@ -41,7 +43,7 @@ pub fn main() !void {
                 .key => |key| {
                     if (key.type == .Escape) break;
                     if (key.type == .Char and key.sequence[0] == 'f') {
-                        movy.terminal.setColor(movy.color.LIGHT_BLUE);
+                        movy.terminal.setColor(stdout, movy.color.LIGHT_BLUE);
                         try stdout.print("\nrunning Fade: {d}\n", .{frame});
                         const in_surface = try sprite.getCurrentFrameSurface();
                         try fade_effect.runOnSurfaces(
@@ -60,6 +62,6 @@ pub fn main() !void {
 
         try screen.output();
 
-        std.time.sleep(16_000_000); // ~60 FPS
+        std.Thread.sleep(16_000_000); // ~60 FPS
     }
 }

@@ -2,7 +2,9 @@ const std = @import("std");
 const movy = @import("movy");
 
 pub fn main() !void {
-    const stdout = std.io.getStdOut().writer();
+    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    const stdout = &stdout_writer.interface;
 
     try movy.terminal.beginRawMode();
     defer movy.terminal.endRawMode();
@@ -22,6 +24,6 @@ pub fn main() !void {
                 },
             }
         }
-        std.time.sleep(10_000_000); // ~100 FPS
+        std.Thread.sleep(10_000_000); // ~100 FPS
     }
 }

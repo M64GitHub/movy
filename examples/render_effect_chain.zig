@@ -3,7 +3,10 @@ const movy = @import("movy");
 
 pub fn main() !void {
     const allocator = std.heap.page_allocator;
-    const stdout = std.io.getStdOut().writer();
+
+    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    const stdout = &stdout_writer.interface;
 
     var input_surface = try movy.core.RenderSurface.init(
         allocator,

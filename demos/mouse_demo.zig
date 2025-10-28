@@ -1,7 +1,9 @@
 const std = @import("std");
 const movy = @import("movy");
 
-const stdout = std.io.getStdOut().writer();
+var stdout_buffer: [1024]u8 = undefined;
+var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+const stdout = &stdout_writer.interface;
 
 pub fn main() !void {
     const allocator = std.heap.page_allocator;
@@ -9,11 +11,11 @@ pub fn main() !void {
     // Set raw mode, switch to alternate screen
     try movy.terminal.beginRawMode();
     defer movy.terminal.endRawMode();
-    try movy.terminal.beginAlternateScreen();
-    defer movy.terminal.endAlternateScreen();
+    try movy.terminal.beginAlternateScreen(stdout);
+    defer movy.terminal.endAlternateScreen(stdout);
 
     // Initialize screen (height in line numbers)
-    var screen = try movy.Screen.init(allocator, 120, 40);
+    var screen = try movy.Screen.init(allocator, stdout, 120, 40);
     defer screen.deinit(allocator);
     screen.setScreenMode(movy.Screen.Mode.bgcolor);
 
@@ -437,6 +439,6 @@ pub fn main() !void {
             );
             const status_len = status.len;
             try status_window.setText(status_line_buffer[0..status_len]);
-        } else std.time.sleep(50_000);
+        } else std.Thread.sleep(50_000);
     }
 }

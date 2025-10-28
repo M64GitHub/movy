@@ -14,7 +14,7 @@ pub const Error = error{
 /// A pipeline that processes multiple render objects and applies a final effect
 /// chain, merging inputs into a single output surface for rendering.
 pub const RenderPipeline = struct {
-    render_objects: std.ArrayList(movy.render.RenderObject),
+    render_objects: std.array_list.Managed(movy.render.RenderObject),
     effect_chain: ?movy.render.RenderEffectChain,
     output_surface: *movy.core.RenderSurface,
     result_surface: *movy.core.RenderSurface,
@@ -25,7 +25,7 @@ pub const RenderPipeline = struct {
         output: *movy.core.RenderSurface,
     ) !RenderPipeline {
         return .{
-            .render_objects = std.ArrayList(
+            .render_objects = std.array_list.Managed(
                 movy.render.RenderObject,
             ).init(allocator),
             .effect_chain = null,
@@ -93,7 +93,7 @@ pub const RenderPipeline = struct {
         if (self.render_objects.items.len == 0) return Error.EmptyPipeline;
 
         var temp_surfaces =
-            std.ArrayList(*movy.core.RenderSurface).init(allocator);
+            std.array_list.Managed(*movy.core.RenderSurface).init(allocator);
         defer temp_surfaces.deinit();
 
         // Process each render object

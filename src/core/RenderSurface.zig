@@ -804,5 +804,6 @@ pub const RenderSurface = struct {
         // print image
         const str = try self.toAnsi();
         try stdout.print("{s}\n", .{str});
+        try stdout.flush();
     }
 };

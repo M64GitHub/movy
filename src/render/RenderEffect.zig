@@ -150,6 +150,6 @@ pub const RenderEffect = struct {
     }
 
     inline fn castInstance(comptime T: type, i: *anyopaque) *T {
-        return @as(*T, @alignCast(@ptrCast(i)));
+        return @as(*T, @ptrCast(@alignCast(i)));
     }
 };

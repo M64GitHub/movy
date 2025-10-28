@@ -117,7 +117,7 @@ pub const SpriteFrame = struct {
 };
 
 pub const SpriteFrameSet = struct {
-    frames: std.ArrayList(*SpriteFrame),
+    frames: std.array_list.Managed(*SpriteFrame),
     frame_idx: usize = 0,
 
     /// Initializes a SpriteFrameSet with a given number of frames,
@@ -406,7 +406,7 @@ pub const Sprite = struct {
 
             var it = self.animations.iterator();
             while (it.next()) |entry| {
-                std.debug.print("- {s}\n", .{entry.key_ptr});
+                std.debug.print("- {s}\n", .{entry.key_ptr.*});
             }
 
             return Sprite.SpriteError.AnimationNotFound;
@@ -466,7 +466,7 @@ pub const Sprite = struct {
         name: []const u8,
     ) !*Sprite {
         var frame_set = SpriteFrameSet{
-            .frames = std.ArrayList(*SpriteFrame).init(allocator),
+            .frames = std.array_list.Managed(*SpriteFrame).init(allocator),
         };
         errdefer frame_set.deinit(allocator);
 

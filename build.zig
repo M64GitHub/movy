@@ -13,7 +13,7 @@ pub fn build(b: *std.Build) void {
     // apt-get install libavcodec-dev libavutil-dev libswresample-dev libavformat-dev libswscale-dev
     // const enable_ffmpeg = b.option(bool, "video", "Enable ffmpeg/SDL2 audio support in movy") orelse false;
     // for zls, while editing
-    const enable_ffmpeg = true;
+    const enable_ffmpeg = false;
     const dummy = b.option(bool, "video", "Enable ffmpeg/SDL2 audio support in movy") orelse false;
     _ = dummy;
 
@@ -51,9 +51,11 @@ pub fn build(b: *std.Build) void {
     for (examples) |name| {
         const example_exe = b.addExecutable(.{
             .name = name,
-            .root_source_file = b.path(b.fmt("examples/{s}.zig", .{name})),
-            .target = target,
-            .optimize = optimize,
+            .root_module = b.createModule(.{
+                .root_source_file = b.path(b.fmt("examples/{s}.zig", .{name})),
+                .target = target,
+                .optimize = optimize,
+            }),
         });
         example_exe.root_module.addImport("movy", movy_mod); // Link module
         b.installArtifact(example_exe);
@@ -76,12 +78,11 @@ pub fn build(b: *std.Build) void {
     };
 
     for (demos) |name| {
-        const demo_exe = b.addExecutable(.{
-            .name = name,
+        const demo_exe = b.addExecutable(.{ .name = name, .root_module = b.createModule(.{
             .root_source_file = b.path(b.fmt("demos/{s}.zig", .{name})),
             .target = target,
             .optimize = optimize,
-        });
+        }) });
         demo_exe.root_module.addImport("movy", movy_mod);
         b.installArtifact(demo_exe);
 
@@ -144,9 +145,11 @@ pub fn build(b: *std.Build) void {
         for (names) |name| {
             const ffmpeg_exe = b.addExecutable(.{
                 .name = name,
-                .root_source_file = b.path(b.fmt("examples/{s}.zig", .{name})),
-                .target = target,
-                .optimize = optimize,
+                .root_module = b.createModule(.{
+                    .root_source_file = b.path(b.fmt("examples/{s}.zig", .{name})),
+                    .target = target,
+                    .optimize = optimize,
+                }),
             });
             ffmpeg_exe.root_module.addImport("movy", movy_mod);
             ffmpeg_exe.root_module.addImport("movy_video", movy_video_mod);

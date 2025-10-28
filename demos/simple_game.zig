@@ -467,6 +467,10 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
+    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    const stdout = &stdout_writer.interface;
+
     // -- Init terminal and screen
     // Get the terminal size
     const terminal_size = try movy.terminal.getSize();
@@ -474,12 +478,13 @@ pub fn main() !void {
     // Set raw mode, switch to alternate screen
     try movy.terminal.beginRawMode();
     defer movy.terminal.endRawMode();
-    try movy.terminal.beginAlternateScreen();
-    defer movy.terminal.endAlternateScreen();
+    try movy.terminal.beginAlternateScreen(stdout);
+    defer movy.terminal.endAlternateScreen(stdout);
 
     // -- Initialize screen (height in line numbers)
     var screen = try movy.Screen.init(
         allocator,
+        stdout,
         terminal_size.width,
         terminal_size.height,
     );
@@ -542,7 +547,7 @@ pub fn main() !void {
         const frame_end = std.time.nanoTimestamp();
         const frame_time = frame_end - frame_start;
         if (frame_time < frame_delay_ns) {
-            std.time.sleep(@intCast(frame_delay_ns - frame_time));
+            std.Thread.sleep(@intCast(frame_delay_ns - frame_time));
         }
     }
 }
