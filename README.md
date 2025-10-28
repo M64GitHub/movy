@@ -12,11 +12,11 @@ It turns text mode into a vibrant, graphical playground — combining pixel-leve
 **movy** began with a simple vision — to bring real rendering power to the terminal.
 It features layered drawing, alpha blending, z-index ordering, and a programmable pipeline that adds motion and color to text mode.
 
-Using ANSI half-blocks for higher vertical resolution, movy supports transparent sprites, smooth per-frame effects, and real-time composition. Visuals are processed through effect chains — reusable transformations that create transitions and post-processing.
+Using ANSI half-blocks for higher vertical resolution, movy supports transparent sprites, per-frame visual effects, and real-time composition. Visuals flow through effect chains — reusable transformations that enable transitions, layering, and post-processing.
 
-**movy** animates through IndexAnimators (looping, bouncing, or one-shot), waveforms, and easing functions — creating smooth motion across frames, coordinates, and colors.
+**movy** drives animation through IndexAnimators (looping, bouncing, or one-shot), waveforms, and easing functions — creating smooth motion across frames, positions, and colors.
 
-The result is a modular visual engine — expressive, composable, and built for creative experimentation.
+The result is a **modular visual engine** — expressive, composable, and built for creative experimentation.
 
 ![mouse_demo](https://github.com/user-attachments/assets/d9852663-fe6d-4119-8c15-90501a3622c1)
 (alien mouse move demo)
