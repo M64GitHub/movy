@@ -1,6 +1,5 @@
 const std = @import("std");
 const movy = @import("../movy.zig");
-const stdout = std.io.getStdOut().writer();
 
 /// Manages terminal display and renders attached elements like sprites.
 pub const Screen = struct {
@@ -28,12 +27,15 @@ pub const Screen = struct {
         var screen = Screen{
             .w = w,
             .h = h * 2,
-            .sprites = std.ArrayList(*movy.graphic.Sprite).init(allocator),
-            .sub_screens = std.ArrayList(*Screen).init(allocator),
+            .sprites = std.ArrayList(*movy.graphic.Sprite){},
+            .sub_screens = std.ArrayList(*Screen){},
             .output_surfaces = std.ArrayList(
                 *movy.core.RenderSurface,
-            ).init(allocator),
+            ){},
         };
+        try screen.sprites.ensureTotalCapacity(allocator, 8);
+        try screen.sub_screens.ensureTotalCapacity(allocator, 2);
+        try screen.output_surfaces.ensureTotalCapacity(allocator, 8);
         screen.output_surface = try movy.core.RenderSurface.init(
             allocator,
             w,
@@ -49,21 +51,21 @@ pub const Screen = struct {
     /// Frees all resources allocated for the Screen
     pub fn deinit(self: *Screen, allocator: std.mem.Allocator) void {
         if (self.clr_line) |cl| allocator.free(cl);
-        self.sprites.deinit();
-        self.sub_screens.deinit();
-        self.output_surfaces.deinit();
+        self.sprites.deinit(allocator);
+        self.sub_screens.deinit(allocator);
+        self.output_surfaces.deinit(allocator);
         self.output_surface.deinit(allocator);
         movy.terminal.cursorOn();
     }
 
     /// Adds a Sprite to the Screen for rendering its output_surface
-    pub fn addSprite(self: *Screen, spr: *movy.graphic.Sprite) !void {
-        try self.sprites.append(spr);
+    pub fn addSprite(self: *Screen, allocator: std.mem.Allocator, spr: *movy.graphic.Sprite) !void {
+        try self.sprites.append(allocator, spr);
     }
 
     /// Adds an output surface to the Screen for rendering
-    pub fn addRenderSurface(self: *Screen, rs: *movy.core.RenderSurface) !void {
-        try self.output_surfaces.append(rs);
+    pub fn addRenderSurface(self: *Screen, allocator: std.mem.Allocator, rs: *movy.core.RenderSurface) !void {
+        try self.output_surfaces.append(allocator, rs);
     }
 
     /// Returns the height of the Screen in half block characters
@@ -101,9 +103,9 @@ pub const Screen = struct {
         movy.terminal.setBgColor(self.bg_color);
         const half_h: usize = @as(usize, @intCast(self.h)) / 2;
         for (0..half_h) |_| {
-            try stdout.print("{s}", .{self.clr_line.?});
+            _ = try std.posix.write(std.posix.STDOUT_FILENO, self.clr_line.?);
         }
-        try stdout.print("\x1b[0m", .{});
+        _ = try std.posix.write(std.posix.STDOUT_FILENO, "\x1b[0m");
 
         self.output_surface.clearColored(self.bg_color);
     }
@@ -129,13 +131,13 @@ pub const Screen = struct {
     }
 
     // renders sprites and surfaces
-    pub fn renderWithSprites(self: *Screen) !void {
+    pub fn renderWithSprites(self: *Screen, allocator: std.mem.Allocator) !void {
         for (self.sprites.items) |sprite| {
             if (sprite.active_animation) |_| {
                 const rs =
                     try sprite.getCurrentFrameSurface();
-                try self.addRenderSurface(rs);
-            } else try self.addRenderSurface(sprite.output_surface);
+                try self.addRenderSurface(allocator, rs);
+            } else try self.addRenderSurface(allocator, sprite.output_surface);
         }
         if (self.output_surfaces.items.len == 0) return;
 
@@ -171,7 +173,7 @@ pub const Screen = struct {
 
         const rendered_ansi = try self.output_surface.toAnsi();
 
-        try stdout.writeAll(rendered_ansi);
+        _ = try std.posix.write(std.posix.STDOUT_FILENO, rendered_ansi);
     }
 
     /// Sets the rendering mode of the Screen (transparent or bgcolor)

@@ -3,7 +3,6 @@ const movy = @import("movy");
 
 pub fn main() !void {
     const allocator = std.heap.page_allocator;
-    const stdout = std.io.getStdOut().writer();
 
     var input_surface = try movy.core.RenderSurface.init(
         allocator,
@@ -47,8 +46,8 @@ pub fn main() !void {
     var chain = try movy.render.RenderEffectChain.init(allocator);
     defer chain.deinit(allocator);
     // chain the effects
-    try chain.chainEffect(blur_effect);
-    try chain.chainEffect(fade_effect);
+    try chain.chainEffect(allocator, blur_effect);
+    try chain.chainEffect(allocator, fade_effect);
 
     // Create an Effect Context
     var fx_ctx = movy.render.Effect.RenderEffectContext{
@@ -57,13 +56,13 @@ pub fn main() !void {
     };
 
     // Run the chain
-    try stdout.print("Running chain...\n", .{});
+    std.debug.print("Running chain...\n", .{});
     try chain.run(allocator, &fx_ctx, 30);
-    try stdout.print("Output[0]: r={d}, g={d}, b={d}\n", .{
+    std.debug.print("Output[0]: r={d}, g={d}, b={d}\n", .{
         output_surface.color_map[0].r,
         output_surface.color_map[0].g,
         output_surface.color_map[0].b,
     });
 
-    try stdout.print("Expecting: r=g=b=69 (128/2) + 10/2\n", .{});
+    std.debug.print("Expecting: r=g=b=69 (128/2) + 10/2\n", .{});
 }

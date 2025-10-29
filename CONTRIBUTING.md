@@ -2,13 +2,17 @@
 
 Thank you so much for your interest in **movy**!
 
-movy is still growing and finding its shape.  
-Right now the core systems, and API can be still changing as I refine ideas and explore what movy can become.
+movy is a personal, evolving project that I’m actively developing and refining.  
+The architecture, rendering system, and APIs are changing quickly, and I’m keeping the direction
+tightly focused to maintain consistency and vision.
 
-Because of that, it’s not quite ready for outside patches yet.  
-But I love hearing ideas, questions, and impressions from anyone following the project — they help me see new perspectives and often inspire improvements.
+For now, **movy can not accept external code contributions or pull requests**.  
+If you notice an issue, have an idea, or want to discuss potential improvements, please open an
+**issue** or start a **discussion**. I truly appreciate insights and bug reports, and I’m happy to
+coordinate—**please check in first** so efforts don’t overlap and any proposal can align with the
+architecture and roadmap I have in mind.
 
-If you’d like to share thoughts or discoveries, please open an **issue** or start a **discussion** here on GitHub.  
-Once the core feels stable, I’ll share clear directions for collaborative development.
+Once the core stabilizes, I may gradually open selected collaboration.  
+Until then, movy remains a single-maintainer effort.
 
-Thank you for caring about movy and for giving it your attention while it grows.
+Thank you for understanding and for respecting the care that goes into building movy step by step.
