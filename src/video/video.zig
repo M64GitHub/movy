@@ -460,7 +460,11 @@ pub const VideoState = struct {
             1,
         ));
 
-        const rgb_buf = try allocator.alignedAlloc(u8, 32, rgb_buf_size);
+        const rgb_buf = try allocator.alignedAlloc(
+            u8,
+            std.mem.Alignment.@"32",
+            rgb_buf_size,
+        );
         self.rgb_buf = rgb_buf;
 
         if (c.av_image_fill_arrays(
