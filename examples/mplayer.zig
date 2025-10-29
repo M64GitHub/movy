@@ -23,6 +23,10 @@ pub fn main() !void {
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
 
+    var stdout_buffer: [1024]u8 = undefined;
+    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    const stdout = &stdout_writer.interface;
+
     // -- setup movy screen
 
     try movy.terminal.beginRawMode();
@@ -182,7 +186,7 @@ pub fn main() !void {
     ));
 
     // allocate raw buffer
-    const rgb_buf = try allocator.alignedAlloc(u8, 32, rgb_buf_size);
+    const rgb_buf = try allocator.alignedAlloc(u8, std.mem.Alignment.@"32", rgb_buf_size);
     defer allocator.free(rgb_buf);
 
     _ = c.av_image_fill_arrays(

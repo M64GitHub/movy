@@ -793,7 +793,9 @@ pub const RenderSurface = struct {
     }
 
     pub fn print(self: *RenderSurface) !void {
-        const stdout = std.io.getStdOut().writer();
+        var stdout_buffer: [1024]u8 = undefined;
+        var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+        const stdout = &stdout_writer.interface;
         // give space for image rendering
         const h = self.h / 2;
         for (0..h) |_| {
