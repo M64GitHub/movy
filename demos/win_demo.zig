@@ -1,8 +1,6 @@
 const std = @import("std");
 const movy = @import("movy");
 
-const stdout = std.io.getStdOut().writer();
-
 pub fn main() !void {
     const allocator = std.heap.page_allocator;
 
@@ -332,6 +330,6 @@ pub fn main() !void {
             );
             const status_len = status.len;
             try status_window.setText(status_line_buffer[0..status_len]);
-        } else std.time.sleep(50_000);
+        } else std.Thread.sleep(50_000);
     }
 }

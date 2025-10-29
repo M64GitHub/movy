@@ -3,7 +3,8 @@ const movy = @import("movy");
 
 pub fn main() !void {
     const allocator = std.heap.page_allocator;
-    const stdout = std.io.getStdOut().writer();
+
+
 
     try movy.terminal.beginRawMode();
     defer movy.terminal.endRawMode();
@@ -47,8 +48,8 @@ pub fn main() !void {
 
     // Create chain and add effects
     var chain = try movy.render.RenderEffectChain.init(allocator);
-    try chain.chainEffect(fade_effect);
-    try chain.chainEffect(blur_effect);
+    try chain.chainEffect(allocator, fade_effect);
+    try chain.chainEffect(allocator, blur_effect);
     defer chain.deinit(allocator);
 
     // Create pipeline
@@ -65,7 +66,7 @@ pub fn main() !void {
     );
 
     // Add render object
-    try pipeline.addObject(render_object);
+    try pipeline.addObject(allocator, render_object);
 
     // // Add render object
     // try pipeline.addSurface(allocator, input_surface, &chain);
@@ -77,7 +78,7 @@ pub fn main() !void {
     try screen.output();
 
     movy.terminal.setColor(movy.color.LIGHT_BLUE);
-    try stdout.print(
+    std.debug.print(
         "Sprite faded at frame 30! Press Enter to quit...\n",
         .{},
     );
@@ -90,6 +91,6 @@ pub fn main() !void {
                 else => {},
             }
         }
-        std.time.sleep(10_000_000); // ~100 FPS
+        std.Thread.sleep(10_000_000); // ~100 FPS
     }
 }

@@ -19,7 +19,7 @@ pub fn main() !void {
         "my logo",
     );
     defer sprite.deinit(allocator);
-    try screen.addSprite(sprite);
+    try screen.addSprite(allocator, sprite);
 
     var anim = movy.graphic.Sprite.FrameAnimation.init(
         0,
@@ -39,6 +39,6 @@ pub fn main() !void {
                 else => {},
             }
         }
-        std.time.sleep(16_000_000); // ~60 FPS
+        std.Thread.sleep(16_000_000); // ~60 FPS
     }
 }

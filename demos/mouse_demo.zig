@@ -1,8 +1,6 @@
 const std = @import("std");
 const movy = @import("movy");
 
-const stdout = std.io.getStdOut().writer();
-
 pub fn main() !void {
     const allocator = std.heap.page_allocator;
 
@@ -141,11 +139,11 @@ pub fn main() !void {
     const status_surface = status_window.render();
 
     // add all we want to render to the screen - reverse z order: first is top
-    try screen.addRenderSurface(sprite_alien.output_surface);
-    try screen.addRenderSurface(window_surface);
-    try screen.addRenderSurface(sprite_movy_logo.output_surface);
-    try screen.addRenderSurface(sprite_m64_logo.output_surface);
-    try screen.addRenderSurface(status_surface);
+    try screen.addRenderSurface(allocator, sprite_alien.output_surface);
+    try screen.addRenderSurface(allocator, window_surface);
+    try screen.addRenderSurface(allocator, sprite_movy_logo.output_surface);
+    try screen.addRenderSurface(allocator, sprite_m64_logo.output_surface);
+    try screen.addRenderSurface(allocator, status_surface);
 
     // render the screen and blast it to the terminal before main loop starts
     screen.render();
@@ -437,6 +435,6 @@ pub fn main() !void {
             );
             const status_len = status.len;
             try status_window.setText(status_line_buffer[0..status_len]);
-        } else std.time.sleep(50_000);
+        } else std.Thread.sleep(50_000);
     }
 }

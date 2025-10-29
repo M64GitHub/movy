@@ -3,7 +3,6 @@ const movy = @import("movy");
 
 pub fn main() !void {
     const allocator = std.heap.page_allocator;
-    const stdout = std.io.getStdOut().writer();
 
     try movy.terminal.beginRawMode();
     defer movy.terminal.endRawMode();
@@ -20,7 +19,7 @@ pub fn main() !void {
         "fade_demo",
     );
     defer sprite.deinit(allocator);
-    try screen.addSprite(sprite);
+    try screen.addSprite(allocator, sprite);
 
     // Create and initialize a fade effect with your params
     // you can change these parameters during runtime using this variable
@@ -34,7 +33,7 @@ pub fn main() !void {
 
     var frame: usize = 0;
 
-    try stdout.print("Press keys (f to fade, Escape to quit):\n", .{});
+    std.debug.print("Press keys (f to fade, Escape to quit):\n", .{});
     while (true) {
         if (try movy.input.get()) |event| {
             switch (event) {
@@ -42,24 +41,24 @@ pub fn main() !void {
                     if (key.type == .Escape) break;
                     if (key.type == .Char and key.sequence[0] == 'f') {
                         movy.terminal.setColor(movy.color.LIGHT_BLUE);
-                        try stdout.print("\nrunning Fade: {d}\n", .{frame});
+                        std.debug.print("\nrunning Fade: {d}\n", .{frame});
                         const in_surface = try sprite.getCurrentFrameSurface();
                         try fade_effect.runOnSurfaces(
                             in_surface,
                             sprite.output_surface,
                             frame,
                         );
-                        try stdout.print("Fade: {d}\n", .{frame});
+                        std.debug.print("Fade: {d}\n", .{frame});
                         frame = (frame + 1) % 60; // Cycle 0-59
                     }
                 },
                 else => {},
             }
         }
-        try screen.renderWithSprites();
+        try screen.renderWithSprites(allocator);
 
         try screen.output();
 
-        std.time.sleep(16_000_000); // ~60 FPS
+        std.Thread.sleep(16_000_000); // ~60 FPS
     }
 }

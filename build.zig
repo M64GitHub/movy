@@ -51,13 +51,18 @@ pub fn build(b: *std.Build) void {
     };
 
     for (examples) |name| {
-        const example_exe = b.addExecutable(.{
-            .name = name,
+        // Create module for example
+        const example_mod = b.addModule(b.fmt("example_{s}", .{name}), .{
             .root_source_file = b.path(b.fmt("examples/{s}.zig", .{name})),
             .target = target,
             .optimize = optimize,
         });
-        example_exe.root_module.addImport("movy", movy_mod); // Link module
+        example_mod.addImport("movy", movy_mod);
+
+        const example_exe = b.addExecutable(.{
+            .name = name,
+            .root_module = example_mod,
+        });
         b.installArtifact(example_exe);
 
         // Add run step
@@ -78,13 +83,18 @@ pub fn build(b: *std.Build) void {
     };
 
     for (demos) |name| {
-        const demo_exe = b.addExecutable(.{
-            .name = name,
+        // Create module for demo
+        const demo_mod = b.addModule(b.fmt("demo_{s}", .{name}), .{
             .root_source_file = b.path(b.fmt("demos/{s}.zig", .{name})),
             .target = target,
             .optimize = optimize,
         });
-        demo_exe.root_module.addImport("movy", movy_mod);
+        demo_mod.addImport("movy", movy_mod);
+
+        const demo_exe = b.addExecutable(.{
+            .name = name,
+            .root_module = demo_mod,
+        });
         b.installArtifact(demo_exe);
 
         // Add run step
@@ -101,13 +111,18 @@ pub fn build(b: *std.Build) void {
     const games = [_][]const u8{};
 
     for (games) |name| {
-        const game_exe = b.addExecutable(.{
-            .name = name,
+        // Create module for game
+        const game_mod = b.addModule(b.fmt("game_{s}", .{name}), .{
             .root_source_file = b.path(b.fmt("games/{s}/main.zig", .{name})),
             .target = target,
             .optimize = optimize,
         });
-        game_exe.root_module.addImport("movy", movy_mod);
+        game_mod.addImport("movy", movy_mod);
+
+        const game_exe = b.addExecutable(.{
+            .name = name,
+            .root_module = game_mod,
+        });
         b.installArtifact(game_exe);
 
         // Add run step
@@ -144,14 +159,19 @@ pub fn build(b: *std.Build) void {
         };
 
         for (names) |name| {
-            const ffmpeg_exe = b.addExecutable(.{
-                .name = name,
+            // Create module for ffmpeg example
+            const ffmpeg_mod = b.addModule(b.fmt("ffmpeg_{s}", .{name}), .{
                 .root_source_file = b.path(b.fmt("examples/{s}.zig", .{name})),
                 .target = target,
                 .optimize = optimize,
             });
-            ffmpeg_exe.root_module.addImport("movy", movy_mod);
-            ffmpeg_exe.root_module.addImport("movy_video", movy_video_mod);
+            ffmpeg_mod.addImport("movy", movy_mod);
+            ffmpeg_mod.addImport("movy_video", movy_video_mod);
+
+            const ffmpeg_exe = b.addExecutable(.{
+                .name = name,
+                .root_module = ffmpeg_mod,
+            });
             b.installArtifact(ffmpeg_exe);
 
             // Add run step

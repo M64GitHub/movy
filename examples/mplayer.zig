@@ -4,7 +4,6 @@
 
 const std = @import("std");
 const movy = @import("movy");
-const stdout = std.io.getStdOut().writer();
 
 const c = @cImport({
     @cInclude("libavformat/avformat.h");
@@ -76,7 +75,7 @@ pub fn main() !void {
     sprite_m64_logo.effect_ctx.input_surface = sprite_m64_logo.output_surface;
     var sine_wave = movy.animation.TrigWave.init(120, 50);
 
-    try screen.addRenderSurface(sprite_m64_logo.output_surface);
+    try screen.addRenderSurface(allocator, sprite_m64_logo.output_surface);
 
     // -- Parse args
     const args = try std.process.argsAlloc(allocator);
@@ -167,7 +166,7 @@ pub fn main() !void {
     surface.x = 4;
     surface.y = 4;
 
-    try screen.addRenderSurface(surface);
+    try screen.addRenderSurface(allocator, surface);
 
     // setup rgb frame and scaler
 
@@ -309,7 +308,7 @@ pub fn main() !void {
                     const delay = now - last_frame_time;
                     if (delay < frame_duration_ns) {
                         const ns: u64 = @as(u64, @intCast(frame_duration_ns - delay));
-                        std.time.sleep(ns);
+                        std.Thread.sleep(ns);
                     }
 
                     last_frame_time = std.time.nanoTimestamp();

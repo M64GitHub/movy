@@ -36,18 +36,12 @@ pub const Manager = struct {
         screen: *movy.Screen,
     ) movy.ui.Manager {
         return Manager{
-            .widgets = std.ArrayList(*movy.ui.Widget).init(allocator),
-            .bordered_windows = std.ArrayList(*movy.ui.BorderedWindow).init(
-                allocator,
-            ),
-            .title_windows = std.ArrayList(*movy.ui.TitleWindow).init(
-                allocator,
-            ),
-            .text_windows = std.ArrayList(*movy.ui.TextWindow).init(
-                allocator,
-            ),
-            .windows = std.ArrayList(*movy.ui.Window).init(allocator),
-            .sprites = std.ArrayList(*movy.graphic.Sprite).init(allocator),
+            .widgets = std.ArrayList(*movy.ui.Widget){},
+            .bordered_windows = std.ArrayList(*movy.ui.BorderedWindow){},
+            .title_windows = std.ArrayList(*movy.ui.TitleWindow){},
+            .text_windows = std.ArrayList(*movy.ui.TextWindow){},
+            .windows = std.ArrayList(*movy.ui.Window){},
+            .sprites = std.ArrayList(*movy.graphic.Sprite){},
             .active_widget = null,
             .screen = screen,
             .allocator = allocator,
@@ -61,28 +55,28 @@ pub const Manager = struct {
         for (self.widgets.items) |widget| {
             widget.deinit(self.allocator);
         }
-        self.widgets.deinit();
+        self.widgets.deinit(self.allocator);
         for (self.bordered_windows.items) |window| {
             window.deinit(self.allocator);
         }
-        self.bordered_windows.deinit();
+        self.bordered_windows.deinit(self.allocator);
         for (self.title_windows.items) |window| {
             window.deinit(self.allocator);
         }
-        self.title_windows.deinit();
+        self.title_windows.deinit(self.allocator);
         for (self.windows.items) |window| {
             window.deinit(self.allocator);
         }
         for (self.text_windows.items) |window| {
             window.deinit(self.allocator);
         }
-        self.text_windows.deinit();
-        self.windows.deinit();
+        self.text_windows.deinit(self.allocator);
+        self.windows.deinit(self.allocator);
 
         for (self.sprites.items) |sprite| {
             sprite.deinit(self.allocator);
         }
-        self.sprites.deinit();
+        self.sprites.deinit(self.allocator);
     }
 
     /// Adjusts absolute mouse coordinates to screen-relative coordinates.
@@ -116,7 +110,7 @@ pub const Manager = struct {
             theme,
             style,
         );
-        try self.widgets.append(widget);
+        try self.widgets.append(self.allocator, widget);
         return widget;
     }
 
@@ -152,7 +146,7 @@ pub const Manager = struct {
             theme,
             style,
         );
-        try self.bordered_windows.append(window);
+        try self.bordered_windows.append(self.allocator, window);
         return window;
     }
 
@@ -192,7 +186,7 @@ pub const Manager = struct {
             theme,
             style,
         );
-        try self.title_windows.append(window);
+        try self.title_windows.append(self.allocator, window);
         return window;
     }
 
@@ -234,7 +228,7 @@ pub const Manager = struct {
             theme,
             style,
         );
-        try self.text_windows.append(window);
+        try self.text_windows.append(self.allocator, window);
         return window;
     }
 
@@ -275,7 +269,7 @@ pub const Manager = struct {
             style,
         );
         window.setPosition(x, y);
-        try self.windows.append(window);
+        try self.windows.append(self.allocator, window);
         return window;
     }
 
@@ -291,7 +285,7 @@ pub const Manager = struct {
     }
 
     pub fn addSprite(self: *Manager, sprite: *movy.graphic.Sprite) !void {
-        try self.sprites.append(sprite);
+        try self.sprites.append(self.allocator, sprite);
     }
 
     /// Sets the active widget—focuses it for input handling.
@@ -373,23 +367,23 @@ pub const Manager = struct {
     pub fn render(self: *Manager) !void {
         self.screen.output_surfaces.clearRetainingCapacity();
         for (self.widgets.items) |widget| {
-            try self.screen.addRenderSurface(widget.render());
+            try self.screen.addRenderSurface(self.allocator, widget.render());
         }
         for (self.bordered_windows.items) |window| {
-            try self.screen.addRenderSurface(window.render());
+            try self.screen.addRenderSurface(self.allocator, window.render());
         }
         for (self.title_windows.items) |window| {
-            try self.screen.addRenderSurface(window.render());
+            try self.screen.addRenderSurface(self.allocator, window.render());
         }
         for (self.windows.items) |window| {
-            try self.screen.addRenderSurface(window.render());
+            try self.screen.addRenderSurface(self.allocator, window.render());
         }
         for (self.text_windows.items) |window| {
-            try self.screen.addRenderSurface(window.render());
+            try self.screen.addRenderSurface(self.allocator, window.render());
         }
 
         for (self.sprites.items) |sprite| {
-            try self.screen.addRenderSurface(
+            try self.screen.addRenderSurface(self.allocator, 
                 // try sprite.getCurrentFrameSurface(),
                 sprite.output_surface,
             );

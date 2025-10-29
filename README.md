@@ -1,6 +1,6 @@
 ![License](https://img.shields.io/badge/License-MIT-85adf2?style=flat)
-![Version](https://img.shields.io/badge/Version-0.0.0-85adf2?style=flat)
-![Zig](https://img.shields.io/badge/Zig-0.14.1-orange?style=flat)
+![Version](https://img.shields.io/badge/Version-0.1.0-85adf2?style=flat)
+![Zig](https://img.shields.io/badge/Zig-0.15.2-orange?style=flat)
 
 ![get-movy](https://github.com/user-attachments/assets/aa86dded-8e47-404c-bdbe-7db8b04bdbaf)
 
@@ -119,9 +119,8 @@ Whether it's a game, a demo, an effect, or a tool — if it glows in the termina
 ## Contributing
 
 movy is a work of love and dedicated vision, still evolving rapidly.  
-External code contributions aren’t open yet — I’d like to finish stabilizing the API and architecture first.  
-Ideas and feedback are always welcome in the meantime!  
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
+External code contributions are paused for now, but ideas and feedback are always welcome —  
+see [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
 
 ---
 
