@@ -128,13 +128,13 @@ pub const SpriteFrameSet = struct {
         w: usize,
         h: usize,
     ) !SpriteFrameSet {
-        var frames = std.ArrayList(*SpriteFrame).init(allocator);
-        errdefer frames.deinit();
+        var frames = std.ArrayList(*SpriteFrame){};
+        errdefer frames.deinit(allocator);
 
-        try frames.ensureTotalCapacity(frame_count); // Pre-allocate space
+        try frames.ensureTotalCapacity(allocator, frame_count); // Pre-allocate space
         for (0..frame_count) |_| {
             const frame = try SpriteFrame.init(allocator, w, h);
-            try frames.append(frame);
+            try frames.append(allocator, frame);
         }
 
         return SpriteFrameSet{
@@ -148,7 +148,7 @@ pub const SpriteFrameSet = struct {
         for (self.frames.items) |frame| {
             frame.deinit(allocator);
         }
-        self.frames.deinit();
+        self.frames.deinit(allocator);
     }
 
     /// Adds a new SpriteFrame with given width and height to the frameset
@@ -159,7 +159,7 @@ pub const SpriteFrameSet = struct {
         h: usize,
     ) !void {
         const new_frame = try SpriteFrame.init(allocator, w, h);
-        try self.frames.append(new_frame);
+        try self.frames.append(allocator, new_frame);
     }
 
     /// Adds a new SpriteFrame from a .png file, and returns a pointer to it
@@ -169,7 +169,7 @@ pub const SpriteFrameSet = struct {
         file_path: []const u8,
     ) !*SpriteFrame {
         const new_frame = try SpriteFrame.initFromPng(allocator, file_path);
-        try self.frames.append(new_frame);
+        try self.frames.append(allocator, new_frame);
         return new_frame;
     }
 
@@ -180,7 +180,7 @@ pub const SpriteFrameSet = struct {
         img_str: [:0]const u8,
     ) !*SpriteFrame {
         const new_frame = try SpriteFrame.initFromAnsiStr(allocator, img_str);
-        try self.frames.append(new_frame);
+        try self.frames.append(allocator, new_frame);
         return new_frame;
     }
 };
@@ -350,11 +350,11 @@ pub const Sprite = struct {
         height: usize,
     ) !*SpriteFrame {
         const start_idx = self.frame_set.frames.items.len;
-        try self.frame_set.frames.ensureTotalCapacity(start_idx + n);
+        try self.frame_set.frames.ensureTotalCapacity(allocator, start_idx + n);
 
         for (0..n) |_| {
             const new_frame = try SpriteFrame.init(allocator, width, height);
-            try self.frame_set.frames.append(new_frame);
+            try self.frame_set.frames.append(allocator, new_frame);
         }
 
         return self.frame_set.frames.items[start_idx]; // First new frame
@@ -406,7 +406,7 @@ pub const Sprite = struct {
 
             var it = self.animations.iterator();
             while (it.next()) |entry| {
-                std.debug.print("- {s}\n", .{entry.key_ptr});
+                std.debug.print("- {s}\n", .{entry.key_ptr.*});
             }
 
             return Sprite.SpriteError.AnimationNotFound;
@@ -466,8 +466,9 @@ pub const Sprite = struct {
         name: []const u8,
     ) !*Sprite {
         var frame_set = SpriteFrameSet{
-            .frames = std.ArrayList(*SpriteFrame).init(allocator),
+            .frames = std.ArrayList(*SpriteFrame){},
         };
+        try frame_set.frames.ensureTotalCapacity(allocator, 4);
         errdefer frame_set.deinit(allocator);
 
         // Add the first frame from PNG directly to frame_set
@@ -517,8 +518,9 @@ pub const Sprite = struct {
         name: []const u8,
     ) !Sprite {
         var frame_set = SpriteFrameSet{
-            .frames = std.ArrayList(*SpriteFrame).init(allocator),
+            .frames = std.ArrayList(*SpriteFrame){},
         };
+        try frame_set.frames.ensureTotalCapacity(allocator, 4);
         errdefer frame_set.deinit(allocator);
 
         const frame = try frame_set.addFrameFromAnsiStr(allocator, img_str);
@@ -600,7 +602,7 @@ pub const Sprite = struct {
 
         for (0..num_frames) |i| {
             const new_frame = try SpriteFrame.init(allocator, split_width, h);
-            try self.frame_set.frames.append(new_frame);
+            try self.frame_set.frames.append(allocator, new_frame);
             const dst = new_frame.data_surface;
 
             for (0..h) |y| {

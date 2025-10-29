@@ -27,7 +27,7 @@ pub const RenderPipeline = struct {
         return .{
             .render_objects = std.ArrayList(
                 movy.render.RenderObject,
-            ).init(allocator),
+            ){},
             .effect_chain = null,
             .output_surface = output,
             .result_surface = try movy.core.RenderSurface.init(
@@ -45,7 +45,7 @@ pub const RenderPipeline = struct {
         for (self.render_objects.items) |*obj| {
             obj.deinit(allocator);
         }
-        self.render_objects.deinit();
+        self.render_objects.deinit(allocator);
         if (self.effect_chain) |*chain| chain.deinit(allocator);
         self.result_surface.deinit(allocator);
     }
@@ -53,9 +53,10 @@ pub const RenderPipeline = struct {
     /// Adds an existing RenderObject to the pipeline.
     pub fn addObject(
         self: *RenderPipeline,
+        allocator: std.mem.Allocator,
         obj: movy.render.RenderObject,
     ) !void {
-        try self.render_objects.append(obj);
+        try self.render_objects.append(allocator, obj);
     }
 
     /// Creates a new RenderObject from an input surface and effect chain, and
@@ -71,7 +72,7 @@ pub const RenderPipeline = struct {
             input,
             effect_chain,
         );
-        try self.render_objects.append(obj);
+        try self.render_objects.append(allocator, obj);
     }
 
     /// Sets the final effect chain for post-processing the merged output.
@@ -93,12 +94,12 @@ pub const RenderPipeline = struct {
         if (self.render_objects.items.len == 0) return Error.EmptyPipeline;
 
         var temp_surfaces =
-            std.ArrayList(*movy.core.RenderSurface).init(allocator);
-        defer temp_surfaces.deinit();
+            std.ArrayList(*movy.core.RenderSurface){};
+        defer temp_surfaces.deinit(allocator);
 
         // Process each render object
         for (self.render_objects.items) |*obj| {
-            try temp_surfaces.append(try obj.process(allocator, frame));
+            try temp_surfaces.append(allocator, try obj.process(allocator, frame));
         }
 
         // Apply final effect chain if present

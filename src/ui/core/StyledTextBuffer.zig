@@ -116,13 +116,13 @@ pub const StyledTextBuffer = struct {
             .i = 0,
         };
 
-        var result = std.ArrayList(u21).init(allocator);
+        var result = std.ArrayList(u21){};
 
         while (utf8_stream.nextCodepoint()) |cp| {
-            try result.append(cp);
+            try result.append(allocator, cp);
         }
 
-        return result.toOwnedSlice();
+        return result.toOwnedSlice(allocator);
     }
 
     /// Returns a slice of the StyledChar array containing the current text.

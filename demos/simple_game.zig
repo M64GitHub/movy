@@ -274,7 +274,8 @@ const Game = struct {
             "asteroid",
         );
         try obs_sprite.splitByWidth(allocator, 16); // 16px wide frames
-        const obs_anim = movy.graphic.Sprite.FrameAnimation.init(1, 6, .loopForward, 2);
+        const obs_anim =
+            movy.graphic.Sprite.FrameAnimation.init(1, 6, .loopForward, 2);
         try obs_sprite.addAnimation(allocator, "spin", obs_anim);
         try obs_sprite.startAnimation("spin");
 
@@ -375,6 +376,7 @@ const Game = struct {
 
         // Add player sprite
         try self.screen.addRenderSurface(
+            self.allocator,
             try self.player.sprite.getCurrentFrameSurface(),
         );
 
@@ -382,6 +384,7 @@ const Game = struct {
         for (&self.projectiles) |*proj| {
             if (proj.active) {
                 try self.screen.addRenderSurface(
+                    self.allocator,
                     try proj.sprite.getCurrentFrameSurface(),
                 );
             }
@@ -389,6 +392,7 @@ const Game = struct {
 
         // Add obstacle
         try self.screen.addRenderSurface(
+            self.allocator,
             try self.obstacle.sprite.getCurrentFrameSurface(),
         );
 
@@ -542,7 +546,7 @@ pub fn main() !void {
         const frame_end = std.time.nanoTimestamp();
         const frame_time = frame_end - frame_start;
         if (frame_time < frame_delay_ns) {
-            std.time.sleep(@intCast(frame_delay_ns - frame_time));
+            std.Thread.sleep(@intCast(frame_delay_ns - frame_time));
         }
     }
 }

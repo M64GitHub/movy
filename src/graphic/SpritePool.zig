@@ -13,9 +13,9 @@ pub const SpritePool = struct {
     entries: std.ArrayList(SpriteEntry),
 
     /// Initializes an empty SpritePool.
-    pub fn init(allocator: std.mem.Allocator) SpritePool {
+    pub fn init() SpritePool {
         return SpritePool{
-            .entries = std.ArrayList(SpriteEntry).init(allocator),
+            .entries = .{},
         };
     }
 
@@ -28,8 +28,12 @@ pub const SpritePool = struct {
     }
 
     /// Adds a sprite to the pool. Must be heap allocated and ready to use.
-    pub fn addSprite(self: *SpritePool, sprite: *movy.graphic.Sprite) !void {
-        try self.entries.append(.{
+    pub fn addSprite(
+        self: *SpritePool,
+        allocator: std.mem.Allocator,
+        sprite: *movy.graphic.Sprite,
+    ) !void {
+        try self.entries.append(allocator, .{
             .sprite = sprite,
             .in_use = false,
         });

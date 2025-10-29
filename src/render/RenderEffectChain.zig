@@ -42,22 +42,23 @@ pub const RenderEffectChain = struct {
     /// Frees all resources owned by the chain, including intermediate surfaces.
     /// Does not free the final output_surface, as it is owned by the caller.
     pub fn deinit(self: *RenderEffectChain, allocator: std.mem.Allocator) void {
-        // Free intermediate surfaces (skip last, it’s null or user-owned)
+        // Free intermediate surfaces (skip last, it's null or user-owned)
         for (self.effect_links.items[0 .. self.effect_links.items.len - 1]) |link| {
             if (link.out_surface) |surface| {
                 surface.deinit(allocator);
                 allocator.destroy(surface);
             }
         }
-        self.effect_links.deinit();
+        self.effect_links.deinit(allocator);
     }
 
     /// Adds a new effect to the chain and updates expansion requirements
     pub fn chainEffect(
         self: *RenderEffectChain,
+        allocator: std.mem.Allocator,
         new_effect: movy.render.RenderEffect,
     ) !void {
-        try self.effect_links.append(.{
+        try self.effect_links.append(allocator, .{
             .effect = new_effect,
             .out_surface = null,
         });

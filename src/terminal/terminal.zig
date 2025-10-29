@@ -1,5 +1,4 @@
 const std = @import("std");
-const stdout = std.io.getStdOut().writer();
 
 const c = @cImport({
     @cInclude("termios.h");
@@ -10,105 +9,121 @@ const c = @cImport({
 
 const movy = @import("../movy.zig");
 
+// Module-level state for raw mode
+var original_term: ?c.termios = null;
+
 /// Moves the cursor up by n lines
 pub fn cursorUp(n: i32) void {
     // ESC [ {n}A: Move cursor up n lines
-    stdout.print("\x1b[{}A", .{n}) catch {};
+    var buf: [32]u8 = undefined;
+    const msg = std.fmt.bufPrint(&buf, "\x1b[{d}A", .{n}) catch return;
+    _ = std.posix.write(std.posix.STDOUT_FILENO, msg) catch {};
 }
 
 /// Moves the cursor down by n lines
 pub fn cursorDown(n: i32) void {
     // ESC [ {n}B: Move cursor down n lines
-    stdout.print("\x1b[{}B", .{n}) catch {};
+    var buf: [32]u8 = undefined;
+    const msg = std.fmt.bufPrint(&buf, "\x1b[{d}B", .{n}) catch return;
+    _ = std.posix.write(std.posix.STDOUT_FILENO, msg) catch {};
 }
 
 /// Moves the cursor left by n columns
 pub fn cursorLeft(n: i32) void {
     // ESC [ {n}D: Move cursor left n columns
-    stdout.print("\x1b[{}D", .{n}) catch {};
+    var buf: [32]u8 = undefined;
+    const msg = std.fmt.bufPrint(&buf, "\x1b[{d}D", .{n}) catch return;
+    _ = std.posix.write(std.posix.STDOUT_FILENO, msg) catch {};
 }
 
 /// Moves the cursor right by n columns
 pub fn cursorRight(n: i32) void {
     // ESC [ {n}C: Move cursor right n columns
-    stdout.print("\x1b[{}C", .{n}) catch {};
+    var buf: [32]u8 = undefined;
+    const msg = std.fmt.bufPrint(&buf, "\x1b[{d}C", .{n}) catch return;
+    _ = std.posix.write(std.posix.STDOUT_FILENO, msg) catch {};
 }
 
 /// Shows the cursor
 pub fn cursorOn() void {
     // ESC [ ?25h: Make cursor visible
-    stdout.print("\x1b[?25h", .{}) catch {};
+    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[?25h") catch {};
 }
 
 /// Hides the cursor
 pub fn cursorOff() void {
     // ESC [ ?25l: Make cursor invisible
-    stdout.print("\x1b[?25l", .{}) catch {};
+    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[?25l") catch {};
 }
 
 /// Resets cursor and text attributes
 pub fn cursorReset() void {
     // ESC [ 0m: Reset all terminal attributes (color, bold, etc.)
-    stdout.print("\x1b[0m", .{}) catch {};
+    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[0m") catch {};
 }
 
 /// Moves the cursor to the home position (top-left)
 pub fn cursorHome() void {
     // ESC [ H: Move cursor to home position (row 1, column 1)
-    stdout.print("\x1b[H", .{}) catch {};
+    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[H") catch {};
 }
 
 /// Sets the foreground text color to an RGB value
 pub fn setColor(color: movy.core.types.Rgb) void {
     // ESC [ 38;2;{r};{g};{b}m: Set foreground color to RGB (truecolor)
-    stdout.print(
-        "\x1b[38;2;{};{};{}m",
+    var buf: [64]u8 = undefined;
+    const msg = std.fmt.bufPrint(
+        &buf,
+        "\x1b[38;2;{d};{d};{d}m",
         .{ color.r, color.g, color.b },
-    ) catch {};
+    ) catch return;
+    _ = std.posix.write(std.posix.STDOUT_FILENO, msg) catch {};
 }
 
 /// Sets the background color to an RGB value
 pub fn setBgColor(color: movy.core.types.Rgb) void {
     // ESC [ 48;2;{r};{g};{b}m: Set background color to RGB (truecolor)
-    stdout.print(
-        "\x1b[48;2;{};{};{}m",
+    var buf: [64]u8 = undefined;
+    const msg = std.fmt.bufPrint(
+        &buf,
+        "\x1b[48;2;{d};{d};{d}m",
         .{ color.r, color.g, color.b },
-    ) catch {};
+    ) catch return;
+    _ = std.posix.write(std.posix.STDOUT_FILENO, msg) catch {};
 }
 
+/// Resets color to default
 pub fn resetColor() void {
-    stdout.print("\x1b[0m", .{}) catch {};
+    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[0m") catch {};
 }
 
 /// Begins alternate screen mode, preparing the terminal for full-screen use
 pub fn beginAlternateScreen() !void {
     // ESC s: Save current cursor position
-    try stdout.print("\x1b[s", .{});
+    _ = try std.posix.write(std.posix.STDOUT_FILENO, "\x1b[s");
     // ESC [ ?47h: Switch to alternate screen buffer
-    try stdout.print("\x1b[?47h", .{});
+    _ = try std.posix.write(std.posix.STDOUT_FILENO, "\x1b[?47h");
     // ESC [ 2J: Clear entire screen
-    try stdout.print("\x1b[2J", .{});
+    _ = try std.posix.write(std.posix.STDOUT_FILENO, "\x1b[2J");
     // ESC [ H: Move cursor to home position (row 1, column 1)
-    try stdout.print("\x1b[H", .{});
+    _ = try std.posix.write(std.posix.STDOUT_FILENO, "\x1b[H");
 }
 
 /// Ends alternate screen mode, returning to the normal screen buffer
 pub fn endAlternateScreen() void {
     // ESC [ ?47l: Switch back to normal screen buffer
-    stdout.print("\x1b[?47l", .{}) catch {};
+    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[?47l") catch {};
     // ESC u: Restore previously saved cursor position
-    stdout.print("\x1b[u", .{}) catch {};
+    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[u") catch {};
 }
 
 /// Clears the terminal screen
 pub fn clear() void {
     // ESC [ 2J: Clear entire screen
-    stdout.print("\x1b[2J", .{}) catch {};
+    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[2J") catch {};
     // ESC [ H: Move cursor to home position (row 1, column 1)
-    stdout.print("\x1b[H", .{}) catch {};
+    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[H") catch {};
 }
-
-var original_term: ?c.termios = null;
 
 /// Begins raw terminal mode, enabling unbuffered key and mouse input
 pub fn beginRawMode() !void {
@@ -136,8 +151,7 @@ pub fn beginRawMode() !void {
     // ESC [ ?1006h: Enable SGR (extended) mouse reporting
     // ESC [ ?1003h: Enable "all mouse" reporting (any movement)
     const enable = "\x1b[?1000h\x1b[?1006h\x1b[?1003h";
-    if (c.write(c.STDOUT_FILENO, enable, enable.len) < 0)
-        return error.WriteFailed;
+    _ = try std.posix.write(std.posix.STDOUT_FILENO, enable);
 }
 
 /// Ends raw terminal mode, restoring the original terminal state
@@ -154,7 +168,7 @@ pub fn endRawMode() void {
         // ESC [ 0m: Reset all terminal attributes (color, etc.)
         // \n: Newline to ensure clean prompt
         const reset = "\x1b[?1003l\x1b[?1006l\x1b[?1000l\x1b[0m\n";
-        _ = c.write(c.STDOUT_FILENO, reset, reset.len);
+        _ = std.posix.write(std.posix.STDOUT_FILENO, reset) catch {};
     }
 }
 
