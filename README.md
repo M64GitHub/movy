@@ -94,8 +94,42 @@ The module uses the modern FFmpeg channel layout API (`AVChannelLayout`) and is 
 
 ## Building
 
+### Quick Start
+
+```bash
+nix-shell
+just build
+just run-win-demo
 ```
+
+### Without Nix
+
+```bash
+zig build
 zig build -Dvideo=true
+```
+
+### Development Setup
+
+This project includes `shell.nix` and `justfile` for reproducible builds:
+
+- **shell.nix** - Pinned nixpkgs snapshot with Zig 0.15.2, FFmpeg, SDL2, and just
+- **justfile** - Convenient build and demo commands
+
+Enter the environment:
+```bash
+nix-shell
+```
+
+Available commands:
+```bash
+just build              # Build movy library
+just build-video       # Build with FFmpeg/SDL2 support
+just run-win-demo      # Run window demo
+just run-mouse-demo    # Run mouse interaction demo
+just run-simple-game   # Run simple game demo
+just run-demo name     # Run any demo by name
+just clean             # Clean build artifacts
 ```
 ## Docs
 
