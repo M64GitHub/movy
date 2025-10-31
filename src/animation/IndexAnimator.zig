@@ -97,7 +97,11 @@ pub const IndexAnimator = struct {
                 }
             },
             .loopBounce => {
-                self.current += @as(usize, @intCast(self.direction));
+                if (self.direction > 0) {
+                    self.current += 1;
+                } else {
+                    self.current -= 1;
+                }
                 if (forward) {
                     if (self.current >= self.end) {
                         self.current = self.end;
