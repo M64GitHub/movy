@@ -124,6 +124,6 @@ see [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
 
 ---
 
-**Made with ❤️ and Zig**
+Made with <3 and **Zig**
 
 
