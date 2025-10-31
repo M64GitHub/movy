@@ -418,6 +418,7 @@ pub const Sprite = struct {
             anim_ptr.animator.current = anim_ptr.animator.start;
             anim_ptr.animator.once_finished = false;
             anim_ptr.just_started = true;
+            anim_ptr.speed_ctr = anim_ptr.speed;
             self.frame_set.frame_idx = anim_ptr.animator.start;
         }
     }

@@ -7,12 +7,9 @@ const ffmpeg_include_path = "/usr/include/x86_64-linux-gnu"; // for ffmpeg
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = std.builtin.OptimizeMode.ReleaseFast;
-    // const optimize = b.option(std.builtin.OptimizeMode, "optimize", "") orelse .Debug;
 
     // -- build options
     // apt-get install libavcodec-dev libavutil-dev libswresample-dev libavformat-dev libswscale-dev
-    // const enable_ffmpeg = b.option(bool, "video", "Enable ffmpeg/SDL2 audio support in movy") orelse false;
-    // for zls, while editing
     const enable_ffmpeg = b.option(
         bool,
         "video",
@@ -48,6 +45,7 @@ pub fn build(b: *std.Build) void {
         "sprite_fade_chain",
         "sprite_fade_chain_pipeline",
         "render_effect_chain",
+        "render_stress_test",
     };
 
     for (examples) |name| {
