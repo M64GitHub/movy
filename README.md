@@ -95,7 +95,8 @@ The module uses the modern FFmpeg channel layout API (`AVChannelLayout`) and is 
 ## Building
 
 ```
-zig build -Dvideo=true
+zig build              # build without ffmpeg dependencies, movy_video
+zig build -Dvideo=true # build full movy incl movy_video, requires ffmpeg
 ```
 ## Docs
 
