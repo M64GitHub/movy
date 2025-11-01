@@ -3,7 +3,12 @@
     .version = "0.0.3",
     .fingerprint = 0xfb3f6b37eb55d452,
     .minimum_zig_version = "0.15.2",
-    .dependencies = .{},
+    .dependencies = .{
+        .flagz = .{
+            .url = "https://github.com/M64GitHub/flagZ/archive/refs/tags/v1.1.0.tar.gz",
+            .hash = "flagz-1.1.0-vdU1bLhJAQBcZ9qTy1SfJBLoYihjq32fjHjVLR9x_WXV",
+        },
+    },
 
     .paths = .{
         "build.zig",
