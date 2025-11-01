@@ -445,19 +445,38 @@ pub const RenderSurface = struct {
                     if (idx > self.w) char2 = self.char_map[idx - self.w];
                 }
 
-                const line = if ((char1 != 0) or (char2 != 0)) blk: { // Char present? Render it
+                const line = if ((char1 != 0) or (char2 != 0)) blk: {
+                    // Char present? Render it
                     if (char1 != 0) {
                         const start = tmpstr_idx;
-                        tmpstr_idx += formatFgColor(self.rendered_str[tmpstr_idx..], self.color_map[idx]);
-                        tmpstr_idx += formatBgColor(self.rendered_str[tmpstr_idx..], self.color_map[idx + self.w]);
-                        const char_bytes = std.unicode.utf8Encode(char1, self.rendered_str[tmpstr_idx..][0..4]) catch unreachable;
+                        tmpstr_idx += formatFgColor(
+                            self.rendered_str[tmpstr_idx..],
+                            self.color_map[idx],
+                        );
+                        tmpstr_idx += formatBgColor(
+                            self.rendered_str[tmpstr_idx..],
+                            self.color_map[idx + self.w],
+                        );
+                        const char_bytes = std.unicode.utf8Encode(
+                            char1,
+                            self.rendered_str[tmpstr_idx..][0..4],
+                        ) catch unreachable;
                         tmpstr_idx += char_bytes;
                         break :blk self.rendered_str[start..tmpstr_idx];
                     } else {
                         const start = tmpstr_idx;
-                        tmpstr_idx += formatBgColor(self.rendered_str[tmpstr_idx..], self.color_map[idx]);
-                        tmpstr_idx += formatFgColor(self.rendered_str[tmpstr_idx..], self.color_map[idx + self.w]);
-                        const char_bytes = std.unicode.utf8Encode(char2, self.rendered_str[tmpstr_idx..][0..4]) catch unreachable;
+                        tmpstr_idx += formatBgColor(
+                            self.rendered_str[tmpstr_idx..],
+                            self.color_map[idx],
+                        );
+                        tmpstr_idx += formatFgColor(
+                            self.rendered_str[tmpstr_idx..],
+                            self.color_map[idx + self.w],
+                        );
+                        const char_bytes = std.unicode.utf8Encode(
+                            char2,
+                            self.rendered_str[tmpstr_idx..][0..4],
+                        ) catch unreachable;
                         tmpstr_idx += char_bytes;
                         break :blk self.rendered_str[start..tmpstr_idx];
                     }
@@ -465,7 +484,8 @@ pub const RenderSurface = struct {
                     const upper = self.color_map[idx];
                     const lower = self.color_map[x + (y + 1) * self.w];
                     const upper_trans = self.shadow_map[idx] == 0;
-                    const lower_trans = self.shadow_map[x + (y + 1) * self.w] == 0;
+                    const lower_trans =
+                        self.shadow_map[x + (y + 1) * self.w] == 0;
 
                     if (upper_trans and lower_trans) {
                         const s = "\x1b[m ";
@@ -476,29 +496,56 @@ pub const RenderSurface = struct {
                     } else if (upper_trans) {
                         const start = tmpstr_idx;
                         const prefix = "\x1b[0;";
-                        @memcpy(self.rendered_str[tmpstr_idx..][0..prefix.len], prefix);
+                        @memcpy(
+                            self.rendered_str[tmpstr_idx..][0..prefix.len],
+                            prefix,
+                        );
                         tmpstr_idx += prefix.len;
-                        tmpstr_idx += formatFgColor(self.rendered_str[tmpstr_idx..], lower);
+                        tmpstr_idx += formatFgColor(
+                            self.rendered_str[tmpstr_idx..],
+                            lower,
+                        );
                         const block = "\xE2\x96\x84";
-                        @memcpy(self.rendered_str[tmpstr_idx..][0..block.len], block);
+                        @memcpy(
+                            self.rendered_str[tmpstr_idx..][0..block.len],
+                            block,
+                        );
                         tmpstr_idx += block.len;
                         break :blk self.rendered_str[start..tmpstr_idx];
                     } else if (lower_trans) {
                         const start = tmpstr_idx;
                         const prefix = "\x1b[0;";
-                        @memcpy(self.rendered_str[tmpstr_idx..][0..prefix.len], prefix);
+                        @memcpy(
+                            self.rendered_str[tmpstr_idx..][0..prefix.len],
+                            prefix,
+                        );
                         tmpstr_idx += prefix.len;
-                        tmpstr_idx += formatFgColor(self.rendered_str[tmpstr_idx..], upper);
+                        tmpstr_idx += formatFgColor(
+                            self.rendered_str[tmpstr_idx..],
+                            upper,
+                        );
                         const block = "\xE2\x96\x80";
-                        @memcpy(self.rendered_str[tmpstr_idx..][0..block.len], block);
+                        @memcpy(
+                            self.rendered_str[tmpstr_idx..][0..block.len],
+                            block,
+                        );
                         tmpstr_idx += block.len;
                         break :blk self.rendered_str[start..tmpstr_idx];
                     } else {
                         const start = tmpstr_idx;
-                        tmpstr_idx += formatBgColor(self.rendered_str[tmpstr_idx..], upper);
-                        tmpstr_idx += formatFgColor(self.rendered_str[tmpstr_idx..], lower);
+                        tmpstr_idx += formatBgColor(
+                            self.rendered_str[tmpstr_idx..],
+                            upper,
+                        );
+                        tmpstr_idx += formatFgColor(
+                            self.rendered_str[tmpstr_idx..],
+                            lower,
+                        );
                         const block = "\xE2\x96\x84";
-                        @memcpy(self.rendered_str[tmpstr_idx..][0..block.len], block);
+                        @memcpy(
+                            self.rendered_str[tmpstr_idx..][0..block.len],
+                            block,
+                        );
                         tmpstr_idx += block.len;
                         break :blk self.rendered_str[start..tmpstr_idx];
                     }
@@ -509,37 +556,51 @@ pub const RenderSurface = struct {
             }
 
             // Move cursor back and down for next line
+
             {
                 const left_start = tmpstr_idx;
                 const left_prefix = "\x1b[";
-                @memcpy(self.rendered_str[tmpstr_idx..][0..left_prefix.len], left_prefix);
+                @memcpy(
+                    self.rendered_str[tmpstr_idx..][0..left_prefix.len],
+                    left_prefix,
+                );
                 tmpstr_idx += left_prefix.len;
 
                 // Format width as decimal
                 const w = self.w;
                 if (w >= 1000) {
-                    self.rendered_str[tmpstr_idx] = '0' + @as(u8, @intCast(w / 1000));
+                    self.rendered_str[tmpstr_idx] = '0' +
+                        @as(u8, @intCast(w / 1000));
                     tmpstr_idx += 1;
-                    self.rendered_str[tmpstr_idx] = '0' + @as(u8, @intCast((w / 100) % 10));
+                    self.rendered_str[tmpstr_idx] = '0' +
+                        @as(u8, @intCast((w / 100) % 10));
                     tmpstr_idx += 1;
-                    self.rendered_str[tmpstr_idx] = '0' + @as(u8, @intCast((w / 10) % 10));
+                    self.rendered_str[tmpstr_idx] = '0' +
+                        @as(u8, @intCast((w / 10) % 10));
                     tmpstr_idx += 1;
-                    self.rendered_str[tmpstr_idx] = '0' + @as(u8, @intCast(w % 10));
+                    self.rendered_str[tmpstr_idx] = '0' +
+                        @as(u8, @intCast(w % 10));
                     tmpstr_idx += 1;
                 } else if (w >= 100) {
-                    self.rendered_str[tmpstr_idx] = '0' + @as(u8, @intCast(w / 100));
+                    self.rendered_str[tmpstr_idx] = '0' +
+                        @as(u8, @intCast(w / 100));
                     tmpstr_idx += 1;
-                    self.rendered_str[tmpstr_idx] = '0' + @as(u8, @intCast((w / 10) % 10));
+                    self.rendered_str[tmpstr_idx] = '0' +
+                        @as(u8, @intCast((w / 10) % 10));
                     tmpstr_idx += 1;
-                    self.rendered_str[tmpstr_idx] = '0' + @as(u8, @intCast(w % 10));
+                    self.rendered_str[tmpstr_idx] = '0' +
+                        @as(u8, @intCast(w % 10));
                     tmpstr_idx += 1;
                 } else if (w >= 10) {
-                    self.rendered_str[tmpstr_idx] = '0' + @as(u8, @intCast(w / 10));
+                    self.rendered_str[tmpstr_idx] = '0' +
+                        @as(u8, @intCast(w / 10));
                     tmpstr_idx += 1;
-                    self.rendered_str[tmpstr_idx] = '0' + @as(u8, @intCast(w % 10));
+                    self.rendered_str[tmpstr_idx] = '0' +
+                        @as(u8, @intCast(w % 10));
                     tmpstr_idx += 1;
                 } else {
-                    self.rendered_str[tmpstr_idx] = '0' + @as(u8, @intCast(w));
+                    self.rendered_str[tmpstr_idx] = '0' +
+                        @as(u8, @intCast(w));
                     tmpstr_idx += 1;
                 }
 
