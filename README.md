@@ -1,5 +1,5 @@
 ![License](https://img.shields.io/badge/License-MIT-85adf2?style=flat)
-![Version](https://img.shields.io/badge/Version-0.0.4-85adf2?style=flat)
+![Version](https://img.shields.io/badge/Version-0.0.5-85adf2?style=flat)
 ![Zig](https://img.shields.io/badge/Zig-0.15.2-orange?style=flat)
 
 ![get-movy](https://github.com/user-attachments/assets/aa86dded-8e47-404c-bdbe-7db8b04bdbaf)
@@ -123,7 +123,7 @@ Whether it's a game, a demo, an effect, or a tool — if it glows in the termina
 
 ## Performance Suite
 
-New in `v0.0.4`! Want to measure rendering performance and track optimizations? The integrated performance suite benchmarks ANSI conversion, sprite rendering, and the full pipeline across different sizes and configurations.
+New in `v0.0.5`! Want to measure rendering performance and track optimizations? The integrated performance suite benchmarks ANSI conversion, sprite rendering, and the full pipeline across different sizes and configurations.
 
 ```bash
 zig build perf-runner
