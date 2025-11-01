@@ -21,8 +21,15 @@
 		<p class="text-secondary">Generated: {{TIMESTAMP}}</p>
 	</header>
 
+	<!-- Hamburger Menu Button -->
+	<button id="menu-toggle" class="hamburger" aria-label="Toggle menu">
+		<span></span>
+		<span></span>
+		<span></span>
+	</button>
+
 	<!-- Navigation / Table of Contents -->
-	<nav>
+	<nav id="main-nav">
 		<h2>Navigation</h2>
 		<ul>
 			<li><a href="#overview">Overview</a></li>
@@ -31,6 +38,9 @@
 			<li><a href="#raw-data">Raw Data</a></li>
 		</ul>
 	</nav>
+
+	<!-- Overlay for closing menu -->
+	<div id="nav-overlay"></div>
 
 	<!-- Main Container -->
 	<div class="container">

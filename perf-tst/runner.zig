@@ -38,7 +38,8 @@ fn printUsage() void {
         \\  perf-runner -output_dir my-results -iterations 10000
         \\
         \\OUTPUT:
-        \\  Results are saved to: {output_dir}/{YYYY-MM-DD}/{test_name}_{timestamp}.json
+        \\  Results are saved to: {output_dir}/{timestamp}/{test_name}_{timestamp}.json
+        \\  Each run creates a new directory named with the full timestamp.
         \\
     ;
     std.debug.print("{s}\n", .{usage});
@@ -59,21 +60,18 @@ pub fn main() !void {
         std.process.exit(0);
     }
 
-    // Generate timestamp and date
+    // Generate timestamp (will be used as directory name)
     const timestamp = if (args.suffix) |s| try allocator.dupe(u8, s) else try json_writer.generateTimestamp(allocator);
     defer allocator.free(timestamp);
-
-    const date_string = try json_writer.generateDateString(allocator);
-    defer allocator.free(date_string);
 
     // Use default output directory if not specified
     const base_output_dir = args.output_dir orelse "perf-results";
 
-    // Create output directory path
+    // Create output directory path using full timestamp
     const output_dir = try std.fmt.allocPrint(
         allocator,
         "{s}/{s}",
-        .{ base_output_dir, date_string },
+        .{ base_output_dir, timestamp },
     );
     defer allocator.free(output_dir);
 

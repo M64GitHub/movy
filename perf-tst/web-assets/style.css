@@ -191,20 +191,98 @@ h1 {
 }
 
 /* ====================================================================
+   HAMBURGER MENU
+   ==================================================================== */
+
+.hamburger {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1001;
+    background: var(--bg-card);
+    border: 2px solid var(--neon-cyan);
+    border-radius: 8px;
+    padding: 12px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    box-shadow: var(--glow-md) var(--neon-cyan);
+    transition: all 0.3s ease;
+}
+
+.hamburger:hover {
+    box-shadow: var(--glow-lg) var(--neon-magenta);
+    border-color: var(--neon-magenta);
+}
+
+.hamburger span {
+    display: block;
+    width: 25px;
+    height: 3px;
+    background: var(--neon-cyan);
+    border-radius: 2px;
+    transition: all 0.3s ease;
+    box-shadow: var(--glow-sm) var(--neon-cyan);
+}
+
+.hamburger:hover span {
+    background: var(--neon-magenta);
+    box-shadow: var(--glow-sm) var(--neon-magenta);
+}
+
+.hamburger.active span:nth-child(1) {
+    transform: rotate(45deg) translate(8px, 8px);
+}
+
+.hamburger.active span:nth-child(2) {
+    opacity: 0;
+}
+
+.hamburger.active span:nth-child(3) {
+    transform: rotate(-45deg) translate(8px, -8px);
+}
+
+#nav-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(10, 14, 39, 0.8);
+    z-index: 998;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+#nav-overlay.active {
+    opacity: 1;
+    pointer-events: all;
+}
+
+/* ====================================================================
    NAVIGATION / TOC
    ==================================================================== */
 
 nav {
-    position: sticky;
-    top: 20px;
+    position: fixed;
+    top: 0;
+    left: -320px;
+    width: 300px;
+    height: 100%;
     background: var(--bg-card);
-    border: 2px solid var(--neon-cyan);
-    border-radius: 10px;
-    padding: 1.5rem;
-    margin: 2rem;
-    box-shadow: var(--glow-md) var(--neon-cyan),
+    border-right: 2px solid var(--neon-cyan);
+    padding: 2rem 1.5rem;
+    box-shadow: var(--glow-lg) var(--neon-cyan),
                 inset 0 0 20px rgba(0, 240, 255, 0.1);
-    z-index: 100;
+    z-index: 999;
+    transition: left 0.3s ease;
+    overflow-y: auto;
+}
+
+nav.active {
+    left: 0;
 }
 
 nav h2 {
@@ -511,6 +589,35 @@ footer a:hover {
 }
 
 /* ====================================================================
+   RAW DATA SECTION
+   ==================================================================== */
+
+#raw-data-links {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.raw-data-run {
+    padding: 1.5rem 0;
+}
+
+.raw-data-run:not(:last-child) {
+    border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+}
+
+.raw-data-run h3 {
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+}
+
+.raw-data-run .btn {
+    padding: 0.4rem 1rem;
+    font-size: 0.85rem;
+    margin: 0.3rem 0.3rem 0.3rem 0;
+}
+
+/* ====================================================================
    UTILITY CLASSES
    ==================================================================== */
 
@@ -518,6 +625,8 @@ footer a:hover {
 .text-cyan { color: var(--neon-cyan); }
 .text-magenta { color: var(--neon-magenta); }
 .text-purple { color: var(--neon-purple); }
+.text-secondary { color: var(--text-secondary); }
+.text-dim { color: var(--text-dim); }
 
 .glow-cyan { text-shadow: var(--glow-md) var(--neon-cyan); }
 .glow-magenta { text-shadow: var(--glow-md) var(--neon-magenta); }

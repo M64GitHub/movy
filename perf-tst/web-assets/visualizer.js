@@ -56,6 +56,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     console.log('Loading available runs...');
     loadAvailableRuns();
+    console.log('Setting up hamburger menu...');
+    setupHamburgerMenu();
     console.log('Initialization complete');
 });
 
@@ -314,24 +316,42 @@ function renderRenderStableCharts(container, testData) {
     const canvas = createCanvas(section, 'render-stable-throughput');
     const ctx = canvas.getContext('2d');
 
+    // Create aligned data arrays - each dataset gets the full label array length
+    // with null for positions where that aspect ratio doesn't have data
+    const labels = testData.results.map(r => r.name);
+
+    const squareData = testData.results.map(r => {
+        const found = square.find(s => s.name === r.name);
+        return found ? found.megapixels_per_sec : null;
+    });
+
+    const horizontalData = testData.results.map(r => {
+        const found = horizontal.find(h => h.name === r.name);
+        return found ? found.megapixels_per_sec : null;
+    });
+
+    const verticalData = testData.results.map(r => {
+        const found = vertical.find(v => v.name === r.name);
+        return found ? found.megapixels_per_sec : null;
+    });
+
     currentCharts.push(new Chart(ctx, {
         type: 'line',
         data: {
-            labels: testData.results.map(r => r.name),
+            labels: labels,
             datasets: [
                 {
                     label: 'Square',
-                    data: square.map(r => r.megapixels_per_sec),
+                    data: squareData,
                     borderColor: COLORS.cyan,
                     backgroundColor: COLORS.cyanTransparent,
                     pointRadius: 5,
-                    tension: 0.3
+                    tension: 0.3,
+                    spanGaps: true
                 },
                 {
                     label: '16:9 Horizontal',
-                    data: horizontal.map((r, i) =>
-                        testData.results.indexOf(r) >= 0 ? r.megapixels_per_sec : null
-                    ),
+                    data: horizontalData,
                     borderColor: COLORS.magenta,
                     backgroundColor: COLORS.magentaTransparent,
                     pointRadius: 5,
@@ -340,9 +360,7 @@ function renderRenderStableCharts(container, testData) {
                 },
                 {
                     label: '9:16 Vertical',
-                    data: vertical.map((r, i) =>
-                        testData.results.indexOf(r) >= 0 ? r.megapixels_per_sec : null
-                    ),
+                    data: verticalData,
                     borderColor: COLORS.purple,
                     backgroundColor: COLORS.purpleTransparent,
                     pointRadius: 5,
@@ -435,82 +453,357 @@ function renderCombinedCharts(container, testData) {
 }
 
 // ====================================================================
-// CHART: Cross-Test Comparison
+// CHART: Cross-Test Comparisons
 // ====================================================================
 
 function renderComparisonChart(container, allData) {
-    const section = createChartSection(container, 'Performance Comparison Across Tests', 'yellow');
-
-    // Extract comparable data points (64x64 sprite/surface)
-    const comparison = [];
+    // Extract comparable data points (64x64 - the only size common to all tests)
+    const data = {
+        toAnsi: null,
+        render_stable: null,
+        combined: null
+    };
 
     if (allData['RenderSurface.toAnsi']) {
         const test = allData['RenderSurface.toAnsi'].results.find(r => r.name === '64x64');
         if (test) {
-            comparison.push({
-                name: 'toAnsi (64x64)',
-                mp: test.megapixels_per_sec,
-                time: test.time_per_iter_us
-            });
+            data.toAnsi = test;
         }
     }
 
     if (allData['RenderEngine.render_stable']) {
         const test = allData['RenderEngine.render_stable'].results.find(r => r.name === '64x64');
         if (test) {
-            comparison.push({
-                name: 'render_stable (64x64)',
-                mp: test.megapixels_per_sec,
-                time: test.time_per_iter_us
-            });
+            data.render_stable = test;
         }
     }
 
     if (allData['RenderEngine.render_stable_with_toAnsi']) {
         const test = allData['RenderEngine.render_stable_with_toAnsi'].results.find(r => r.name === '64x64');
         if (test) {
-            comparison.push({
-                name: 'combined (64x64)',
-                mp: test.megapixels_per_sec,
-                time: test.time_per_iter_us
-            });
+            data.combined = test;
         }
     }
 
-    if (comparison.length < 2) return; // Not enough data
+    // Count how many tests we have data for
+    const validTests = Object.values(data).filter(d => d !== null).length;
+    if (validTests < 2) return; // Not enough data for comparison
 
-    const canvas = createCanvas(section, 'comparison-chart');
+    // Create all three comparison charts
+    renderSimpleBarComparison(container, data);
+    renderGroupedBarComparison(container, data);
+    renderRadarComparison(container, data);
+}
+
+// Chart 1: Simple Bar Chart - Throughput Comparison
+function renderSimpleBarComparison(container, data) {
+    const section = createChartSection(container, 'Throughput Comparison (64x64)', 'cyan');
+
+    const labels = [];
+    const mpData = [];
+    const colors = [];
+
+    if (data.toAnsi) {
+        labels.push('toAnsi');
+        mpData.push(data.toAnsi.megapixels_per_sec);
+        colors.push(COLORS.cyan);
+    }
+    if (data.render_stable) {
+        labels.push('render_stable');
+        mpData.push(data.render_stable.megapixels_per_sec);
+        colors.push(COLORS.magenta);
+    }
+    if (data.combined) {
+        labels.push('combined');
+        mpData.push(data.combined.megapixels_per_sec);
+        colors.push(COLORS.purple);
+    }
+
+    const canvas = createCanvas(section, 'comparison-bar-simple');
+    const ctx = canvas.getContext('2d');
+
+    currentCharts.push(new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Megapixels/sec',
+                data: mpData,
+                backgroundColor: colors.map(c => c.replace('1)', '0.6)')),
+                borderColor: colors,
+                borderWidth: 2
+            }]
+        },
+        options: getSynthwaveChartOptions('Test Type', 'MP/sec')
+    }));
+}
+
+// Chart 2: Grouped Bar Chart - Multi-Metric Comparison
+function renderGroupedBarComparison(container, data) {
+    const section = createChartSection(container, 'Multi-Metric Comparison (64x64)', 'magenta');
+
+    const labels = [];
+    const mpData = [];
+    const iterData = [];
+    const speedData = [];
+
+    if (data.toAnsi) {
+        labels.push('toAnsi');
+        mpData.push(data.toAnsi.megapixels_per_sec);
+        iterData.push(data.toAnsi.iter_per_sec);
+        // Normalize inverted time to 0-1000 scale for visibility
+        speedData.push((1 / data.toAnsi.time_per_iter_us) * 1000);
+    }
+    if (data.render_stable) {
+        labels.push('render_stable');
+        mpData.push(data.render_stable.megapixels_per_sec);
+        iterData.push(data.render_stable.iter_per_sec);
+        speedData.push((1 / data.render_stable.time_per_iter_us) * 1000);
+    }
+    if (data.combined) {
+        labels.push('combined');
+        mpData.push(data.combined.megapixels_per_sec);
+        iterData.push(data.combined.iter_per_sec);
+        speedData.push((1 / data.combined.time_per_iter_us) * 1000);
+    }
+
+    const canvas = createCanvas(section, 'comparison-bar-grouped');
+    const ctx = canvas.getContext('2d');
+
+    currentCharts.push(new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Megapixels/sec (Left)',
+                    data: mpData,
+                    backgroundColor: COLORS.cyanTransparent,
+                    borderColor: COLORS.cyan,
+                    borderWidth: 2,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Iterations/sec (Right)',
+                    data: iterData,
+                    backgroundColor: COLORS.magentaTransparent,
+                    borderColor: COLORS.magenta,
+                    borderWidth: 2,
+                    yAxisID: 'y1'
+                },
+                {
+                    label: 'Speed Index (Left)',
+                    data: speedData,
+                    backgroundColor: COLORS.purpleTransparent,
+                    borderColor: COLORS.purple,
+                    borderWidth: 2,
+                    yAxisID: 'y'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: true,
+                    labels: {
+                        color: COLORS.text,
+                        font: {
+                            size: 14,
+                            family: 'Orbitron'
+                        },
+                        padding: 15,
+                        usePointStyle: true
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(26, 31, 58, 0.95)',
+                    titleColor: COLORS.cyan,
+                    bodyColor: COLORS.text,
+                    borderColor: COLORS.cyan,
+                    borderWidth: 2,
+                    padding: 12,
+                    titleFont: {
+                        size: 14,
+                        family: 'Orbitron'
+                    },
+                    bodyFont: {
+                        size: 12,
+                        family: 'Share Tech Mono'
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        color: COLORS.grid,
+                        lineWidth: 1
+                    },
+                    ticks: {
+                        color: COLORS.text,
+                        font: {
+                            size: 11,
+                            family: 'Share Tech Mono'
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Test Type',
+                        color: COLORS.text,
+                        font: {
+                            size: 14,
+                            family: 'Orbitron'
+                        }
+                    }
+                },
+                y: {
+                    type: 'linear',
+                    position: 'left',
+                    grid: {
+                        color: COLORS.grid,
+                        lineWidth: 1
+                    },
+                    ticks: {
+                        color: COLORS.cyan,
+                        font: {
+                            size: 11,
+                            family: 'Share Tech Mono'
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'MP/sec & Speed Index',
+                        color: COLORS.cyan,
+                        font: {
+                            size: 14,
+                            family: 'Orbitron'
+                        }
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    position: 'right',
+                    grid: {
+                        drawOnChartArea: false
+                    },
+                    ticks: {
+                        color: COLORS.magenta,
+                        font: {
+                            size: 11,
+                            family: 'Share Tech Mono'
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Iterations/sec',
+                        color: COLORS.magenta,
+                        font: {
+                            size: 14,
+                            family: 'Orbitron'
+                        }
+                    }
+                }
+            },
+            animation: {
+                duration: 1000,
+                easing: 'easeInOutQuart'
+            }
+        }
+    }));
+}
+
+// Chart 3: Radar Chart - Performance Profile
+function renderRadarComparison(container, data) {
+    const section = createChartSection(container, 'Performance Profile Comparison (64x64)', 'purple');
+
+    // Collect all values for normalization
+    const allMp = [];
+    const allIter = [];
+    const allSpeed = [];
+    const allEfficiency = [];
+
+    [data.toAnsi, data.render_stable, data.combined].forEach(test => {
+        if (test) {
+            allMp.push(test.megapixels_per_sec);
+            allIter.push(test.iter_per_sec);
+            allSpeed.push(1 / test.time_per_iter_us);
+            allEfficiency.push(test.pixels / test.elapsed_ns);
+        }
+    });
+
+    const maxMp = Math.max(...allMp);
+    const maxIter = Math.max(...allIter);
+    const maxSpeed = Math.max(...allSpeed);
+    const maxEfficiency = Math.max(...allEfficiency);
+
+    // Create normalized datasets for each test
+    const datasets = [];
+    const testConfigs = [
+        { key: 'toAnsi', label: 'toAnsi', color: COLORS.cyan, colorTrans: COLORS.cyanTransparent },
+        { key: 'render_stable', label: 'render_stable', color: COLORS.magenta, colorTrans: COLORS.magentaTransparent },
+        { key: 'combined', label: 'combined', color: COLORS.purple, colorTrans: COLORS.purpleTransparent }
+    ];
+
+    testConfigs.forEach(config => {
+        if (data[config.key]) {
+            const test = data[config.key];
+            datasets.push({
+                label: config.label,
+                data: [
+                    (test.megapixels_per_sec / maxMp) * 100,
+                    (test.iter_per_sec / maxIter) * 100,
+                    ((1 / test.time_per_iter_us) / maxSpeed) * 100,
+                    ((test.pixels / test.elapsed_ns) / maxEfficiency) * 100,
+                    // Overall performance index (average of normalized metrics)
+                    ((test.megapixels_per_sec / maxMp) +
+                     (test.iter_per_sec / maxIter) +
+                     ((1 / test.time_per_iter_us) / maxSpeed) +
+                     ((test.pixels / test.elapsed_ns) / maxEfficiency)) / 4 * 100
+                ],
+                backgroundColor: config.colorTrans,
+                borderColor: config.color,
+                pointBackgroundColor: config.color,
+                pointBorderColor: '#0a0e27',
+                pointHoverBackgroundColor: COLORS.yellow,
+                pointHoverBorderColor: config.color,
+                borderWidth: 3,
+                pointRadius: 6
+            });
+        }
+    });
+
+    const canvas = createCanvas(section, 'comparison-radar');
     const ctx = canvas.getContext('2d');
 
     currentCharts.push(new Chart(ctx, {
         type: 'radar',
         data: {
-            labels: comparison.map(c => c.name),
-            datasets: [{
-                label: 'Megapixels/sec',
-                data: comparison.map(c => c.mp),
-                backgroundColor: COLORS.cyanTransparent,
-                borderColor: COLORS.cyan,
-                pointBackgroundColor: COLORS.cyan,
-                pointBorderColor: '#0a0e27',
-                pointHoverBackgroundColor: COLORS.magenta,
-                pointHoverBorderColor: COLORS.cyan,
-                borderWidth: 3,
-                pointRadius: 6
-            }]
+            labels: [
+                'Throughput\n(MP/sec)',
+                'Iteration Rate\n(iter/sec)',
+                'Speed\n(1/time)',
+                'Efficiency\n(px/ns)',
+                'Overall\nPerformance'
+            ],
+            datasets: datasets
         },
         options: {
             ...getSynthwaveChartOptions(),
             scales: {
                 r: {
                     beginAtZero: true,
+                    max: 100,
                     grid: { color: COLORS.grid },
                     angleLines: { color: COLORS.grid },
                     pointLabels: {
                         color: COLORS.text,
-                        font: { size: 12, family: 'Share Tech Mono' }
+                        font: { size: 11, family: 'Share Tech Mono' }
                     },
-                    ticks: { color: COLORS.text }
+                    ticks: {
+                        color: COLORS.text,
+                        stepSize: 20
+                    }
                 }
             }
         }
@@ -643,6 +936,60 @@ function getSynthwaveChartOptions(xLabel = '', yLabel = '') {
             easing: 'easeInOutQuart'
         }
     };
+}
+
+// ====================================================================
+// HAMBURGER MENU
+// ====================================================================
+
+function setupHamburgerMenu() {
+    const menuToggle = document.getElementById('menu-toggle');
+    const mainNav = document.getElementById('main-nav');
+    const navOverlay = document.getElementById('nav-overlay');
+
+    if (!menuToggle || !mainNav || !navOverlay) {
+        console.warn('Hamburger menu elements not found');
+        return;
+    }
+
+    // Toggle menu on button click
+    menuToggle.addEventListener('click', () => {
+        const isActive = mainNav.classList.contains('active');
+
+        menuToggle.classList.toggle('active');
+        mainNav.classList.toggle('active');
+        navOverlay.classList.toggle('active');
+
+        console.log('Menu toggled:', !isActive ? 'opened' : 'closed');
+    });
+
+    // Close menu when clicking overlay
+    navOverlay.addEventListener('click', () => {
+        menuToggle.classList.remove('active');
+        mainNav.classList.remove('active');
+        navOverlay.classList.remove('active');
+        console.log('Menu closed via overlay');
+    });
+
+    // Close menu on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && mainNav.classList.contains('active')) {
+            menuToggle.classList.remove('active');
+            mainNav.classList.remove('active');
+            navOverlay.classList.remove('active');
+            console.log('Menu closed via Escape key');
+        }
+    });
+
+    // Close menu when clicking nav link
+    mainNav.querySelectorAll('a').forEach(link => {
+        link.addEventListener('click', () => {
+            menuToggle.classList.remove('active');
+            mainNav.classList.remove('active');
+            navOverlay.classList.remove('active');
+            console.log('Menu closed after navigation');
+        });
+    });
 }
 
 // ====================================================================

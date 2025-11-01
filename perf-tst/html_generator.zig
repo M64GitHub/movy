@@ -167,19 +167,18 @@ fn scanPerfResults(allocator: std.mem.Allocator, base_dir: []const u8, runs: *st
     while (try it.next()) |entry| {
         if (entry.kind != .directory) continue;
 
-        // Entry name is the date directory (e.g., "2025-11-19")
-        const date = entry.name;
+        // Entry name is the full timestamp directory (e.g., "2025-11-19T14-33-08")
+        const timestamp = entry.name;
 
-        // Scan this date directory for JSON files
-        var date_dir = try dir.openDir(date, .{ .iterate = true });
-        defer date_dir.close();
+        // Scan this timestamp directory for JSON files
+        var timestamp_dir = try dir.openDir(timestamp, .{ .iterate = true });
+        defer timestamp_dir.close();
 
         var files = std.ArrayList([]const u8){};
-        var timestamp: ?[]const u8 = null;
         var system_info: ?types.SystemInfo = null;
 
-        var date_it = date_dir.iterate();
-        while (try date_it.next()) |file_entry| {
+        var timestamp_it = timestamp_dir.iterate();
+        while (try timestamp_it.next()) |file_entry| {
             if (file_entry.kind != .file) continue;
             if (!std.mem.endsWith(u8, file_entry.name, ".json")) continue;
 
@@ -187,17 +186,12 @@ fn scanPerfResults(allocator: std.mem.Allocator, base_dir: []const u8, runs: *st
             const filename_copy = try allocator.dupe(u8, file_entry.name);
             try files.append(allocator, filename_copy);
 
-            // Extract timestamp from first file (all should have same timestamp)
-            if (timestamp == null) {
-                timestamp = try extractTimestampFromFilename(allocator, file_entry.name);
-            }
-
             // Load first JSON to get system info
             if (system_info == null) {
                 const json_path = try std.fmt.allocPrint(
                     allocator,
                     "{s}/{s}/{s}",
-                    .{ base_dir, date, file_entry.name },
+                    .{ base_dir, timestamp, file_entry.name },
                 );
                 defer allocator.free(json_path);
 
@@ -205,10 +199,13 @@ fn scanPerfResults(allocator: std.mem.Allocator, base_dir: []const u8, runs: *st
             }
         }
 
-        if (files.items.len > 0 and timestamp != null) {
+        if (files.items.len > 0) {
+            // Extract date from timestamp (first 10 chars: YYYY-MM-DD)
+            const date = if (timestamp.len >= 10) timestamp[0..10] else timestamp;
+
             try runs.append(allocator, RunInfo{
                 .date = try allocator.dupe(u8, date),
-                .timestamp = timestamp.?,
+                .timestamp = try allocator.dupe(u8, timestamp),
                 .files = files,
                 .system_info = system_info,
             });
@@ -218,7 +215,6 @@ fn scanPerfResults(allocator: std.mem.Allocator, base_dir: []const u8, runs: *st
                 allocator.free(file);
             }
             files.deinit(allocator);
-            if (timestamp) |ts| allocator.free(ts);
         }
     }
 }
@@ -364,7 +360,7 @@ fn generateBenchmarkDataJson(allocator: std.mem.Allocator, base_dir: []const u8,
 
         for (run.files.items, 0..) |file, file_idx| {
             // Read the JSON file
-            const json_path = try std.fmt.allocPrint(allocator, "{s}/{s}/{s}", .{ base_dir, run.date, file });
+            const json_path = try std.fmt.allocPrint(allocator, "{s}/{s}/{s}", .{ base_dir, run.timestamp, file });
             defer allocator.free(json_path);
 
             const json_content = try std.fs.cwd().readFileAlloc(allocator, json_path, 10 * 1024 * 1024);
@@ -409,22 +405,24 @@ fn generateRawDataLinksHtml(allocator: std.mem.Allocator, runs: []const RunInfo)
     defer html.deinit(allocator);
 
     for (runs) |run| {
-        const header = try std.fmt.allocPrint(allocator, "<h3>{s} - {s}</h3>\n<ul>\n", .{ run.date, run.timestamp });
+        try html.appendSlice(allocator, "<div class=\"raw-data-run\">\n");
+
+        const header = try std.fmt.allocPrint(allocator, "  <h3 class=\"text-cyan\">{s}</h3>\n  <div>\n", .{run.timestamp});
         try html.appendSlice(allocator, header);
         allocator.free(header);
 
         for (run.files.items) |file| {
-            const link = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ run.date, file });
+            const link = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ run.timestamp, file });
             defer allocator.free(link);
 
             const item = try std.fmt.allocPrint(allocator,
-                "  <li><a href=\"{s}\" class=\"btn\" target=\"_blank\">{s}</a></li>\n",
+                "    <a href=\"{s}\" class=\"btn\" target=\"_blank\">{s}</a>\n",
                 .{ link, file });
             try html.appendSlice(allocator, item);
             allocator.free(item);
         }
 
-        try html.appendSlice(allocator, "</ul>\n");
+        try html.appendSlice(allocator, "  </div>\n</div>\n");
     }
 
     return try html.toOwnedSlice(allocator);
@@ -432,14 +430,24 @@ fn generateRawDataLinksHtml(allocator: std.mem.Allocator, runs: []const RunInfo)
 
 fn countUniqueSystems(allocator: std.mem.Allocator, runs: []const RunInfo) !usize {
     var seen = std.StringHashMap(void).init(allocator);
-    defer seen.deinit();
+    defer {
+        var it = seen.keyIterator();
+        while (it.next()) |key| {
+            allocator.free(key.*);
+        }
+        seen.deinit();
+    }
 
     for (runs) |run| {
         if (run.system_info) |si| {
             const key = try std.fmt.allocPrint(allocator, "{s}_{d}", .{ si.cpu_model, si.cpu_cores });
-            defer allocator.free(key);
 
-            try seen.put(key, {});
+            // Check if key already exists
+            if (seen.contains(key)) {
+                allocator.free(key); // Free duplicate
+            } else {
+                try seen.put(key, {}); // HashMap takes ownership
+            }
         }
     }
 
