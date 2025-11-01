@@ -285,6 +285,152 @@ pub const RenderSurface = struct {
     /// If a char (u21 UTF8) is present in char_map at an even y (line-aligned),
     /// renders it with the corresponding color_map fg.
     /// Assumes rendered_str is preallocated and will be freed on deinit.
+    /// Formats a foreground color RGB triplet into ANSI escape sequence
+    /// Returns the number of bytes written
+    inline fn formatFgColor(buf: []u8, color: movy.core.types.Rgb) usize {
+        const prefix = "\x1b[38;2;";
+        @memcpy(buf[0..prefix.len], prefix);
+        var idx = prefix.len;
+
+        // Format R value
+        if (color.r >= 100) {
+            buf[idx] = '0' + color.r / 100;
+            idx += 1;
+            buf[idx] = '0' + (color.r / 10) % 10;
+            idx += 1;
+            buf[idx] = '0' + color.r % 10;
+            idx += 1;
+        } else if (color.r >= 10) {
+            buf[idx] = '0' + color.r / 10;
+            idx += 1;
+            buf[idx] = '0' + color.r % 10;
+            idx += 1;
+        } else {
+            buf[idx] = '0' + color.r;
+            idx += 1;
+        }
+
+        buf[idx] = ';';
+        idx += 1;
+
+        // Format G value
+        if (color.g >= 100) {
+            buf[idx] = '0' + color.g / 100;
+            idx += 1;
+            buf[idx] = '0' + (color.g / 10) % 10;
+            idx += 1;
+            buf[idx] = '0' + color.g % 10;
+            idx += 1;
+        } else if (color.g >= 10) {
+            buf[idx] = '0' + color.g / 10;
+            idx += 1;
+            buf[idx] = '0' + color.g % 10;
+            idx += 1;
+        } else {
+            buf[idx] = '0' + color.g;
+            idx += 1;
+        }
+
+        buf[idx] = ';';
+        idx += 1;
+
+        // Format B value
+        if (color.b >= 100) {
+            buf[idx] = '0' + color.b / 100;
+            idx += 1;
+            buf[idx] = '0' + (color.b / 10) % 10;
+            idx += 1;
+            buf[idx] = '0' + color.b % 10;
+            idx += 1;
+        } else if (color.b >= 10) {
+            buf[idx] = '0' + color.b / 10;
+            idx += 1;
+            buf[idx] = '0' + color.b % 10;
+            idx += 1;
+        } else {
+            buf[idx] = '0' + color.b;
+            idx += 1;
+        }
+
+        buf[idx] = 'm';
+        idx += 1;
+
+        return idx;
+    }
+
+    /// Formats a background color RGB triplet into ANSI escape sequence
+    /// Returns the number of bytes written
+    inline fn formatBgColor(buf: []u8, color: movy.core.types.Rgb) usize {
+        const prefix = "\x1b[48;2;";
+        @memcpy(buf[0..prefix.len], prefix);
+        var idx = prefix.len;
+
+        // Format R value
+        if (color.r >= 100) {
+            buf[idx] = '0' + color.r / 100;
+            idx += 1;
+            buf[idx] = '0' + (color.r / 10) % 10;
+            idx += 1;
+            buf[idx] = '0' + color.r % 10;
+            idx += 1;
+        } else if (color.r >= 10) {
+            buf[idx] = '0' + color.r / 10;
+            idx += 1;
+            buf[idx] = '0' + color.r % 10;
+            idx += 1;
+        } else {
+            buf[idx] = '0' + color.r;
+            idx += 1;
+        }
+
+        buf[idx] = ';';
+        idx += 1;
+
+        // Format G value
+        if (color.g >= 100) {
+            buf[idx] = '0' + color.g / 100;
+            idx += 1;
+            buf[idx] = '0' + (color.g / 10) % 10;
+            idx += 1;
+            buf[idx] = '0' + color.g % 10;
+            idx += 1;
+        } else if (color.g >= 10) {
+            buf[idx] = '0' + color.g / 10;
+            idx += 1;
+            buf[idx] = '0' + color.g % 10;
+            idx += 1;
+        } else {
+            buf[idx] = '0' + color.g;
+            idx += 1;
+        }
+
+        buf[idx] = ';';
+        idx += 1;
+
+        // Format B value
+        if (color.b >= 100) {
+            buf[idx] = '0' + color.b / 100;
+            idx += 1;
+            buf[idx] = '0' + (color.b / 10) % 10;
+            idx += 1;
+            buf[idx] = '0' + color.b % 10;
+            idx += 1;
+        } else if (color.b >= 10) {
+            buf[idx] = '0' + color.b / 10;
+            idx += 1;
+            buf[idx] = '0' + color.b % 10;
+            idx += 1;
+        } else {
+            buf[idx] = '0' + color.b;
+            idx += 1;
+        }
+
+        buf[idx] = 'm';
+        idx += 1;
+
+        return idx;
+    }
+
     pub fn toAnsi(self: *RenderSurface) ![]u8 {
         var tmpstr_idx: usize = 0;
 
@@ -301,89 +447,105 @@ pub const RenderSurface = struct {
 
                 const line = if ((char1 != 0) or (char2 != 0)) blk: { // Char present? Render it
                     if (char1 != 0) {
-                        const slice1 = try std.fmt.bufPrint(
-                            self.rendered_str[tmpstr_idx..],
-                            "\x1b[38;2;{};{};{}m\x1b[48;2;{};{};{}m{u}",
-                            .{
-                                self.color_map[idx].r,
-                                self.color_map[idx].g,
-                                self.color_map[idx].b,
-                                self.color_map[idx + self.w].r,
-                                self.color_map[idx + self.w].g,
-                                self.color_map[idx + self.w].b,
-                                char1,
-                            },
-                        );
-                        break :blk slice1;
+                        const start = tmpstr_idx;
+                        tmpstr_idx += formatFgColor(self.rendered_str[tmpstr_idx..], self.color_map[idx]);
+                        tmpstr_idx += formatBgColor(self.rendered_str[tmpstr_idx..], self.color_map[idx + self.w]);
+                        const char_bytes = std.unicode.utf8Encode(char1, self.rendered_str[tmpstr_idx..][0..4]) catch unreachable;
+                        tmpstr_idx += char_bytes;
+                        break :blk self.rendered_str[start..tmpstr_idx];
                     } else {
-                        const slice2 = try std.fmt.bufPrint(
-                            self.rendered_str[tmpstr_idx..],
-                            "\x1b[48;2;{};{};{}m\x1b[38;2;{};{};{}m{u}",
-                            .{
-                                self.color_map[idx].r,
-                                self.color_map[idx].g,
-                                self.color_map[idx].b,
-                                self.color_map[idx + self.w].r,
-                                self.color_map[idx + self.w].g,
-                                self.color_map[idx + self.w].b,
-                                char2,
-                            },
-                        );
-                        break :blk slice2;
+                        const start = tmpstr_idx;
+                        tmpstr_idx += formatBgColor(self.rendered_str[tmpstr_idx..], self.color_map[idx]);
+                        tmpstr_idx += formatFgColor(self.rendered_str[tmpstr_idx..], self.color_map[idx + self.w]);
+                        const char_bytes = std.unicode.utf8Encode(char2, self.rendered_str[tmpstr_idx..][0..4]) catch unreachable;
+                        tmpstr_idx += char_bytes;
+                        break :blk self.rendered_str[start..tmpstr_idx];
                     }
                 } else blk: { // No char? Render pixels in half-blocks
-                    // char present above? skip
-
                     const upper = self.color_map[idx];
                     const lower = self.color_map[x + (y + 1) * self.w];
                     const upper_trans = self.shadow_map[idx] == 0;
-                    const lower_trans =
-                        self.shadow_map[x + (y + 1) * self.w] == 0;
+                    const lower_trans = self.shadow_map[x + (y + 1) * self.w] == 0;
 
-                    break :blk if (upper_trans and lower_trans) blk2: {
+                    if (upper_trans and lower_trans) {
                         const s = "\x1b[m ";
                         @memcpy(self.rendered_str[tmpstr_idx..][0..s.len], s);
-                        break :blk2 self.rendered_str[tmpstr_idx..][0..s.len];
-                    } else if (upper_trans) blk2: {
-                        break :blk2 try std.fmt.bufPrint(
-                            self.rendered_str[tmpstr_idx..],
-                            "\x1b[0;38;2;{};{};{}m\xE2\x96\x84",
-                            .{ lower.r, lower.g, lower.b },
-                        );
-                    } else if (lower_trans) blk2: {
-                        break :blk2 try std.fmt.bufPrint(
-                            self.rendered_str[tmpstr_idx..],
-                            "\x1b[0;38;2;{};{};{}m\xE2\x96\x80",
-                            .{ upper.r, upper.g, upper.b },
-                        );
-                    } else blk2: {
-                        break :blk2 try std.fmt.bufPrint(
-                            self.rendered_str[tmpstr_idx..],
-                            "\x1b[48;2;{};{};{}m" ++
-                                "\x1b[38;2;{};{};{}m\xE2\x96\x84",
-                            .{
-                                upper.r,
-                                upper.g,
-                                upper.b,
-                                lower.r,
-                                lower.g,
-                                lower.b,
-                            },
-                        );
-                    };
+                        const start = tmpstr_idx;
+                        tmpstr_idx += s.len;
+                        break :blk self.rendered_str[start..tmpstr_idx];
+                    } else if (upper_trans) {
+                        const start = tmpstr_idx;
+                        const prefix = "\x1b[0;";
+                        @memcpy(self.rendered_str[tmpstr_idx..][0..prefix.len], prefix);
+                        tmpstr_idx += prefix.len;
+                        tmpstr_idx += formatFgColor(self.rendered_str[tmpstr_idx..], lower);
+                        const block = "\xE2\x96\x84";
+                        @memcpy(self.rendered_str[tmpstr_idx..][0..block.len], block);
+                        tmpstr_idx += block.len;
+                        break :blk self.rendered_str[start..tmpstr_idx];
+                    } else if (lower_trans) {
+                        const start = tmpstr_idx;
+                        const prefix = "\x1b[0;";
+                        @memcpy(self.rendered_str[tmpstr_idx..][0..prefix.len], prefix);
+                        tmpstr_idx += prefix.len;
+                        tmpstr_idx += formatFgColor(self.rendered_str[tmpstr_idx..], upper);
+                        const block = "\xE2\x96\x80";
+                        @memcpy(self.rendered_str[tmpstr_idx..][0..block.len], block);
+                        tmpstr_idx += block.len;
+                        break :blk self.rendered_str[start..tmpstr_idx];
+                    } else {
+                        const start = tmpstr_idx;
+                        tmpstr_idx += formatBgColor(self.rendered_str[tmpstr_idx..], upper);
+                        tmpstr_idx += formatFgColor(self.rendered_str[tmpstr_idx..], lower);
+                        const block = "\xE2\x96\x84";
+                        @memcpy(self.rendered_str[tmpstr_idx..][0..block.len], block);
+                        tmpstr_idx += block.len;
+                        break :blk self.rendered_str[start..tmpstr_idx];
+                    }
                 };
 
-                tmpstr_idx += line.len;
+                // line.len is implicitly handled by tmpstr_idx tracking
+                _ = line;
             }
 
             // Move cursor back and down for next line
             {
-                const left = try std.fmt.bufPrint(
-                    self.rendered_str[tmpstr_idx..],
-                    "\x1b[{}D",
-                    .{self.w},
-                );
-                tmpstr_idx += left.len;
+                const left_start = tmpstr_idx;
+                const left_prefix = "\x1b[";
+                @memcpy(self.rendered_str[tmpstr_idx..][0..left_prefix.len], left_prefix);
+                tmpstr_idx += left_prefix.len;
+
+                // Format width as decimal
+                const w = self.w;
+                if (w >= 1000) {
+                    self.rendered_str[tmpstr_idx] = '0' + @as(u8, @intCast(w / 1000));
+                    tmpstr_idx += 1;
+                    self.rendered_str[tmpstr_idx] = '0' + @as(u8, @intCast((w / 100) % 10));
+                    tmpstr_idx += 1;
+                    self.rendered_str[tmpstr_idx] = '0' + @as(u8, @intCast((w / 10) % 10));
+                    tmpstr_idx += 1;
+                    self.rendered_str[tmpstr_idx] = '0' + @as(u8, @intCast(w % 10));
+                    tmpstr_idx += 1;
+                } else if (w >= 100) {
+                    self.rendered_str[tmpstr_idx] = '0' + @as(u8, @intCast(w / 100));
+                    tmpstr_idx += 1;
+                    self.rendered_str[tmpstr_idx] = '0' + @as(u8, @intCast((w / 10) % 10));
+                    tmpstr_idx += 1;
+                    self.rendered_str[tmpstr_idx] = '0' + @as(u8, @intCast(w % 10));
+                    tmpstr_idx += 1;
+                } else if (w >= 10) {
+                    self.rendered_str[tmpstr_idx] = '0' + @as(u8, @intCast(w / 10));
+                    tmpstr_idx += 1;
+                    self.rendered_str[tmpstr_idx] = '0' + @as(u8, @intCast(w % 10));
+                    tmpstr_idx += 1;
+                } else {
+                    self.rendered_str[tmpstr_idx] = '0' + @as(u8, @intCast(w));
+                    tmpstr_idx += 1;
+                }
+
+                self.rendered_str[tmpstr_idx] = 'D';
+                tmpstr_idx += 1;
+                _ = left_start;
             }
             {
                 const down = "\x1b[1B";
