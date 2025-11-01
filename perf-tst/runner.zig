@@ -187,7 +187,21 @@ pub fn main() !void {
 
         // Build argument list
         var argv = std.ArrayList([]const u8){};
-        defer argv.deinit(allocator);
+        defer {
+            // Free any allocated strings in argv
+            for (argv.items) |arg| {
+                // Only free if it's one we allocated (not timestamp or output_dir)
+                if (arg.ptr != timestamp.ptr and arg.ptr != output_dir.ptr and arg.ptr != exe_path.ptr) {
+                    // Check if it's a constant string literal
+                    if (!std.mem.eql(u8, arg, "-suffix") and
+                        !std.mem.eql(u8, arg, "-output_dir") and
+                        !std.mem.eql(u8, arg, "-iterations")) {
+                        allocator.free(arg);
+                    }
+                }
+            }
+            argv.deinit(allocator);
+        }
 
         try argv.append(allocator, exe_path);
         try argv.append(allocator, "-suffix");
@@ -196,12 +210,9 @@ pub fn main() !void {
         try argv.append(allocator, output_dir);
 
         if (args.iterations) |iter| {
-            const iter_str = try std.fmt.allocPrint(allocator, "{d}", .{iter});
-            defer allocator.free(iter_str);
             try argv.append(allocator, "-iterations");
-            const iter_str_copy = try allocator.dupe(u8, iter_str);
-            defer allocator.free(iter_str_copy);
-            try argv.append(allocator, iter_str_copy);
+            const iter_str = try std.fmt.allocPrint(allocator, "{d}", .{iter});
+            try argv.append(allocator, iter_str);
         }
 
         // Spawn and wait for test process
