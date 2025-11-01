@@ -1,8 +1,8 @@
 # MOVY Performance Suite
 
-I built this because rendering terminal graphics is hard, and I needed to know where the bottlenecks actually are. Not guesses, not gut feelings—hard numbers showing what's fast, what's slow, and how things scale.
+I built this to be able to trace down and measure performance bottlenecks / -improvements.  
 
-The performance suite tests three critical parts of the MOVY rendering pipeline: ANSI conversion, sprite rendering, and the combined render-to-ANSI flow. It runs thousands of iterations, collects detailed metrics, and generates an interactive visualization dashboard so you can actually see what's going on.
+The performance suite tests three critical parts of the MOVY rendering pipeline: ANSI conversion, sprite rendering, and the combined render-to-ANSI flow. It runs 100-thousands of iterations, collects detailed metrics, and generates an interactive visualization dashboard so you can actually see what's going on.
 
 ## Quick Start
 
@@ -20,9 +20,10 @@ Open the dashboard:
 
 ```bash
 open perf-results/index.html
+# or click in your file manager
 ```
 
-You'll see a retro synthwave-themed dashboard with interactive charts showing throughput, latency, and performance profiles across different sprite sizes and rendering configurations.
+You'll see a retro synthwave-themed dashboard with interactive charts showing throughput, and performance profiles across different sprite sizes and rendering configurations.
 
 ## What Gets Tested
 
@@ -33,17 +34,17 @@ Tests ANSI conversion performance—how fast we can convert raw pixel data into 
 
 **Tests sizes:** 10x10, 25x25, 50x50, 64x64, 100x100, 150x150, 200x200
 
-**Why it matters:** ANSI conversion is pure overhead. Every frame needs to be converted before it hits the terminal, so this needs to be fast. The test shows how conversion time scales with sprite size.
+**Why it matters:** ANSI conversion is our main bottleneck. Every frame needs to be converted before it hits the terminal, so this needs to be fast. The test shows how conversion time scales with sprite size.
 
 ### 2. RenderEngine.render_stable
-Tests static sprite rendering performance—compositing multiple sprites into a single output surface.
+Tests static (not moving / animating) sprite rendering performance—compositing multiple sprites into a single output surface.
 
 **Tests configurations:**
 - Square outputs: 64x64, 96x96, 128x128, 160x160, 192x192, 256x256
 - 16:9 horizontal: Various widescreen sizes
 - 9:16 vertical: Portrait-oriented sizes
 
-**Why it matters:** This is the core rendering loop. It handles z-ordering, alpha blending, and pixel composition. Understanding how it scales across different output sizes and aspect ratios helps optimize real-world rendering scenarios.
+**Why it matters:** This is the core rendering loop. It handles z-ordering, alpha blending, and pixel composition. Understanding how it scales across different output sizes and aspect ratios helps optimization.
 
 ### 3. RenderEngine.render_stable_with_toAnsi
 Tests the full pipeline—render sprites AND convert to ANSI in one measurement.
@@ -90,7 +91,7 @@ Each test run creates a new timestamped directory (e.g., `2025-11-19T14-33-08`).
 
 ## Understanding the Dashboard
 
-The visualization dashboard is designed around a simple idea: show everything that matters, make it easy to explore, don't hide the data.
+The visualization dashboard is designed around a simple idea: show everything that matters, make it easy to explore, and access the raw data.
 
 ### Navigation
 
@@ -167,7 +168,7 @@ zig build perf-runner -- -tests "toAnsi,render_stable"
 
 ### Custom Iteration Count
 
-The default 100,000 iterations is thorough but slow. Reduce it for quick checks:
+The default 100,000 iterations is thorough but might be slow on your system. Reduce it for quick checks:
 
 ```bash
 # Fast run for development (still statistically valid)
@@ -278,7 +279,7 @@ The embedded JSON data is available in JavaScript as `embeddedData[runKey]`, whe
 
 I picked these tests to answer specific questions:
 
-**RenderSurface.toAnsi** → "How expensive is terminal output?"
+**RenderSurface.toAnsi** → "How expensive is terminal output rendering?"
 - ANSI conversion is pure overhead
 - Can't be skipped in real usage
 - Shows if we should cache ANSI strings or convert on-demand
@@ -293,8 +294,6 @@ I picked these tests to answer specific questions:
 - Gap between this and sum of parts shows hidden overhead
 - Helps identify optimization opportunities
 
-Together, these tests provide a complete picture of rendering performance from pixels to terminal output.
-
 ## Interpreting Results
 
 A few rules of thumb when looking at the data:
@@ -302,11 +301,8 @@ A few rules of thumb when looking at the data:
 **Megapixels/sec increases with size?**
 That's good. It means you're getting more efficient with larger sprites (better cache utilization, less per-pixel overhead).
 
-**Megapixels/sec decreases with size?**
-You're hitting memory bandwidth limits or cache misses. Consider optimizing memory access patterns.
-
 **render_stable_with_toAnsi takes longer than render_stable + toAnsi separately?**
-There's overhead in the combined pipeline. Look for redundant work or memory copies.
+There's overhead in the combined pipeline.
 
 **Big gap between 16:9 and square outputs?**
 Memory layout matters. Might be worth profiling to see if certain sizes/strides perform better.
@@ -314,10 +310,8 @@ Memory layout matters. Might be worth profiling to see if certain sizes/strides 
 **Performance varies between runs?**
 Make sure you're in ReleaseFast mode and nothing else is hogging the CPU. Also check if your test is too short (increase iterations).
 
-## Questions?
-
-This is v1 of the performance suite. If something's unclear or you need different metrics, the code is straightforward to extend. The test harness is designed to be simple—run iterations, measure time, write JSON. Everything else is just presentation.
+## So ...
 
 The visualization dashboard is self-contained HTML/CSS/JS with no build dependencies. If you want to customize it, just edit the files in `web-assets/` and regenerate. The code is commented and follows standard Chart.js patterns.
 
-Happy benchmarking.
+Happy benchmarking!
