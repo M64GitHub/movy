@@ -61,7 +61,12 @@ pub fn main() !void {
     }
 
     // Generate timestamp (will be used as directory name)
-    const timestamp = if (args.suffix) |s| try allocator.dupe(u8, s) else try json_writer.generateTimestamp(allocator);
+    const timestamp =
+        if (args.suffix) |s|
+            try allocator.dupe(u8, s)
+        else
+            try json_writer.generateTimestamp(allocator);
+
     defer allocator.free(timestamp);
 
     // Use default output directory if not specified
@@ -78,10 +83,20 @@ pub fn main() !void {
     // Create output directory
     std.fs.cwd().makePath(output_dir) catch |err| {
         if (err != error.PathAlreadyExists) {
-            std.debug.print("Error: Failed to create output directory '{s}': {}\n", .{ output_dir, err });
+            std.debug.print(
+                "Error: Failed to create output directory '{s}': {}\n",
+                .{ output_dir, err },
+            );
             std.debug.print("Current working directory: ", .{});
-            const cwd_path = std.fs.cwd().realpathAlloc(allocator, ".") catch "<unknown>";
-            defer if (!std.mem.eql(u8, cwd_path, "<unknown>")) allocator.free(cwd_path);
+            const cwd_path = std.fs.cwd().realpathAlloc(
+                allocator,
+                ".",
+            ) catch "<unknown>";
+            defer if (!std.mem.eql(
+                u8,
+                cwd_path,
+                "<unknown>",
+            )) allocator.free(cwd_path);
             std.debug.print("{s}\n", .{cwd_path});
             return err;
         }
@@ -97,9 +112,18 @@ pub fn main() !void {
 
     // Define all available tests
     const all_tests = [_]TestInfo{
-        .{ .name = "RenderSurface.toAnsi", .executable = "perf-RenderSurface.toAnsi" },
-        .{ .name = "RenderEngine.render_stable", .executable = "perf-RenderEngine.render_stable" },
-        .{ .name = "RenderEngine.render_stable_with_toAnsi", .executable = "perf-RenderEngine.render_stable_with_toAnsi" },
+        .{
+            .name = "RenderSurface.toAnsi",
+            .executable = "perf-RenderSurface.toAnsi",
+        },
+        .{
+            .name = "RenderEngine.render_stable",
+            .executable = "perf-RenderEngine.render_stable",
+        },
+        .{
+            .name = "RenderEngine.render_stable_with_toAnsi",
+            .executable = "perf-RenderEngine.render_stable_with_toAnsi",
+        },
     };
 
     // Determine which tests to run
@@ -120,7 +144,10 @@ pub fn main() !void {
                 }
             }
             if (!found) {
-                std.debug.print("Warning: Unknown test '{s}', skipping\n", .{trimmed});
+                std.debug.print(
+                    "Warning: Unknown test '{s}', skipping\n",
+                    .{trimmed},
+                );
             }
         }
     } else {
@@ -185,7 +212,10 @@ pub fn main() !void {
         const term = child.spawnAndWait() catch |err| {
             std.debug.print("\nError spawning test: {}\n", .{err});
             failed += 1;
-            try failed_tests.append(allocator, try allocator.dupe(u8, test_info.name));
+            try failed_tests.append(
+                allocator,
+                try allocator.dupe(u8, test_info.name),
+            );
             continue;
         };
 
@@ -193,24 +223,42 @@ pub fn main() !void {
             .Exited => |code| {
                 if (code == 0) {
                     succeeded += 1;
-                    std.debug.print("\n✓ {s} completed successfully\n\n", .{test_info.name});
+                    std.debug.print(
+                        "\n✓ {s} completed successfully\n\n",
+                        .{test_info.name},
+                    );
                 } else {
                     failed += 1;
-                    try failed_tests.append(allocator, try allocator.dupe(u8, test_info.name));
-                    std.debug.print("\n✗ {s} failed with exit code {d}\n\n", .{ test_info.name, code });
+                    try failed_tests.append(
+                        allocator,
+                        try allocator.dupe(u8, test_info.name),
+                    );
+                    std.debug.print(
+                        "\n✗ {s} failed with exit code {d}\n\n",
+                        .{ test_info.name, code },
+                    );
                 }
             },
             else => {
                 failed += 1;
-                try failed_tests.append(allocator, try allocator.dupe(u8, test_info.name));
-                std.debug.print("\n✗ {s} terminated abnormally\n\n", .{test_info.name});
+                try failed_tests.append(
+                    allocator,
+                    try allocator.dupe(u8, test_info.name),
+                );
+                std.debug.print(
+                    "\n✗ {s} terminated abnormally\n\n",
+                    .{test_info.name},
+                );
             },
         }
     }
 
     // Print summary
     std.debug.print("=== Test Suite Summary ===\n", .{});
-    std.debug.print("Total: {d} | Succeeded: {d} | Failed: {d}\n", .{ tests_to_run.items.len, succeeded, failed });
+    std.debug.print(
+        "Total: {d} | Succeeded: {d} | Failed: {d}\n",
+        .{ tests_to_run.items.len, succeeded, failed },
+    );
 
     if (failed > 0) {
         std.debug.print("\nFailed tests:\n", .{});

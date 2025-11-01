@@ -25,7 +25,10 @@ pub const PerfTimer = struct {
 /// Print progress update during test execution
 pub fn printProgress(current: usize, total: usize) void {
     const percent = (current * 100) / total;
-    std.debug.print("  Progress: {d}/{d} ({d}%)\n", .{ current, total, percent });
+    std.debug.print(
+        "  Progress: {d}/{d} ({d}%)\n",
+        .{ current, total, percent },
+    );
 }
 
 /// Format and print timing results

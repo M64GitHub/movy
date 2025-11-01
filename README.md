@@ -1,5 +1,5 @@
 ![License](https://img.shields.io/badge/License-MIT-85adf2?style=flat)
-![Version](https://img.shields.io/badge/Version-0.0.3-85adf2?style=flat)
+![Version](https://img.shields.io/badge/Version-0.0.4-85adf2?style=flat)
 ![Zig](https://img.shields.io/badge/Zig-0.15.2-orange?style=flat)
 
 ![get-movy](https://github.com/user-attachments/assets/aa86dded-8e47-404c-bdbe-7db8b04bdbaf)
@@ -117,10 +117,21 @@ You can use [demos/simple_game.zig](./demos/simple_game.zig) as a starter / temp
 Create something awesome with movy and submit a PR adding your project to this table!  
 Whether it's a game, a demo, an effect, or a tool — if it glows in the terminal, it belongs here.
 
+## Performance Suite
+
+New in `v0.0.4`! Want to measure rendering performance and track optimizations? The integrated performance suite benchmarks ANSI conversion, sprite rendering, and the full pipeline across different sizes and configurations.
+
+```bash
+zig build perf-runner
+open perf-results/index.html  # Interactive retro-themed dashboard
+```
+
+See [perf-tst/README.md](./perf-tst/README.md) for details.
+
 ## Contributing
 
-movy is a work of love and dedicated vision, still evolving rapidly.  
-External code contributions are paused for now, but ideas and feedback are always welcome —  
+movy is a work of love and dedicated vision, still evolving rapidly.
+External code contributions are paused for now, but ideas and feedback are always welcome —
 see [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
 
 ---

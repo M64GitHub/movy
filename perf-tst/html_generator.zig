@@ -3,7 +3,10 @@ const json_writer = @import("json_writer");
 const types = @import("types");
 
 /// Scan perf-results directory and generate HTML visualization
-pub fn generateHtmlReport(allocator: std.mem.Allocator, base_dir: []const u8) !void {
+pub fn generateHtmlReport(
+    allocator: std.mem.Allocator,
+    base_dir: []const u8,
+) !void {
     std.debug.print("\n=== Generating HTML Visualization ===\n", .{});
 
     // Read template
@@ -53,7 +56,8 @@ pub fn generateHtmlReport(allocator: std.mem.Allocator, base_dir: []const u8) !v
 
     std.debug.print("Replacing TIMESTAMP...\n", .{});
     // {{TIMESTAMP}}
-    const html1 = try replaceAll(allocator, current_html, "{{TIMESTAMP}}", timestamp);
+    const html1 =
+        try replaceAll(allocator, current_html, "{{TIMESTAMP}}", timestamp);
     std.debug.print("TIMESTAMP replaced\n", .{});
     if (html1.ptr != current_html.ptr) {
         if (html_owned) |h| allocator.free(h);
@@ -62,9 +66,18 @@ pub fn generateHtmlReport(allocator: std.mem.Allocator, base_dir: []const u8) !v
     }
 
     // {{TOTAL_RUNS}}
-    const total_runs_str = try std.fmt.allocPrint(allocator, "{d}", .{runs.items.len});
+    const total_runs_str = try std.fmt.allocPrint(
+        allocator,
+        "{d}",
+        .{runs.items.len},
+    );
     defer allocator.free(total_runs_str);
-    const html2 = try replaceAll(allocator, current_html, "{{TOTAL_RUNS}}", total_runs_str);
+    const html2 = try replaceAll(
+        allocator,
+        current_html,
+        "{{TOTAL_RUNS}}",
+        total_runs_str,
+    );
     if (html2.ptr != current_html.ptr) {
         if (html_owned) |h| allocator.free(h);
         html_owned = html2;
@@ -76,9 +89,18 @@ pub fn generateHtmlReport(allocator: std.mem.Allocator, base_dir: []const u8) !v
     for (runs.items) |run| {
         total_tests += run.files.items.len;
     }
-    const total_tests_str = try std.fmt.allocPrint(allocator, "{d}", .{total_tests});
+    const total_tests_str = try std.fmt.allocPrint(
+        allocator,
+        "{d}",
+        .{total_tests},
+    );
     defer allocator.free(total_tests_str);
-    const html3 = try replaceAll(allocator, current_html, "{{TOTAL_TESTS}}", total_tests_str);
+    const html3 = try replaceAll(
+        allocator,
+        current_html,
+        "{{TOTAL_TESTS}}",
+        total_tests_str,
+    );
     if (html3.ptr != current_html.ptr) {
         if (html_owned) |h| allocator.free(h);
         html_owned = html3;
@@ -87,9 +109,18 @@ pub fn generateHtmlReport(allocator: std.mem.Allocator, base_dir: []const u8) !v
 
     // {{UNIQUE_SYSTEMS}}
     const unique_systems = try countUniqueSystems(allocator, runs.items);
-    const unique_systems_str = try std.fmt.allocPrint(allocator, "{d}", .{unique_systems});
+    const unique_systems_str = try std.fmt.allocPrint(
+        allocator,
+        "{d}",
+        .{unique_systems},
+    );
     defer allocator.free(unique_systems_str);
-    const html4 = try replaceAll(allocator, current_html, "{{UNIQUE_SYSTEMS}}", unique_systems_str);
+    const html4 = try replaceAll(
+        allocator,
+        current_html,
+        "{{UNIQUE_SYSTEMS}}",
+        unique_systems_str,
+    );
     if (html4.ptr != current_html.ptr) {
         if (html_owned) |h| allocator.free(h);
         html_owned = html4;
@@ -97,8 +128,18 @@ pub fn generateHtmlReport(allocator: std.mem.Allocator, base_dir: []const u8) !v
     }
 
     // {{DATE_RANGE}}
-    const date_range = if (runs.items.len > 0) runs.items[runs.items.len - 1].date else "N/A";
-    const html5 = try replaceAll(allocator, current_html, "{{DATE_RANGE}}", date_range);
+    const date_range =
+        if (runs.items.len > 0)
+            runs.items[runs.items.len - 1].date
+        else
+            "N/A";
+
+    const html5 = try replaceAll(
+        allocator,
+        current_html,
+        "{{DATE_RANGE}}",
+        date_range,
+    );
     if (html5.ptr != current_html.ptr) {
         if (html_owned) |h| allocator.free(h);
         html_owned = html5;
@@ -108,7 +149,12 @@ pub fn generateHtmlReport(allocator: std.mem.Allocator, base_dir: []const u8) !v
     // {{RUN_LIST}}
     const run_list_html = try generateRunListHtml(allocator, runs.items);
     defer allocator.free(run_list_html);
-    const html6 = try replaceAll(allocator, current_html, "{{RUN_LIST}}", run_list_html);
+    const html6 = try replaceAll(
+        allocator,
+        current_html,
+        "{{RUN_LIST}}",
+        run_list_html,
+    );
     if (html6.ptr != current_html.ptr) {
         if (html_owned) |h| allocator.free(h);
         html_owned = html6;
@@ -118,7 +164,12 @@ pub fn generateHtmlReport(allocator: std.mem.Allocator, base_dir: []const u8) !v
     // {{RAW_DATA_LINKS}}
     const raw_links_html = try generateRawDataLinksHtml(allocator, runs.items);
     defer allocator.free(raw_links_html);
-    const html7 = try replaceAll(allocator, current_html, "{{RAW_DATA_LINKS}}", raw_links_html);
+    const html7 = try replaceAll(
+        allocator,
+        current_html,
+        "{{RAW_DATA_LINKS}}",
+        raw_links_html,
+    );
     if (html7.ptr != current_html.ptr) {
         if (html_owned) |h| allocator.free(h);
         html_owned = html7;
@@ -127,9 +178,18 @@ pub fn generateHtmlReport(allocator: std.mem.Allocator, base_dir: []const u8) !v
 
     // {{BENCHMARK_DATA_JSON}} - Embed all JSON data
     std.debug.print("Embedding benchmark data JSON...\n", .{});
-    const benchmark_json = try generateBenchmarkDataJson(allocator, base_dir, runs.items);
+    const benchmark_json = try generateBenchmarkDataJson(
+        allocator,
+        base_dir,
+        runs.items,
+    );
     defer allocator.free(benchmark_json);
-    const html8 = try replaceAll(allocator, current_html, "{{BENCHMARK_DATA_JSON}}", benchmark_json);
+    const html8 = try replaceAll(
+        allocator,
+        current_html,
+        "{{BENCHMARK_DATA_JSON}}",
+        benchmark_json,
+    );
     if (html8.ptr != current_html.ptr) {
         if (html_owned) |h| allocator.free(h);
         html_owned = html8;
@@ -137,7 +197,11 @@ pub fn generateHtmlReport(allocator: std.mem.Allocator, base_dir: []const u8) !v
     }
 
     // Write final HTML
-    const output_path = try std.fmt.allocPrint(allocator, "{s}/index.html", .{base_dir});
+    const output_path = try std.fmt.allocPrint(
+        allocator,
+        "{s}/index.html",
+        .{base_dir},
+    );
     defer allocator.free(output_path);
 
     const file = try std.fs.cwd().createFile(output_path, .{});
@@ -159,7 +223,11 @@ const RunInfo = struct {
     system_info: ?types.SystemInfo,
 };
 
-fn scanPerfResults(allocator: std.mem.Allocator, base_dir: []const u8, runs: *std.ArrayList(RunInfo)) !void {
+fn scanPerfResults(
+    allocator: std.mem.Allocator,
+    base_dir: []const u8,
+    runs: *std.ArrayList(RunInfo),
+) !void {
     var dir = try std.fs.cwd().openDir(base_dir, .{ .iterate = true });
     defer dir.close();
 
@@ -219,12 +287,20 @@ fn scanPerfResults(allocator: std.mem.Allocator, base_dir: []const u8, runs: *st
     }
 }
 
-fn extractTimestampFromFilename(allocator: std.mem.Allocator, filename: []const u8) ![]const u8 {
+fn extractTimestampFromFilename(
+    allocator: std.mem.Allocator,
+    filename: []const u8,
+) ![]const u8 {
     // Example: "RenderSurface.toAnsi_2025-11-19T13-20-02.json"
     // Extract: "2025-11-19T13-20-02"
 
-    const underscore_idx = std.mem.lastIndexOf(u8, filename, "_") orelse return error.InvalidFilename;
-    const dot_idx = std.mem.lastIndexOf(u8, filename, ".") orelse return error.InvalidFilename;
+    const underscore_idx =
+        std.mem.lastIndexOf(u8, filename, "_") orelse
+        return error.InvalidFilename;
+
+    const dot_idx =
+        std.mem.lastIndexOf(u8, filename, ".") orelse
+        return error.InvalidFilename;
 
     if (underscore_idx >= dot_idx) return error.InvalidFilename;
 
@@ -232,30 +308,54 @@ fn extractTimestampFromFilename(allocator: std.mem.Allocator, filename: []const 
     return try allocator.dupe(u8, timestamp);
 }
 
-fn loadSystemInfo(allocator: std.mem.Allocator, json_path: []const u8) !types.SystemInfo {
-    const content = try std.fs.cwd().readFileAlloc(allocator, json_path, 10 * 1024 * 1024);
+fn loadSystemInfo(
+    allocator: std.mem.Allocator,
+    json_path: []const u8,
+) !types.SystemInfo {
+    const content = try std.fs.cwd().readFileAlloc(
+        allocator,
+        json_path,
+        10 * 1024 * 1024,
+    );
     defer allocator.free(content);
 
-    const parsed = try std.json.parseFromSlice(types.TestResult, allocator, content, .{
-        .allocate = .alloc_always,
-    });
+    const parsed = try std.json.parseFromSlice(
+        types.TestResult,
+        allocator,
+        content,
+        .{
+            .allocate = .alloc_always,
+        },
+    );
     defer parsed.deinit();
 
     return types.SystemInfo{
         .cpu_model = try allocator.dupe(u8, parsed.value.system_info.cpu_model),
         .cpu_cores = parsed.value.system_info.cpu_cores,
         .os = try allocator.dupe(u8, parsed.value.system_info.os),
-        .zig_version = try allocator.dupe(u8, parsed.value.system_info.zig_version),
-        .build_mode = try allocator.dupe(u8, parsed.value.system_info.build_mode),
+        .zig_version = try allocator.dupe(
+            u8,
+            parsed.value.system_info.zig_version,
+        ),
+        .build_mode = try allocator.dupe(
+            u8,
+            parsed.value.system_info.build_mode,
+        ),
     };
 }
 
-fn generateRunListHtml(allocator: std.mem.Allocator, runs: []const RunInfo) ![]const u8 {
+fn generateRunListHtml(
+    allocator: std.mem.Allocator,
+    runs: []const RunInfo,
+) ![]const u8 {
     var html = std.ArrayList(u8){};
     defer html.deinit(allocator);
 
     for (runs) |run| {
-        std.debug.print("Generating row for run: {s}/{s}\n", .{ run.date, run.timestamp });
+        std.debug.print(
+            "Generating row for run: {s}/{s}\n",
+            .{ run.date, run.timestamp },
+        );
 
         // Build files JSON string - simpler approach using direct allocation
         var files_json_len: usize = 2; // "[]"
@@ -294,8 +394,10 @@ fn generateRunListHtml(allocator: std.mem.Allocator, runs: []const RunInfo) ![]c
 
         std.debug.print("About to write HTML row...\n", .{});
         std.debug.print("Files JSON: {s}\n", .{actual_files_json});
-        std.debug.print("date: {s}, timestamp: {s}, cpu: {s}, os: {s}, cores: {d}\n",
-            .{ run.date, run.timestamp, cpu_model, os, cpu_cores });
+        std.debug.print(
+            "date: {s}, timestamp: {s}, cpu: {s}, os: {s}, cores: {d}\n",
+            .{ run.date, run.timestamp, cpu_model, os, cpu_cores },
+        );
 
         // Test simple allocPrint first
         std.debug.print("Testing allocPrint...\n", .{});
@@ -305,31 +407,35 @@ fn generateRunListHtml(allocator: std.mem.Allocator, runs: []const RunInfo) ![]c
 
         // Build row using allocPrint with shorter segments to avoid issues
         std.debug.print("Building row_part1...\n", .{});
-        const row_part1 = try std.fmt.allocPrint(allocator,
+        const row_part1 = try std.fmt.allocPrint(
+            allocator,
             "<tr data-date=\"{s}\" data-timestamp=\"{s}\" data-files='{s}'>\n",
-            .{ run.date, run.timestamp, actual_files_json }
+            .{ run.date, run.timestamp, actual_files_json },
         );
         std.debug.print("row_part1 created\n", .{});
         try html.appendSlice(allocator, row_part1);
         allocator.free(row_part1);
 
-        const row_part2 = try std.fmt.allocPrint(allocator,
+        const row_part2 = try std.fmt.allocPrint(
+            allocator,
             "  <td>{s}</td>\n  <td class=\"timestamp\">{s}</td>\n  <td>{s}</td>\n",
-            .{ run.date, run.timestamp, cpu_model }
+            .{ run.date, run.timestamp, cpu_model },
         );
         try html.appendSlice(allocator, row_part2);
         allocator.free(row_part2);
 
-        const row_part3 = try std.fmt.allocPrint(allocator,
+        const row_part3 = try std.fmt.allocPrint(
+            allocator,
             "  <td><span class=\"badge badge-cpu\">{s}</span></td>\n  <td>{d}</td>\n",
-            .{ cpu_model, cpu_cores }
+            .{ cpu_model, cpu_cores },
         );
         try html.appendSlice(allocator, row_part3);
         allocator.free(row_part3);
 
-        const row_part4 = try std.fmt.allocPrint(allocator,
+        const row_part4 = try std.fmt.allocPrint(
+            allocator,
             "  <td><span class=\"badge badge-os\">{s}</span></td>\n  <td>{d}</td>\n",
-            .{ os, run.files.items.len }
+            .{ os, run.files.items.len },
         );
         try html.appendSlice(allocator, row_part4);
         allocator.free(row_part4);
@@ -344,14 +450,22 @@ fn generateRunListHtml(allocator: std.mem.Allocator, runs: []const RunInfo) ![]c
     return try html.toOwnedSlice(allocator);
 }
 
-fn generateBenchmarkDataJson(allocator: std.mem.Allocator, base_dir: []const u8, runs: []const RunInfo) ![]const u8 {
+fn generateBenchmarkDataJson(
+    allocator: std.mem.Allocator,
+    base_dir: []const u8,
+    runs: []const RunInfo,
+) ![]const u8 {
     var result = std.ArrayList(u8){};
     defer result.deinit(allocator);
 
     try result.appendSlice(allocator, "{\n");
 
     for (runs, 0..) |run, run_idx| {
-        const run_key = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ run.date, run.timestamp });
+        const run_key = try std.fmt.allocPrint(
+            allocator,
+            "{s}/{s}",
+            .{ run.date, run.timestamp },
+        );
         defer allocator.free(run_key);
 
         try result.appendSlice(allocator, "  \"");
@@ -360,16 +474,29 @@ fn generateBenchmarkDataJson(allocator: std.mem.Allocator, base_dir: []const u8,
 
         for (run.files.items, 0..) |file, file_idx| {
             // Read the JSON file
-            const json_path = try std.fmt.allocPrint(allocator, "{s}/{s}/{s}", .{ base_dir, run.timestamp, file });
+            const json_path = try std.fmt.allocPrint(
+                allocator,
+                "{s}/{s}/{s}",
+                .{ base_dir, run.timestamp, file },
+            );
             defer allocator.free(json_path);
 
-            const json_content = try std.fs.cwd().readFileAlloc(allocator, json_path, 10 * 1024 * 1024);
+            const json_content = try std.fs.cwd().readFileAlloc(
+                allocator,
+                json_path,
+                10 * 1024 * 1024,
+            );
             defer allocator.free(json_content);
 
             // Parse to get test name
-            const parsed = try std.json.parseFromSlice(types.TestResult, allocator, json_content, .{
-                .allocate = .alloc_always,
-            });
+            const parsed = try std.json.parseFromSlice(
+                types.TestResult,
+                allocator,
+                json_content,
+                .{
+                    .allocate = .alloc_always,
+                },
+            );
             defer parsed.deinit();
 
             const test_name = parsed.value.test_name;
@@ -400,24 +527,37 @@ fn generateBenchmarkDataJson(allocator: std.mem.Allocator, base_dir: []const u8,
     return try result.toOwnedSlice(allocator);
 }
 
-fn generateRawDataLinksHtml(allocator: std.mem.Allocator, runs: []const RunInfo) ![]const u8 {
+fn generateRawDataLinksHtml(
+    allocator: std.mem.Allocator,
+    runs: []const RunInfo,
+) ![]const u8 {
     var html = std.ArrayList(u8){};
     defer html.deinit(allocator);
 
     for (runs) |run| {
         try html.appendSlice(allocator, "<div class=\"raw-data-run\">\n");
 
-        const header = try std.fmt.allocPrint(allocator, "  <h3 class=\"text-cyan\">{s}</h3>\n  <div>\n", .{run.timestamp});
+        const header = try std.fmt.allocPrint(
+            allocator,
+            "  <h3 class=\"text-cyan\">{s}</h3>\n  <div>\n",
+            .{run.timestamp},
+        );
         try html.appendSlice(allocator, header);
         allocator.free(header);
 
         for (run.files.items) |file| {
-            const link = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ run.timestamp, file });
+            const link = try std.fmt.allocPrint(
+                allocator,
+                "{s}/{s}",
+                .{ run.timestamp, file },
+            );
             defer allocator.free(link);
 
-            const item = try std.fmt.allocPrint(allocator,
+            const item = try std.fmt.allocPrint(
+                allocator,
                 "    <a href=\"{s}\" class=\"btn\" target=\"_blank\">{s}</a>\n",
-                .{ link, file });
+                .{ link, file },
+            );
             try html.appendSlice(allocator, item);
             allocator.free(item);
         }
@@ -428,7 +568,10 @@ fn generateRawDataLinksHtml(allocator: std.mem.Allocator, runs: []const RunInfo)
     return try html.toOwnedSlice(allocator);
 }
 
-fn countUniqueSystems(allocator: std.mem.Allocator, runs: []const RunInfo) !usize {
+fn countUniqueSystems(
+    allocator: std.mem.Allocator,
+    runs: []const RunInfo,
+) !usize {
     var seen = std.StringHashMap(void).init(allocator);
     defer {
         var it = seen.keyIterator();
@@ -440,7 +583,11 @@ fn countUniqueSystems(allocator: std.mem.Allocator, runs: []const RunInfo) !usiz
 
     for (runs) |run| {
         if (run.system_info) |si| {
-            const key = try std.fmt.allocPrint(allocator, "{s}_{d}", .{ si.cpu_model, si.cpu_cores });
+            const key = try std.fmt.allocPrint(
+                allocator,
+                "{s}_{d}",
+                .{ si.cpu_model, si.cpu_cores },
+            );
 
             // Check if key already exists
             if (seen.contains(key)) {
@@ -458,10 +605,18 @@ fn copyAssets(allocator: std.mem.Allocator, base_dir: []const u8) !void {
     const assets = [_][]const u8{ "style.css", "visualizer.js" };
 
     for (assets) |asset| {
-        const src_path = try std.fmt.allocPrint(allocator, "perf-tst/web-assets/{s}", .{asset});
+        const src_path = try std.fmt.allocPrint(
+            allocator,
+            "perf-tst/web-assets/{s}",
+            .{asset},
+        );
         defer allocator.free(src_path);
 
-        const dst_path = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ base_dir, asset });
+        const dst_path = try std.fmt.allocPrint(
+            allocator,
+            "{s}/{s}",
+            .{ base_dir, asset },
+        );
         defer allocator.free(dst_path);
 
         try std.fs.cwd().copyFile(src_path, std.fs.cwd(), dst_path, .{});
@@ -470,14 +625,23 @@ fn copyAssets(allocator: std.mem.Allocator, base_dir: []const u8) !void {
 
     // Copy logo
     const logo_src = "perf-tst/assets/movy-logo.png";
-    const logo_dst = try std.fmt.allocPrint(allocator, "{s}/movy-logo.png", .{base_dir});
+    const logo_dst = try std.fmt.allocPrint(
+        allocator,
+        "{s}/movy-logo.png",
+        .{base_dir},
+    );
     defer allocator.free(logo_dst);
 
     try std.fs.cwd().copyFile(logo_src, std.fs.cwd(), logo_dst, .{});
     std.debug.print("Copied: {s} -> {s}\n", .{ logo_src, logo_dst });
 }
 
-fn replaceAll(allocator: std.mem.Allocator, haystack: []const u8, needle: []const u8, replacement: []const u8) ![]const u8 {
+fn replaceAll(
+    allocator: std.mem.Allocator,
+    haystack: []const u8,
+    needle: []const u8,
+    replacement: []const u8,
+) ![]const u8 {
     if (std.mem.indexOf(u8, haystack, needle) == null) {
         return try allocator.dupe(u8, haystack);
     }

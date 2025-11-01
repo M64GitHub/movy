@@ -34,7 +34,10 @@ fn testOutputSize(
     output_h: usize,
     iterations: usize,
 ) !OutputSizeResult {
-    std.debug.print("\n--- Testing {d}x{d} output surface ---\n", .{ output_w, output_h });
+    std.debug.print(
+        "\n--- Testing {d}x{d} output surface ---\n",
+        .{ output_w, output_h },
+    );
 
     // Create output surface
     var output_surface = try movy.core.RenderSurface.init(
@@ -49,15 +52,35 @@ fn testOutputSize(
     }
 
     // Load sprites
-    var sprite_10a = try movy.Sprite.initFromPng(allocator, "perf-tst/assets/10x10.png", "10a");
+    var sprite_10a = try movy.Sprite.initFromPng(
+        allocator,
+        "perf-tst/assets/10x10.png",
+        "10a",
+    );
     defer sprite_10a.deinit(allocator);
-    var sprite_10b = try movy.Sprite.initFromPng(allocator, "perf-tst/assets/10x10.png", "10b");
+    var sprite_10b = try movy.Sprite.initFromPng(
+        allocator,
+        "perf-tst/assets/10x10.png",
+        "10b",
+    );
     defer sprite_10b.deinit(allocator);
-    var sprite_20a = try movy.Sprite.initFromPng(allocator, "perf-tst/assets/20x20.png", "20a");
+    var sprite_20a = try movy.Sprite.initFromPng(
+        allocator,
+        "perf-tst/assets/20x20.png",
+        "20a",
+    );
     defer sprite_20a.deinit(allocator);
-    var sprite_20b = try movy.Sprite.initFromPng(allocator, "perf-tst/assets/20x20.png", "20b");
+    var sprite_20b = try movy.Sprite.initFromPng(
+        allocator,
+        "perf-tst/assets/20x20.png",
+        "20b",
+    );
     defer sprite_20b.deinit(allocator);
-    var sprite_movycat = try movy.Sprite.initFromPng(allocator, "perf-tst/assets/movycat.png", "movycat");
+    var sprite_movycat = try movy.Sprite.initFromPng(
+        allocator,
+        "perf-tst/assets/movycat.png",
+        "movycat",
+    );
     defer sprite_movycat.deinit(allocator);
 
     var surface_10a = try sprite_10a.getCurrentFrameSurface();
@@ -157,8 +180,14 @@ pub fn main() !void {
     const allocator = std.heap.page_allocator;
 
     std.debug.print("=== RenderEngine.render() Performance Test ===\n", .{});
-    std.debug.print("Testing render performance across 3 output surface sizes\n", .{});
-    std.debug.print("5 input sprites per test: 2x10x10, 2x20x20, 1x64x64 (movycat in background)\n", .{});
+    std.debug.print(
+        "Testing render performance across 3 output surface sizes\n",
+        .{},
+    );
+    std.debug.print(
+        "5 input sprites per test: 2x10x10, 2x20x20, 1x64x64 (movycat in background)\n",
+        .{},
+    );
     std.debug.print("100,000 iterations per size\n", .{});
 
     const iterations: usize = 100_000;
@@ -173,9 +202,16 @@ pub fn main() !void {
         "{s:<12} | {s:>10} | {s:>11} | {s:>11} | {s:>9}\n",
         .{ "Size", "Pixels", "Time/iter", "Iter/sec", "MP/sec" },
     );
-    std.debug.print("{s:-<12}-+-{s:->10}-+-{s:->11}-+-{s:->11}-+-{s:->9}\n", .{ "", "", "", "", "" });
+    std.debug.print(
+        "{s:-<12}-+-{s:->10}-+-{s:->11}-+-{s:->11}-+-{s:->9}\n",
+        .{ "", "", "", "", "" },
+    );
 
-    const results = [_]OutputSizeResult{ result_100x60, result_150x100, result_200x100 };
+    const results = [_]OutputSizeResult{
+        result_100x60,
+        result_150x100,
+        result_200x100,
+    };
     for (results) |result| {
         std.debug.print(
             "{d:>4}x{d:<7} | {d:>10} | {d:>9.2}µs | {d:>11.0} | {d:>9.2}\n",

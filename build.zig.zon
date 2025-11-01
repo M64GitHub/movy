@@ -1,6 +1,6 @@
 .{
     .name = .movy,
-    .version = "0.0.3",
+    .version = "0.0.4",
     .fingerprint = 0xfb3f6b37eb55d452,
     .minimum_zig_version = "0.15.2",
     .dependencies = .{

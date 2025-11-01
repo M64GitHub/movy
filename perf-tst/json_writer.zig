@@ -78,5 +78,9 @@ pub fn generateDateString(allocator: std.mem.Allocator) ![]const u8 {
     const month = 1 + (day_of_year / 30);
     const day = 1 + (day_of_year % 30);
 
-    return try std.fmt.allocPrint(allocator, "{d:0>4}-{d:0>2}-{d:0>2}", .{ year, month, day });
+    return try std.fmt.allocPrint(
+        allocator,
+        "{d:0>4}-{d:0>2}-{d:0>2}",
+        .{ year, month, day },
+    );
 }

@@ -108,10 +108,16 @@ pub fn main() !void {
     const iterations = args.iterations orelse 100_000;
 
     std.debug.print("=== RenderSurface.toAnsi() Performance Test ===\n", .{});
-    std.debug.print("Testing ANSI conversion across 7 standardized sprite sizes\n", .{});
+    std.debug.print(
+        "Testing ANSI conversion across 7 standardized sprite sizes\n",
+        .{},
+    );
     std.debug.print("{d} iterations per sprite\n", .{iterations});
     if (write_json) {
-        std.debug.print("JSON output: {s}/{s}_RenderSurface.toAnsi.json\n", .{ args.output_dir, args.suffix.? });
+        std.debug.print(
+            "JSON output: {s}/{s}_RenderSurface.toAnsi.json\n",
+            .{ args.output_dir, args.suffix.? },
+        );
     }
 
     // Test all 7 sprite sizes
@@ -170,7 +176,10 @@ pub fn main() !void {
         "{s:<10} | {s:>10} | {s:>8} | {s:>11} | {s:>11} | {s:>9}\n",
         .{ "Size", "Dimensions", "Pixels", "Time/iter", "Iter/sec", "MP/sec" },
     );
-    std.debug.print("{s:-<10}-+-{s:->10}-+-{s:->8}-+-{s:->11}-+-{s:->11}-+-{s:->9}\n", .{ "", "", "", "", "", "" });
+    std.debug.print(
+        "{s:-<10}-+-{s:->10}-+-{s:->8}-+-{s:->11}-+-{s:->11}-+-{s:->9}\n",
+        .{ "", "", "", "", "", "" },
+    );
 
     const results = [_]SpriteTestResult{
         result_10,

@@ -75,15 +75,35 @@ fn testOutputSize(
     }
 
     // Load sprites
-    var sprite_10a = try movy.Sprite.initFromPng(allocator, "perf-tst/assets/10x10.png", "10a");
+    var sprite_10a = try movy.Sprite.initFromPng(
+        allocator,
+        "perf-tst/assets/10x10.png",
+        "10a",
+    );
     defer sprite_10a.deinit(allocator);
-    var sprite_10b = try movy.Sprite.initFromPng(allocator, "perf-tst/assets/10x10.png", "10b");
+    var sprite_10b = try movy.Sprite.initFromPng(
+        allocator,
+        "perf-tst/assets/10x10.png",
+        "10b",
+    );
     defer sprite_10b.deinit(allocator);
-    var sprite_10c = try movy.Sprite.initFromPng(allocator, "perf-tst/assets/10x10.png", "10c");
+    var sprite_10c = try movy.Sprite.initFromPng(
+        allocator,
+        "perf-tst/assets/10x10.png",
+        "10c",
+    );
     defer sprite_10c.deinit(allocator);
-    var sprite_10d = try movy.Sprite.initFromPng(allocator, "perf-tst/assets/10x10.png", "10d");
+    var sprite_10d = try movy.Sprite.initFromPng(
+        allocator,
+        "perf-tst/assets/10x10.png",
+        "10d",
+    );
     defer sprite_10d.deinit(allocator);
-    var sprite_40 = try movy.Sprite.initFromPng(allocator, "perf-tst/assets/40x40.png", "40");
+    var sprite_40 = try movy.Sprite.initFromPng(
+        allocator,
+        "perf-tst/assets/40x40.png",
+        "40",
+    );
     defer sprite_40.deinit(allocator);
 
     var surface_10a = try sprite_10a.getCurrentFrameSurface();
@@ -130,7 +150,8 @@ fn testOutputSize(
     const elapsed_ns = timer.elapsedNs();
 
     std.debug.print("{d:>6.2}µs\n", .{
-        @as(f64, @floatFromInt(elapsed_ns)) / @as(f64, @floatFromInt(iterations)) / 1000.0,
+        @as(f64, @floatFromInt(elapsed_ns)) /
+            @as(f64, @floatFromInt(iterations)) / 1000.0,
     });
 
     return OutputSizeResult{
@@ -152,13 +173,25 @@ pub fn main() !void {
     const write_json = args.suffix != null;
     const iterations = args.iterations orelse 100_000;
 
-    std.debug.print("=== RenderEngine.render() + toAnsi() Combined Performance Test ===\n", .{});
-    std.debug.print("Static sprites (no movement) for fair comparison across surface sizes\n", .{});
-    std.debug.print("5 sprites per test: 4x10x10 (corners, 4px inset), 1x40x40 (center)\n", .{});
+    std.debug.print(
+        "=== RenderEngine.render() + toAnsi() Combined Performance Test ===\n",
+        .{},
+    );
+    std.debug.print(
+        "Static sprites (no movement) for fair comparison across surface sizes\n",
+        .{},
+    );
+    std.debug.print(
+        "5 sprites per test: 4x10x10 (corners, 4px inset), 1x40x40 (center)\n",
+        .{},
+    );
     std.debug.print("Measures render() + toAnsi() combined performance\n", .{});
     std.debug.print("{d} iterations per size\n\n", .{iterations});
     if (write_json) {
-        std.debug.print("JSON output: {s}/{s}_RenderEngine.render_stable_with_toAnsi.json\n\n", .{ args.output_dir, args.suffix.? });
+        std.debug.print(
+            "JSON output: {s}/{s}_RenderEngine.render_stable_with_toAnsi.json\n\n",
+            .{ args.output_dir, args.suffix.? },
+        );
     }
 
     var results = std.ArrayList(OutputSizeResult){};
@@ -166,30 +199,192 @@ pub fn main() !void {
 
     // Square sizes
     std.debug.print("--- Square Sizes ---\n", .{});
-    try results.append(allocator, try testOutputSize(allocator, "64x64", 64, 64, iterations));
-    try results.append(allocator, try testOutputSize(allocator, "96x96", 96, 96, iterations));
-    try results.append(allocator, try testOutputSize(allocator, "128x128", 128, 128, iterations));
-    try results.append(allocator, try testOutputSize(allocator, "160x160", 160, 160, iterations));
-    try results.append(allocator, try testOutputSize(allocator, "192x192", 192, 192, iterations));
-    try results.append(allocator, try testOutputSize(allocator, "256x256", 256, 256, iterations));
+    try results.append(
+        allocator,
+        try testOutputSize(
+            allocator,
+            "64x64",
+            64,
+            64,
+            iterations,
+        ),
+    );
+    try results.append(
+        allocator,
+        try testOutputSize(
+            allocator,
+            "96x96",
+            96,
+            96,
+            iterations,
+        ),
+    );
+    try results.append(
+        allocator,
+        try testOutputSize(
+            allocator,
+            "128x128",
+            128,
+            128,
+            iterations,
+        ),
+    );
+    try results.append(
+        allocator,
+        try testOutputSize(
+            allocator,
+            "160x160",
+            160,
+            160,
+            iterations,
+        ),
+    );
+    try results.append(
+        allocator,
+        try testOutputSize(
+            allocator,
+            "192x192",
+            192,
+            192,
+            iterations,
+        ),
+    );
+    try results.append(
+        allocator,
+        try testOutputSize(
+            allocator,
+            "256x256",
+            256,
+            256,
+            iterations,
+        ),
+    );
 
     // Horizontal 16:9 aspect
     std.debug.print("\n--- Horizontal 16:9 Aspect ---\n", .{});
-    try results.append(allocator, try testOutputSize(allocator, "64x36", 64, @divTrunc(64 * 9, 16), iterations));
-    try results.append(allocator, try testOutputSize(allocator, "96x54", 96, @divTrunc(96 * 9, 16), iterations));
-    try results.append(allocator, try testOutputSize(allocator, "128x72", 128, @divTrunc(128 * 9, 16), iterations));
-    try results.append(allocator, try testOutputSize(allocator, "160x90", 160, @divTrunc(160 * 9, 16), iterations));
-    try results.append(allocator, try testOutputSize(allocator, "192x108", 192, @divTrunc(192 * 9, 16), iterations));
-    try results.append(allocator, try testOutputSize(allocator, "256x144", 256, @divTrunc(256 * 9, 16), iterations));
+    try results.append(
+        allocator,
+        try testOutputSize(
+            allocator,
+            "64x36",
+            64,
+            @divTrunc(64 * 9, 16),
+            iterations,
+        ),
+    );
+    try results.append(
+        allocator,
+        try testOutputSize(
+            allocator,
+            "96x54",
+            96,
+            @divTrunc(96 * 9, 16),
+            iterations,
+        ),
+    );
+    try results.append(
+        allocator,
+        try testOutputSize(
+            allocator,
+            "128x72",
+            128,
+            @divTrunc(128 * 9, 16),
+            iterations,
+        ),
+    );
+    try results.append(
+        allocator,
+        try testOutputSize(
+            allocator,
+            "160x90",
+            160,
+            @divTrunc(160 * 9, 16),
+            iterations,
+        ),
+    );
+    try results.append(
+        allocator,
+        try testOutputSize(
+            allocator,
+            "192x108",
+            192,
+            @divTrunc(192 * 9, 16),
+            iterations,
+        ),
+    );
+    try results.append(
+        allocator,
+        try testOutputSize(
+            allocator,
+            "256x144",
+            256,
+            @divTrunc(256 * 9, 16),
+            iterations,
+        ),
+    );
 
     // Vertical 9:16 aspect
     std.debug.print("\n--- Vertical 9:16 Aspect ---\n", .{});
-    try results.append(allocator, try testOutputSize(allocator, "36x64", @divTrunc(64 * 9, 16), 64, iterations));
-    try results.append(allocator, try testOutputSize(allocator, "54x96", @divTrunc(96 * 9, 16), 96, iterations));
-    try results.append(allocator, try testOutputSize(allocator, "72x128", @divTrunc(128 * 9, 16), 128, iterations));
-    try results.append(allocator, try testOutputSize(allocator, "90x160", @divTrunc(160 * 9, 16), 160, iterations));
-    try results.append(allocator, try testOutputSize(allocator, "108x192", @divTrunc(192 * 9, 16), 192, iterations));
-    try results.append(allocator, try testOutputSize(allocator, "144x256", @divTrunc(256 * 9, 16), 256, iterations));
+    try results.append(
+        allocator,
+        try testOutputSize(
+            allocator,
+            "36x64",
+            @divTrunc(64 * 9, 16),
+            64,
+            iterations,
+        ),
+    );
+    try results.append(
+        allocator,
+        try testOutputSize(
+            allocator,
+            "54x96",
+            @divTrunc(96 * 9, 16),
+            96,
+            iterations,
+        ),
+    );
+    try results.append(
+        allocator,
+        try testOutputSize(
+            allocator,
+            "72x128",
+            @divTrunc(128 * 9, 16),
+            128,
+            iterations,
+        ),
+    );
+    try results.append(
+        allocator,
+        try testOutputSize(
+            allocator,
+            "90x160",
+            @divTrunc(160 * 9, 16),
+            160,
+            iterations,
+        ),
+    );
+    try results.append(
+        allocator,
+        try testOutputSize(
+            allocator,
+            "108x192",
+            @divTrunc(192 * 9, 16),
+            192,
+            iterations,
+        ),
+    );
+    try results.append(
+        allocator,
+        try testOutputSize(
+            allocator,
+            "144x256",
+            @divTrunc(256 * 9, 16),
+            256,
+            iterations,
+        ),
+    );
 
     // Print comprehensive comparison table
     std.debug.print("\n=== Comprehensive Size Comparison ===\n", .{});
@@ -197,7 +392,10 @@ pub fn main() !void {
         "{s:<12} | {s:>10} | {s:>11} | {s:>11} | {s:>9}\n",
         .{ "Size", "Pixels", "Time/iter", "Iter/sec", "MP/sec" },
     );
-    std.debug.print("{s:-<12}-+-{s:->10}-+-{s:->11}-+-{s:->11}-+-{s:->9}\n", .{ "", "", "", "", "" });
+    std.debug.print(
+        "{s:-<12}-+-{s:->10}-+-{s:->11}-+-{s:->11}-+-{s:->9}\n",
+        .{ "", "", "", "", "" },
+    );
 
     for (results.items) |result| {
         std.debug.print(
