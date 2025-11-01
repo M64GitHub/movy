@@ -1,0 +1,666 @@
+/* ====================================================================
+   MOVY PERFORMANCE VISUALIZER - SYNTHWAVE RETRO THEME
+   ==================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+    /* Synthwave Color Palette */
+    --bg-deep-space: #0a0e27;
+    --bg-dark-blue: #1a1f3a;
+    --bg-card: #151a30;
+
+    --neon-cyan: #00f0ff;
+    --neon-magenta: #ff00ff;
+    --neon-purple: #b026ff;
+    --neon-pink: #ff006e;
+    --neon-yellow: #ffed4e;
+
+    --grid-color: rgba(0, 240, 255, 0.1);
+    --text-primary: #e0e0ff;
+    --text-secondary: #a0a0c0;
+    --text-dim: #6060
+
+80;
+
+    /* Glow intensities */
+    --glow-sm: 0 0 5px;
+    --glow-md: 0 0 10px;
+    --glow-lg: 0 0 20px;
+    --glow-xl: 0 0 30px;
+}
+
+/* ====================================================================
+   BASE STYLES
+   ==================================================================== */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Share Tech Mono', monospace;
+    background: var(--bg-deep-space);
+    color: var(--text-primary);
+    line-height: 1.6;
+    overflow-x: hidden;
+    position: relative;
+}
+
+/* Animated grid background */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image:
+        linear-gradient(var(--grid-color) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+    background-size: 50px 50px;
+    z-index: -2;
+    opacity: 0.3;
+}
+
+/* Scan-line effect overlay */
+body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        to bottom,
+        transparent 50%,
+        rgba(0, 240, 255, 0.03) 50%
+    );
+    background-size: 100% 4px;
+    pointer-events: none;
+    z-index: 9999;
+    animation: scanline 8s linear infinite;
+}
+
+@keyframes scanline {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(4px); }
+}
+
+/* ====================================================================
+   SCROLLBAR STYLING
+   ==================================================================== */
+
+::-webkit-scrollbar {
+    width: 12px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-dark-blue);
+    border-left: 1px solid var(--neon-cyan);
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, var(--neon-cyan), var(--neon-purple));
+    border-radius: 6px;
+    box-shadow: var(--glow-md) var(--neon-cyan);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, var(--neon-magenta), var(--neon-purple));
+    box-shadow: var(--glow-lg) var(--neon-magenta);
+}
+
+/* ====================================================================
+   HEADER
+   ==================================================================== */
+
+header {
+    text-align: center;
+    padding: 3rem 2rem;
+    background: linear-gradient(180deg, var(--bg-dark-blue) 0%, var(--bg-deep-space) 100%);
+    border-bottom: 2px solid var(--neon-cyan);
+    box-shadow: 0 4px 20px rgba(0, 240, 255, 0.3);
+    position: relative;
+}
+
+.logo-container {
+    margin-bottom: 2rem;
+}
+
+.logo {
+    width: 600px;
+    max-width: 90%;
+    height: auto;
+    filter: drop-shadow(var(--glow-lg) var(--neon-cyan))
+            drop-shadow(var(--glow-xl) var(--neon-magenta));
+    animation: logoPulse 3s ease-in-out infinite;
+}
+
+@keyframes logoPulse {
+    0%, 100% {
+        filter: drop-shadow(var(--glow-lg) var(--neon-cyan))
+                drop-shadow(var(--glow-xl) var(--neon-magenta));
+    }
+    50% {
+        filter: drop-shadow(var(--glow-xl) var(--neon-cyan))
+                drop-shadow(0 0 40px var(--neon-magenta));
+    }
+}
+
+h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 3rem;
+    font-weight: 900;
+    background: linear-gradient(90deg, var(--neon-cyan), var(--neon-magenta), var(--neon-purple));
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradientShift 3s ease infinite;
+    text-shadow: var(--glow-lg) var(--neon-cyan);
+    margin-bottom: 0.5rem;
+}
+
+@keyframes gradientShift {
+    0%, 100% { background-position: 0% center; }
+    50% { background-position: 100% center; }
+}
+
+.subtitle {
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+}
+
+.neon-line {
+    width: 300px;
+    height: 3px;
+    margin: 1.5rem auto;
+    background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+    box-shadow: var(--glow-md) var(--neon-cyan);
+    animation: lineGlow 2s ease-in-out infinite;
+}
+
+@keyframes lineGlow {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; box-shadow: var(--glow-xl) var(--neon-cyan); }
+}
+
+/* ====================================================================
+   HAMBURGER MENU
+   ==================================================================== */
+
+.hamburger {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1001;
+    background: var(--bg-card);
+    border: 2px solid var(--neon-cyan);
+    border-radius: 8px;
+    padding: 12px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    box-shadow: var(--glow-md) var(--neon-cyan);
+    transition: all 0.3s ease;
+}
+
+.hamburger:hover {
+    box-shadow: var(--glow-lg) var(--neon-magenta);
+    border-color: var(--neon-magenta);
+}
+
+.hamburger span {
+    display: block;
+    width: 25px;
+    height: 3px;
+    background: var(--neon-cyan);
+    border-radius: 2px;
+    transition: all 0.3s ease;
+    box-shadow: var(--glow-sm) var(--neon-cyan);
+}
+
+.hamburger:hover span {
+    background: var(--neon-magenta);
+    box-shadow: var(--glow-sm) var(--neon-magenta);
+}
+
+.hamburger.active span:nth-child(1) {
+    transform: rotate(45deg) translate(8px, 8px);
+}
+
+.hamburger.active span:nth-child(2) {
+    opacity: 0;
+}
+
+.hamburger.active span:nth-child(3) {
+    transform: rotate(-45deg) translate(8px, -8px);
+}
+
+#nav-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(10, 14, 39, 0.8);
+    z-index: 998;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+#nav-overlay.active {
+    opacity: 1;
+    pointer-events: all;
+}
+
+/* ====================================================================
+   NAVIGATION / TOC
+   ==================================================================== */
+
+nav {
+    position: fixed;
+    top: 0;
+    left: -320px;
+    width: 300px;
+    height: 100%;
+    background: var(--bg-card);
+    border-right: 2px solid var(--neon-cyan);
+    padding: 2rem 1.5rem;
+    box-shadow: var(--glow-lg) var(--neon-cyan),
+                inset 0 0 20px rgba(0, 240, 255, 0.1);
+    z-index: 999;
+    transition: left 0.3s ease;
+    overflow-y: auto;
+}
+
+nav.active {
+    left: 0;
+}
+
+nav h2 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.5rem;
+    color: var(--neon-cyan);
+    margin-bottom: 1rem;
+    text-shadow: var(--glow-sm) var(--neon-cyan);
+}
+
+nav ul {
+    list-style: none;
+}
+
+nav li {
+    margin: 0.8rem 0;
+}
+
+nav a {
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: 1.1rem;
+    padding: 0.5rem 1rem;
+    display: block;
+    border-left: 3px solid transparent;
+    transition: all 0.3s ease;
+}
+
+nav a:hover {
+    color: var(--neon-cyan);
+    border-left-color: var(--neon-cyan);
+    background: rgba(0, 240, 255, 0.1);
+    box-shadow: var(--glow-sm) var(--neon-cyan);
+    transform: translateX(5px);
+}
+
+/* ====================================================================
+   MAIN CONTAINER
+   ==================================================================== */
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+section {
+    margin: 3rem 0;
+    padding: 2rem;
+    background: var(--bg-card);
+    border: 1px solid var(--neon-purple);
+    border-radius: 15px;
+    box-shadow: var(--glow-sm) var(--neon-purple),
+                inset 0 0 30px rgba(176, 38, 255, 0.05);
+    animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+h2 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 2rem;
+    color: var(--neon-magenta);
+    margin-bottom: 1.5rem;
+    text-shadow: var(--glow-md) var(--neon-magenta);
+    border-bottom: 2px solid var(--neon-magenta);
+    padding-bottom: 0.5rem;
+}
+
+h3 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.5rem;
+    color: var(--neon-cyan);
+    margin: 1.5rem 0 1rem;
+    text-shadow: var(--glow-sm) var(--neon-cyan);
+}
+
+/* ====================================================================
+   RUN LIST TABLE
+   ==================================================================== */
+
+.run-list {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 2rem 0;
+}
+
+.run-list thead {
+    background: linear-gradient(90deg, var(--bg-dark-blue), var(--bg-card));
+    border-bottom: 2px solid var(--neon-cyan);
+}
+
+.run-list th {
+    padding: 1rem;
+    text-align: left;
+    font-family: 'Orbitron', sans-serif;
+    color: var(--neon-cyan);
+    text-shadow: var(--glow-sm) var(--neon-cyan);
+    font-size: 0.95rem;
+    letter-spacing: 0.05em;
+}
+
+.run-list tbody tr {
+    border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+    transition: all 0.3s ease;
+}
+
+.run-list tbody tr:nth-child(odd) {
+    background: rgba(0, 240, 255, 0.03);
+}
+
+.run-list tbody tr:hover {
+    background: rgba(255, 0, 255, 0.1);
+    box-shadow: inset 0 0 15px rgba(255, 0, 255, 0.2);
+    transform: scale(1.01);
+}
+
+.run-list td {
+    padding: 1rem;
+    color: var(--text-primary);
+}
+
+.run-list .timestamp {
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--neon-yellow);
+}
+
+.run-list .system-info {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+/* ====================================================================
+   BUTTONS
+   ==================================================================== */
+
+.btn {
+    display: inline-block;
+    padding: 0.6rem 1.5rem;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    background: transparent;
+    border: 2px solid var(--neon-cyan);
+    color: var(--neon-cyan);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+}
+
+.btn:hover {
+    background: var(--neon-cyan);
+    color: var(--bg-deep-space);
+    box-shadow: var(--glow-md) var(--neon-cyan),
+                inset 0 0 10px rgba(0, 0, 0, 0.3);
+    transform: translateY(-2px);
+}
+
+.btn-expand {
+    border-color: var(--neon-magenta);
+    color: var(--neon-magenta);
+}
+
+.btn-expand:hover {
+    background: var(--neon-magenta);
+    box-shadow: var(--glow-md) var(--neon-magenta),
+                inset 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+/* ====================================================================
+   CHART CONTAINERS
+   ==================================================================== */
+
+.chart-container {
+    position: relative;
+    background: rgba(10, 14, 39, 0.6);
+    border: 1px solid var(--neon-cyan);
+    border-radius: 10px;
+    padding: 2rem;
+    margin: 2rem 0;
+    box-shadow: var(--glow-sm) var(--neon-cyan),
+                inset 0 0 20px rgba(0, 240, 255, 0.05);
+}
+
+.chart-container canvas {
+    max-height: 500px;
+}
+
+.chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+    gap: 2rem;
+    margin: 2rem 0;
+}
+
+/* ====================================================================
+   STATS CARDS
+   ==================================================================== */
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin: 2rem 0;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, var(--bg-dark-blue), var(--bg-card));
+    border: 1px solid var(--neon-purple);
+    border-radius: 10px;
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: var(--glow-sm) var(--neon-purple);
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    border-color: var(--neon-magenta);
+    box-shadow: var(--glow-md) var(--neon-magenta);
+    transform: translateY(-5px);
+}
+
+.stat-value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--neon-cyan);
+    text-shadow: var(--glow-md) var(--neon-cyan);
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+/* ====================================================================
+   BADGES
+   ==================================================================== */
+
+.badge {
+    display: inline-block;
+    padding: 0.3rem 0.8rem;
+    font-size: 0.85rem;
+    font-family: 'Orbitron', sans-serif;
+    border-radius: 15px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.badge-os {
+    background: rgba(0, 240, 255, 0.2);
+    color: var(--neon-cyan);
+    border: 1px solid var(--neon-cyan);
+    box-shadow: var(--glow-sm) var(--neon-cyan);
+}
+
+.badge-cpu {
+    background: rgba(255, 0, 255, 0.2);
+    color: var(--neon-magenta);
+    border: 1px solid var(--neon-magenta);
+    box-shadow: var(--glow-sm) var(--neon-magenta);
+}
+
+/* ====================================================================
+   FOOTER
+   ==================================================================== */
+
+footer {
+    text-align: center;
+    padding: 3rem 2rem;
+    margin-top: 4rem;
+    background: linear-gradient(180deg, var(--bg-deep-space) 0%, var(--bg-dark-blue) 100%);
+    border-top: 2px solid var(--neon-purple);
+    color: var(--text-dim);
+}
+
+footer p {
+    margin: 0.5rem 0;
+}
+
+footer a {
+    color: var(--neon-cyan);
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+footer a:hover {
+    color: var(--neon-magenta);
+    text-shadow: var(--glow-sm) var(--neon-magenta);
+}
+
+/* ====================================================================
+   RAW DATA SECTION
+   ==================================================================== */
+
+#raw-data-links {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.raw-data-run {
+    padding: 1.5rem 0;
+}
+
+.raw-data-run:not(:last-child) {
+    border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+}
+
+.raw-data-run h3 {
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+}
+
+.raw-data-run .btn {
+    padding: 0.4rem 1rem;
+    font-size: 0.85rem;
+    margin: 0.3rem 0.3rem 0.3rem 0;
+}
+
+/* ====================================================================
+   UTILITY CLASSES
+   ==================================================================== */
+
+.text-center { text-align: center; }
+.text-cyan { color: var(--neon-cyan); }
+.text-magenta { color: var(--neon-magenta); }
+.text-purple { color: var(--neon-purple); }
+.text-secondary { color: var(--text-secondary); }
+.text-dim { color: var(--text-dim); }
+
+.glow-cyan { text-shadow: var(--glow-md) var(--neon-cyan); }
+.glow-magenta { text-shadow: var(--glow-md) var(--neon-magenta); }
+.glow-purple { text-shadow: var(--glow-md) var(--neon-purple); }
+
+.hidden { display: none; }
+
+/* ====================================================================
+   RESPONSIVE DESIGN
+   ==================================================================== */
+
+@media (max-width: 768px) {
+    h1 { font-size: 2rem; }
+    .logo { width: 400px; }
+
+    nav {
+        position: static;
+        margin: 1rem;
+    }
+
+    .chart-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .run-list {
+        font-size: 0.85rem;
+    }
+
+    .run-list th,
+    .run-list td {
+        padding: 0.5rem;
+    }
+}

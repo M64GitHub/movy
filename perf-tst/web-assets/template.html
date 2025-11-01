@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>MOVY Performance Suite - Visualisation Dashboard</title>
+	<link rel="stylesheet" href="style.css">
+	<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+
+<body>
+	<!-- Header Section -->
+	<header>
+		<div class="logo-container">
+			<img src="movy-logo.png" alt="MOVY Logo" class="logo">
+		</div>
+		<h1>PERFORMANCE SUITE</h1>
+		<p class="subtitle">Visualization Dashboard</p>
+		<div class="neon-line"></div>
+		<p class="text-secondary">Generated: {{TIMESTAMP}}</p>
+	</header>
+
+	<!-- Hamburger Menu Button -->
+	<button id="menu-toggle" class="hamburger" aria-label="Toggle menu">
+		<span></span>
+		<span></span>
+		<span></span>
+	</button>
+
+	<!-- Navigation / Table of Contents -->
+	<nav id="main-nav">
+		<h2>Navigation</h2>
+		<ul>
+			<li><a href="#overview">Overview</a></li>
+			<li><a href="#runs">Benchmark Runs</a></li>
+			<li><a href="#charts">Performance Charts</a></li>
+			<li><a href="#raw-data">Raw Data</a></li>
+		</ul>
+	</nav>
+
+	<!-- Overlay for closing menu -->
+	<div id="nav-overlay"></div>
+
+	<!-- Main Container -->
+	<div class="container">
+		<!-- Overview Section -->
+		<section id="overview">
+			<h2>Overview</h2>
+			<p>Welcome to the MOVY Performance Suite visualization dashboard. This page displays performance
+				benchmarks for the MOVY terminal graphics engine across different systems and
+				configurations.</p>
+
+			<div class="stats-grid">
+				<div class="stat-card">
+					<div class="stat-value">{{TOTAL_RUNS}}</div>
+					<div class="stat-label">Total Runs</div>
+				</div>
+				<div class="stat-card">
+					<div class="stat-value">{{TOTAL_TESTS}}</div>
+					<div class="stat-label">Total Tests</div>
+				</div>
+				<div class="stat-card">
+					<div class="stat-value">{{UNIQUE_SYSTEMS}}</div>
+					<div class="stat-label">Systems</div>
+				</div>
+				<div class="stat-card">
+					<div class="stat-value">{{DATE_RANGE}}</div>
+					<div class="stat-label">Latest Run</div>
+				</div>
+			</div>
+
+			<h3>Test Types</h3>
+			<ul>
+				<li><strong class="text-cyan">RenderSurface.toAnsi</strong> - ANSI conversion
+					performance across sprite sizes (10x10 to 200x200)</li>
+				<li><strong class="text-magenta">RenderEngine.render_stable</strong> - Static sprite
+					rendering across output sizes (square, 16:9, 9:16)</li>
+				<li><strong class="text-purple">RenderEngine.render_stable_with_toAnsi</strong> -
+					Combined render + ANSI conversion performance</li>
+			</ul>
+		</section>
+
+		<!-- Benchmark Runs Section -->
+		<section id="runs">
+			<h2>Benchmark Runs</h2>
+			<p>Click on a run to expand and view detailed performance charts.</p>
+
+			<table class="run-list">
+				<thead>
+					<tr>
+						<th>Date</th>
+						<th>Timestamp</th>
+						<th>System</th>
+						<th>CPU</th>
+						<th>Cores</th>
+						<th>OS</th>
+						<th>Tests</th>
+						<th>Actions</th>
+					</tr>
+				</thead>
+				<tbody>
+					{{RUN_LIST}}
+				</tbody>
+			</table>
+		</section>
+
+		<!-- Performance Charts Section -->
+		<section id="charts">
+			<h2>Performance Charts</h2>
+			<p>Interactive visualizations of performance metrics. Charts are dynamically loaded based on
+				selected benchmark runs.</p>
+
+			<div id="chart-controls">
+				<h3>Chart Controls</h3>
+				<label for="run-selector">Select Run:</label>
+				<select id="run-selector" class="btn">
+					<option value="">-- Choose a benchmark run --</option>
+				</select>
+				<button id="compare-mode" class="btn" style="margin-left: 1rem;">Compare Mode</button>
+			</div>
+
+			<div id="charts-container">
+				<div class="chart-container">
+					<h3 class="text-center">Select a benchmark run to view charts</h3>
+					<p class="text-center text-secondary">Use the dropdown above to load performance
+						data</p>
+				</div>
+			</div>
+		</section>
+
+		<!-- Raw Data Section -->
+		<section id="raw-data">
+			<h2>Raw Data</h2>
+			<p>Direct links to JSON benchmark data files for programmatic access.</p>
+
+			<div id="raw-data-links">
+				{{RAW_DATA_LINKS}}
+			</div>
+		</section>
+	</div>
+
+	<!-- Footer -->
+	<footer>
+		<p>MOVY Performance Suite - Retro Neon Glow Edition</p>
+		<p>Powered by <a href="https://ziglang.org" target="_blank">Zig</a> | Visualized with <a
+				href="https://www.chartjs.org" target="_blank">Chart.js</a></p>
+		<p class="text-dim">Generated automatically by perf-runner</p>
+	</footer>
+
+	<!-- Embedded Benchmark Data -->
+	<script id="benchmark-data" type="application/json">
+{{BENCHMARK_DATA_JSON}}
+    </script>
+
+	<!-- Visualization Script -->
+	<script src="visualizer.js"></script>
+</body>
+
+</html>
