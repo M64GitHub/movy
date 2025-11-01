@@ -1,3 +1,6 @@
+<img width="895" height="423" alt="image" src="https://github.com/user-attachments/assets/e233388d-b858-4c41-8c63-d2639f594f1e" />
+
+
 # MOVY Performance Suite
 
 I built this to be able to trace down and measure performance bottlenecks / -improvements.  
