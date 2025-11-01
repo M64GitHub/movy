@@ -110,11 +110,11 @@ You can use [demos/simple_game.zig](./demos/simple_game.zig) as a starter / temp
 |---------|-------------|---------|
 | [1ST-SHOT](https://github.com/M64GitHub/1st-shot) | Terminal bullet-hell shooter with SID audio |<img width="1920" height="1080" alt="1st-shot" src="https://github.com/user-attachments/assets/7d720751-f6f4-4451-a509-772ea66cd622" /> |
 | [movycat](https://github.com/M64GitHub/movycat) | Terminal video player |<img width="1300" height="460" alt="459688245-d07e6ecd-2ee4-41f2-a82c-66096de14aed" src="https://github.com/user-attachments/assets/9b67e47b-30bd-4b04-bbd1-99869bba59e3" /> |
-| *Your project here?* | Post in the [Community Showcase Discussion](https://github.com/M64GitHub/movy/discussions/10)! | |
+| *Your project here?* |  | Post in the [Community Showcase Discussion](https://github.com/M64GitHub/movy/discussions/10)! |
 
 ### Want to be featured?
 
-Create something awesome with movy and share it in our [Community Showcase Discussion](https://github.com/M64GitHub/movy/discussions/10)!
+Create something awesome with movy and share it in our [Discussion](https://github.com/M64GitHub/movy/discussions/10)!
 
 Your project might be featured in the next README update.  
 Let the pixels glow — and the Terminal Revolution begin!
