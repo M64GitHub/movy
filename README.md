@@ -114,7 +114,11 @@ You can use [demos/simple_game.zig](./demos/simple_game.zig) as a starter / temp
 
 ### Want to be featured?
 
-Create something awesome with movy and submit a PR adding your project to this table!  
+Create something awesome with movy and share it in our [Showcase Discussion](https://github.com/M64GitHub/movy/discussions/10)!
+
+Your project might be featured in the next README update.  
+Let the pixels glow — and the Terminal Revolution begin!
+
 Whether it's a game, a demo, an effect, or a tool — if it glows in the terminal, it belongs here.
 
 ## Contributing
