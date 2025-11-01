@@ -45,7 +45,6 @@ pub fn build(b: *std.Build) void {
         "sprite_fade_chain",
         "sprite_fade_chain_pipeline",
         "render_effect_chain",
-        "render_stress_test",
     };
 
     for (examples) |name| {
@@ -132,6 +131,133 @@ pub fn build(b: *std.Build) void {
             b.fmt("Run {s}", .{name}),
         ).dependOn(&run_game.step);
     }
+
+    // -- Performance Tests
+    // Get flagZ dependency
+    const flagz_dep = b.dependency("flagz", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const flagz_mod = flagz_dep.module("flagz");
+
+    // Perf test shared modules
+    const perf_common_mod = b.addModule("common", .{
+        .root_source_file = b.path("perf-tst/common.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const perf_types_mod = b.addModule("types", .{
+        .root_source_file = b.path("perf-tst/types.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const perf_system_info_mod = b.addModule("system_info", .{
+        .root_source_file = b.path("perf-tst/system_info.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    perf_system_info_mod.addImport("types", perf_types_mod);
+
+    const perf_json_writer_mod = b.addModule("json_writer", .{
+        .root_source_file = b.path("perf-tst/json_writer.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    perf_json_writer_mod.addImport("types", perf_types_mod);
+
+    const perf_html_generator_mod = b.addModule("html_generator", .{
+        .root_source_file = b.path("perf-tst/html_generator.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    perf_html_generator_mod.addImport("types", perf_types_mod);
+    perf_html_generator_mod.addImport("json_writer", perf_json_writer_mod);
+
+    const perf_tests = [_][]const u8{
+        "RenderEngine.render",
+        "RenderSurface.toAnsi",
+        "RenderEngine.render_with_toAnsi",
+        "RenderEngine.render_stable",
+        "RenderEngine.render_stable_with_toAnsi",
+    };
+
+    for (perf_tests) |name| {
+        // Create module for perf test
+        const perf_mod = b.addModule(b.fmt("perf_{s}", .{name}), .{
+            .root_source_file = b.path(b.fmt("perf-tst/{s}.zig", .{name})),
+            .target = target,
+            .optimize = optimize,
+        });
+        perf_mod.addImport("movy", movy_mod);
+        perf_mod.addImport("common", perf_common_mod);
+        perf_mod.addImport("flagz", flagz_mod);
+        perf_mod.addImport("types", perf_types_mod);
+        perf_mod.addImport("system_info", perf_system_info_mod);
+        perf_mod.addImport("json_writer", perf_json_writer_mod);
+
+        const perf_exe = b.addExecutable(.{
+            .name = b.fmt("perf-{s}", .{name}),
+            .root_module = perf_mod,
+        });
+        b.installArtifact(perf_exe);
+
+        // Add run step
+        const run_perf = b.addRunArtifact(perf_exe);
+        run_perf.step.dependOn(b.getInstallStep());
+        if (b.args) |args| run_perf.addArgs(args);
+        b.step(
+            b.fmt("perf-{s}", .{name}),
+            b.fmt("Run performance test: {s}", .{name}),
+        ).dependOn(&run_perf.step);
+    }
+
+    // -- Performance Test Runner
+    const runner_mod = b.addModule("perf_runner", .{
+        .root_source_file = b.path("perf-tst/runner.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    runner_mod.addImport("flagz", flagz_mod);
+    runner_mod.addImport("json_writer", perf_json_writer_mod);
+    runner_mod.addImport("html_generator", perf_html_generator_mod);
+
+    const runner_exe = b.addExecutable(.{
+        .name = "perf-runner",
+        .root_module = runner_mod,
+    });
+    b.installArtifact(runner_exe);
+
+    const run_runner = b.addRunArtifact(runner_exe);
+    run_runner.step.dependOn(b.getInstallStep());
+    if (b.args) |args| run_runner.addArgs(args);
+    b.step(
+        "perf-runner",
+        "Run all performance tests and generate HTML visualization",
+    ).dependOn(&run_runner.step);
+
+    // -- Standalone HTML Generator
+    const html_gen_main_mod = b.addModule("html_gen_main", .{
+        .root_source_file = b.path("perf-tst/html_gen_main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    html_gen_main_mod.addImport("html_generator", perf_html_generator_mod);
+
+    const html_gen_exe = b.addExecutable(.{
+        .name = "perf-html-gen",
+        .root_module = html_gen_main_mod,
+    });
+    b.installArtifact(html_gen_exe);
+
+    const run_html_gen = b.addRunArtifact(html_gen_exe);
+    run_html_gen.step.dependOn(b.getInstallStep());
+    if (b.args) |args| run_html_gen.addArgs(args);
+    b.step(
+        "perf-html-gen",
+        "Generate HTML visualization from existing JSON results",
+    ).dependOn(&run_html_gen.step);
 
     if (enable_ffmpeg) {
         const movy_video_mod = b.addModule("movy_video", .{
