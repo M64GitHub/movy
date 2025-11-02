@@ -30,6 +30,7 @@ For instance, `stars.zig` demonstrates steady 60 FPS framerate control with an a
 ```bash
 zig build run-stars          # Animated starfield with 60 FPS control
 zig build run-simple_game    # Game template with shooting and collision
+zig build run-blender_demo   # Alpha blending showcase with morphing effects
 zig build run-mouse_demo     # Interactive input with UI Manager
 zig build run-win_demo       # Multiple windows with themes
 ```
