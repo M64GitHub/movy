@@ -40,7 +40,12 @@ pub const RenderSurface = struct {
         errdefer allocator.free(self.shadow_map);
         self.char_map = try allocator.alloc(u21, w * h);
         errdefer allocator.free(self.char_map);
-        self.rendered_str = try allocator.alloc(u8, self.w * self.h * 50);
+
+        const ansi_bytes_per_pixel = 45; // Max: ESC[38;2;RRR;GGG;BBBm + UTF-8 char
+        self.rendered_str = try allocator.alloc(
+            u8,
+            self.w * self.h * ansi_bytes_per_pixel,
+        );
         errdefer allocator.free(self.rendered_str);
         self.clearColored(color);
         return self;
@@ -96,7 +101,12 @@ pub const RenderSurface = struct {
             const a = rgba_data[i * 4 + 3];
             surface.color_map[i] =
                 movy.core.types.Rgb{ .r = r, .g = g, .b = b };
-            surface.shadow_map[i] = if (a > 0) 1 else 0; // Alpha as shadow
+
+            // attempt to use shadow map as alpha channel
+            // regualr RenderEngine.render() only checks if != 0  for
+            // opacity!
+            // -> use RenderEngine.renderWithAlpha() // TODO:
+            surface.shadow_map[i] = a;
         }
 
         return surface;
@@ -280,11 +290,6 @@ pub const RenderSurface = struct {
         return surface;
     }
 
-    /// Converts the RenderSurface's color_map, shadow_map, and char_map
-    /// to an ANSI string with half-block rendering.
-    /// If a char (u21 UTF8) is present in char_map at an even y (line-aligned),
-    /// renders it with the corresponding color_map fg.
-    /// Assumes rendered_str is preallocated and will be freed on deinit.
     /// Formats a foreground color RGB triplet into ANSI escape sequence
     /// Returns the number of bytes written
     inline fn formatFgColor(buf: []u8, color: movy.core.types.Rgb) usize {
@@ -431,6 +436,11 @@ pub const RenderSurface = struct {
         return idx;
     }
 
+    /// Converts the RenderSurface's color_map, shadow_map, and char_map
+    /// to an ANSI string with half-block rendering.
+    /// If a char (u21 UTF8) is present in char_map at an even y (line-aligned),
+    /// renders it with the corresponding color_map fg.
+    /// Assumes rendered_str is preallocated and will be freed on deinit.
     pub fn toAnsi(self: *RenderSurface) ![]u8 {
         var tmpstr_idx: usize = 0;
 
@@ -438,17 +448,16 @@ pub const RenderSurface = struct {
             if (y % 2 != 0) continue; // Step by 2—half-block pairs
             for (0..self.w) |x| {
                 const idx = x + y * self.w;
-                const char1 = self.char_map[idx];
-                var char2: u21 = 0;
+                const char = self.char_map[idx];
+                var char_above: u21 = 0;
 
-                if (char1 == 0) {
-                    if (idx > self.w) char2 = self.char_map[idx - self.w];
+                if (char == 0) {
+                    if (idx > self.w) char_above = self.char_map[idx - self.w];
                 }
 
-                const line = if ((char1 != 0) or (char2 != 0)) blk: {
+                if ((char != 0) or (char_above != 0)) {
                     // Char present? Render it
-                    if (char1 != 0) {
-                        const start = tmpstr_idx;
+                    if (char != 0) {
                         tmpstr_idx += formatFgColor(
                             self.rendered_str[tmpstr_idx..],
                             self.color_map[idx],
@@ -458,13 +467,11 @@ pub const RenderSurface = struct {
                             self.color_map[idx + self.w],
                         );
                         const char_bytes = std.unicode.utf8Encode(
-                            char1,
+                            char,
                             self.rendered_str[tmpstr_idx..][0..4],
                         ) catch unreachable;
                         tmpstr_idx += char_bytes;
-                        break :blk self.rendered_str[start..tmpstr_idx];
                     } else {
-                        const start = tmpstr_idx;
                         tmpstr_idx += formatBgColor(
                             self.rendered_str[tmpstr_idx..],
                             self.color_map[idx],
@@ -474,13 +481,12 @@ pub const RenderSurface = struct {
                             self.color_map[idx + self.w],
                         );
                         const char_bytes = std.unicode.utf8Encode(
-                            char2,
+                            char_above,
                             self.rendered_str[tmpstr_idx..][0..4],
                         ) catch unreachable;
                         tmpstr_idx += char_bytes;
-                        break :blk self.rendered_str[start..tmpstr_idx];
                     }
-                } else blk: { // No char? Render pixels in half-blocks
+                } else { // No char? Render pixels in half-blocks
                     const upper = self.color_map[idx];
                     const lower = self.color_map[x + (y + 1) * self.w];
                     const upper_trans = self.shadow_map[idx] == 0;
@@ -490,11 +496,8 @@ pub const RenderSurface = struct {
                     if (upper_trans and lower_trans) {
                         const s = "\x1b[m ";
                         @memcpy(self.rendered_str[tmpstr_idx..][0..s.len], s);
-                        const start = tmpstr_idx;
                         tmpstr_idx += s.len;
-                        break :blk self.rendered_str[start..tmpstr_idx];
                     } else if (upper_trans) {
-                        const start = tmpstr_idx;
                         const prefix = "\x1b[0;";
                         @memcpy(
                             self.rendered_str[tmpstr_idx..][0..prefix.len],
@@ -511,9 +514,7 @@ pub const RenderSurface = struct {
                             block,
                         );
                         tmpstr_idx += block.len;
-                        break :blk self.rendered_str[start..tmpstr_idx];
                     } else if (lower_trans) {
-                        const start = tmpstr_idx;
                         const prefix = "\x1b[0;";
                         @memcpy(
                             self.rendered_str[tmpstr_idx..][0..prefix.len],
@@ -530,9 +531,7 @@ pub const RenderSurface = struct {
                             block,
                         );
                         tmpstr_idx += block.len;
-                        break :blk self.rendered_str[start..tmpstr_idx];
                     } else {
-                        const start = tmpstr_idx;
                         tmpstr_idx += formatBgColor(
                             self.rendered_str[tmpstr_idx..],
                             upper,
@@ -547,16 +546,11 @@ pub const RenderSurface = struct {
                             block,
                         );
                         tmpstr_idx += block.len;
-                        break :blk self.rendered_str[start..tmpstr_idx];
                     }
-                };
-
-                // line.len is implicitly handled by tmpstr_idx tracking
-                _ = line;
+                }
             }
 
             // Move cursor back and down for next line
-
             {
                 const left_start = tmpstr_idx;
                 const left_prefix = "\x1b[";
@@ -613,6 +607,11 @@ pub const RenderSurface = struct {
                 @memcpy(self.rendered_str[tmpstr_idx..][0..down.len], down);
                 tmpstr_idx += down.len;
             }
+            // bounds check
+            if (tmpstr_idx >= self.rendered_str.len) {
+                tmpstr_idx = self.rendered_str.len;
+                break;
+            }
         }
 
         return self.rendered_str[0..tmpstr_idx];
@@ -624,7 +623,7 @@ pub const RenderSurface = struct {
     pub fn clearColored(self: *RenderSurface, c: movy.core.types.Rgb) void {
         for (self.color_map, 0..) |*color, i| {
             color.* = c;
-            self.shadow_map[i] = 2;
+            self.shadow_map[i] = 255;
             self.char_map[i] = 0;
         }
     }
@@ -745,13 +744,13 @@ pub const RenderSurface = struct {
         fg_color: movy.core.types.Rgb,
         bg_color: movy.core.types.Rgb,
     ) void {
-        if (isDoubleWidth(char)) return;
+        const print_char = if (isDoubleWidth(char)) 0x25C9 else char;
 
         if (y >= self.h / 2) return; // Clip at half height
         const y_pixel = y * 2; // Line to pixel
         const idx = x + y_pixel * self.w;
         if (x < self.w and y_pixel + 1 < self.h) { // Bounds check
-            self.char_map[idx] = char;
+            self.char_map[idx] = print_char;
             self.color_map[idx] = fg_color; // fg at y
             self.color_map[idx + self.w] = bg_color; // bg at y+1
             self.shadow_map[idx] = 1;
