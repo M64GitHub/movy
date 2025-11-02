@@ -140,7 +140,7 @@ See `examples/alpha_blending.zig` for a complete working example.
 
 ---
 
-## Documentation Overhaul
+## Documentation
 
 The documentation has been completely restructured:
 
@@ -327,24 +327,6 @@ movy.render.RenderEngine.renderWithAlphaToBg(&surfaces, screen.output_surface);
 - `blendPixelGeneral()` - RGB pixel blend with variable background alpha
 - `blendChannelToBg()` - Optimized blend to opaque background
 - `blendPixelToBg()` - Optimized RGB blend to opaque background
-
-### Documentation Updates
-
-**Documentation:**
-- `doc/README.md` - Documentation index
-- `doc/RenderSurface.md` - RenderSurface guide (~520 lines)
-- `doc/RenderEngine.md` - RenderEngine guide (~580 lines)
-- `demos/README.md` - Demos catalog with descriptions
-
-**Examples:**
-- `examples/basic_surface.zig` - Surface basics
-- `examples/alpha_blending.zig` - Alpha compositing demo
-- `examples/layered_scene.zig` - Multi-layer z-ordering
-- `examples/png_loader.zig` - PNG loading workflow
-
-**Demos:**
-- `demos/stars.zig` - Starfield with 60 FPS control
-- `demos/StarField.zig` - Reusable starfield module
 
 ---
 
