@@ -98,6 +98,17 @@ The module uses the modern FFmpeg channel layout API (`AVChannelLayout`) and is 
 zig build              # build without ffmpeg dependencies, movy_video
 zig build -Dvideo=true # build full movy incl movy_video, requires ffmpeg
 ```
+
+## Testing
+
+Tests currently cover:
+
+- RenderEngine: composition modes, alpha blending
+
+```bash
+zig build test
+```
+
 ## Documentation
 
 **movy** will provide comprehensive learning resources organized in three tiers:
