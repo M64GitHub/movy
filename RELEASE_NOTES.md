@@ -2,7 +2,7 @@
 
 ## v0.2.0 - Alpha Blending
 
-In v0.2.0, movy gains a critical rendering capability that was long overdue: **true alpha blending**. This release implements Porter-Duff alpha compositing, enabling semi-transparent surfaces, smooth fade effects, and layered visual compositions with real transparency. Alongside this core feature, the entire documentation structure has been overhauled to provide comprehensive learning resources for developers new to movy.
+In v0.2.0, movy adds a rendering capability that was long overdue: **true alpha blending**. This release implements Porter-Duff alpha compositing, enabling semi-transparent surfaces, smooth fade effects, and layered visual compositions with real transparency. Alongside this core feature, the entire documentation structure has been overhauled to provide comprehensive learning resources for developers new to movy.
 
 ## What's New
 
