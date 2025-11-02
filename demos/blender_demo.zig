@@ -4,7 +4,7 @@
 /// - 8 semi-transparent animated sprites with 2D wave motion (sine + cosine)
 /// - 16 animated sprites in rotating circle with 2D wave motion and pulsing alpha
 /// - Logo with OutlineRotator effect and sine wave motion
-/// - Continuously scrolling text with 2D wave motion and transparency animation
+/// - Continuously scrolling text with sine motion and transparency animation
 /// - Flashing text
 /// - Smooth 60 FPS animation
 ///
@@ -20,7 +20,6 @@
 const std = @import("std");
 const movy = @import("movy");
 
-// Helper function: Calculate position on circle
 fn calculateCirclePosition(
     center_x: i32,
     center_y: i32,
@@ -30,16 +29,38 @@ fn calculateCirclePosition(
     const angle_rad = angle_deg * std.math.pi / 180.0;
     const x = center_x + @as(
         i32,
-        @intFromFloat(@round(@as(f32, @floatFromInt(radius)) * @cos(angle_rad))),
+        @intFromFloat(@round(@as(f32, @floatFromInt(radius)) *
+            @cos(angle_rad))),
     );
     const y = center_y + @as(
         i32,
-        @intFromFloat(@round(@as(f32, @floatFromInt(radius)) * @sin(angle_rad))),
+        @intFromFloat(@round(@as(f32, @floatFromInt(radius)) *
+            @sin(angle_rad))),
     );
     return .{ .x = x, .y = y };
 }
 
-// Helper function: Calculate alpha phase offset for wave pattern
+fn calculateEllipsePosition(
+    center_x: i32,
+    center_y: i32,
+    radius_x: i32,
+    radius_y: i32,
+    angle_deg: f32,
+) struct { x: i32, y: i32 } {
+    const angle_rad = angle_deg * std.math.pi / 180.0;
+    const x = center_x + @as(
+        i32,
+        @intFromFloat(@round(@as(f32, @floatFromInt(radius_x)) *
+            @cos(angle_rad))),
+    );
+    const y = center_y + @as(
+        i32,
+        @intFromFloat(@round(@as(f32, @floatFromInt(radius_y)) *
+            @sin(angle_rad))),
+    );
+    return .{ .x = x, .y = y };
+}
+
 fn calculateAlphaPhaseOffset(sprite_index: usize) usize {
     // Distribute phase offsets across 16 sprites
     return sprite_index * 4;
@@ -50,12 +71,10 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    // Get terminal size
     const terminal_size = try movy.terminal.getSize();
     const screen_width = terminal_size.width;
     const screen_height = terminal_size.height * 2;
 
-    // Check minimum terminal size (120x60)
     if (screen_width < 120 or screen_height < 60) {
         std.debug.print(
             "Terminal too small! Need at least 120x60, got {d}x{d}\n",
@@ -65,7 +84,6 @@ pub fn main() !void {
         return;
     }
 
-    // Set raw mode, switch to alternate screen
     try movy.terminal.beginRawMode();
     defer movy.terminal.endRawMode();
     try movy.terminal.beginAlternateScreen();
@@ -77,7 +95,6 @@ pub fn main() !void {
     screen.setScreenMode(movy.Screen.Mode.bgcolor);
     screen.bg_color = movy.color.BLACK;
 
-    // --- Load Movy Logo (Lower Third) ---
     var movy_logo = try movy.graphic.Sprite.initFromPng(
         allocator,
         "demos/assets/movy-logo2.png",
@@ -104,7 +121,6 @@ pub fn main() !void {
     const movy_center_x = screen_center - @divTrunc(movy_logo_width, 2);
     const movy_y = @divTrunc(@as(i32, @intCast(screen_height * 3)), 4);
 
-    // --- Load Alpha Scroller ---
     var alpha_scroller = try movy.graphic.Sprite.initFromPng(
         allocator,
         "demos/assets/alpha_scroller.png",
@@ -112,7 +128,6 @@ pub fn main() !void {
     );
     defer alpha_scroller.deinit(allocator);
 
-    // Get scroller dimensions
     const scroller_surface = try alpha_scroller.getCurrentFrameSurface();
     const scroller_width = @as(i32, @intCast(scroller_surface.w));
     const scroller_height = @as(i32, @intCast(scroller_surface.h));
@@ -131,7 +146,7 @@ pub fn main() !void {
         scroller_height + 10,
     );
 
-    // --- Load and Set Up 8 Sprite1 Instances (Upper Third) ---
+    // -- Load and Set Up 8 Sprite1 Instances
     const alpha_values = [8]u8{ 50, 79, 109, 138, 168, 197, 227, 255 };
     var sprites: [8]*movy.graphic.Sprite = undefined;
     var sprite_sines: [8]movy.animation.TrigWave = undefined;
@@ -217,17 +232,30 @@ pub fn main() !void {
         }
     }
 
-    // --- Load and Set Up 16 Circle Sprites ---
+    // -- Load and Set Up 16 Circle Sprites --
     var circle_sprites: [16]*movy.graphic.Sprite = undefined;
     var circle_sines: [16]movy.animation.TrigWave = undefined;
     var circle_cosines: [16]movy.animation.TrigWave = undefined;
     var circle_alpha_sines: [16]movy.animation.TrigWave = undefined;
+    var circle_radius_sines: [16]movy.animation.TrigWave = undefined;
 
     // Circle configuration
     const circle_center_x = @divTrunc(@as(i32, @intCast(screen_width)), 2);
-    const circle_center_y = @divTrunc(@as(i32, @intCast(screen_height)), 2);
-    const circle_radius: i32 = 40;
+    const circle_center_y = @divTrunc(@as(i32, @intCast(screen_height)), 2) - 5;
+    const circle_radius: i32 = 50;
     var circle_rotation_angle: f32 = 0.0;
+
+    // Global Lissajous deformation waves
+    var circle_radius_x_sine = movy.animation.TrigWave.init(200, 15);
+    var circle_radius_y_sine = movy.animation.TrigWave.init(150, 15);
+
+    // Pre-tick waves to start deformed (different phases for asymmetry)
+    for (0..50) |_| {
+        _ = circle_radius_x_sine.tickSine();
+    }
+    for (0..75) |_| {
+        _ = circle_radius_y_sine.tickSine();
+    }
 
     for (0..16) |i| {
         // Load circle sprite
@@ -254,11 +282,17 @@ pub fn main() !void {
         circle_sines[i] = movy.animation.TrigWave.init(180, 10);
         circle_cosines[i] = movy.animation.TrigWave.init(120, 15);
         circle_alpha_sines[i] = movy.animation.TrigWave.init(120, 254);
+        circle_radius_sines[i] = movy.animation.TrigWave.init(100, 8);
 
         // Pre-tick alpha for phase offset
         const alpha_offset = calculateAlphaPhaseOffset(i);
         for (0..alpha_offset) |_| {
             _ = circle_alpha_sines[i].tickSine();
+        }
+
+        // Pre-tick radius for phase offset
+        for (0..(i * 5)) |_| {
+            _ = circle_radius_sines[i].tickSine();
         }
 
         // Calculate initial position on circle
@@ -280,7 +314,7 @@ pub fn main() !void {
         }
     }
 
-    // --- Create Text Surface (Middle, Flashing) ---
+    // -- Create Text Surface (Middle, Flashing) --
     var text_surface = try movy.RenderSurface.init(
         allocator,
         screen_width,
@@ -297,12 +331,12 @@ pub fn main() !void {
     var ty = screen_height - 5;
     if (ty % 2 == 1) ty -= 1;
     text_surface.y = @as(i32, @intCast(ty));
-    text_surface.z = 100; // Top layer
+    text_surface.z = 40;
 
-    // Text flash sine wave (1.5 seconds, amplitude 70 for darker amount)
+    // Text flash sine wave
     var flash_sine = movy.animation.TrigWave.init(90, 150);
 
-    // --- Optional: Help Text ---
+    // -- Optional: Help Text --
     var help_surface = try movy.RenderSurface.init(
         allocator,
         screen_width,
@@ -326,14 +360,14 @@ pub fn main() !void {
     help_surface.y = 0;
     help_surface.z = 200; // Very top
 
-    // --- Main Loop (60 FPS) ---
+    // -- Main Loop (60 FPS) --
     const frame_delay_ns = 17 * std.time.ns_per_ms; // ~60 FPS
     var frame: usize = 0;
 
     while (true) {
         const frame_start = std.time.nanoTimestamp();
 
-        // --- Input Handling ---
+        // -- Input Handling --
         if (try movy.input.get()) |in| {
             switch (in) {
                 .key => |key| {
@@ -350,7 +384,7 @@ pub fn main() !void {
             }
         }
 
-        // --- Update Movy Logo Position (Sine Wave) ---
+        // -- Update Movy Logo Position --
         const movy_x = movy_center_x + movy_sine.tickSine();
         movy_logo.setXY(movy_x, movy_y);
 
@@ -361,7 +395,7 @@ pub fn main() !void {
             frame,
         );
 
-        // --- Update Sprite1 Positions ---
+        // -- Update Sprite1 Positions --
         for (0..8) |i| {
             // All sprites wave from center with graduated amplitudes
             const sprite_x = sprite_center_x + sprite_sines[i].tickSine();
@@ -372,19 +406,34 @@ pub fn main() !void {
             sprites[i].setXY(sprite_x, sprite_y);
         }
 
-        // --- Update Circle Sprites ---
+        // -- Update Circle Sprites --
         // Rotate circle slowly (0.5 degrees per frame)
         circle_rotation_angle += 0.5;
         if (circle_rotation_angle >= 360.0) circle_rotation_angle -= 360.0;
 
+        // Tick global Lissajous deformation waves
+        const radius_x_mod = circle_radius_x_sine.tickSine();
+        const radius_y_mod = circle_radius_y_sine.tickSine();
+
         for (0..16) |i| {
-            // Calculate base position on rotating circle
+            // Per-sprite radius wobble
+            const sprite_radius_mod = circle_radius_sines[i].tickSine();
+
+            // Calculate final radii
+            // (base + global Lissajous + per-sprite wobble)
+            const final_radius_x =
+                circle_radius + radius_x_mod + sprite_radius_mod;
+            const final_radius_y =
+                circle_radius + radius_y_mod + sprite_radius_mod;
+
+            // Calculate base position on rotating deformed ellipse
             const base_angle = @as(f32, @floatFromInt(i)) * 22.5 +
                 circle_rotation_angle;
-            const base_pos = calculateCirclePosition(
+            const base_pos = calculateEllipsePosition(
                 circle_center_x,
                 circle_center_y,
-                circle_radius,
+                final_radius_x,
+                final_radius_y,
                 base_angle,
             );
 
@@ -410,7 +459,7 @@ pub fn main() !void {
             }
         }
 
-        // --- Update Alpha Scroller ---
+        // -- Update Alpha Scroller --
         // Move scroller left every 2nd frame (2x speed)
         if (frame % 2 == 0) {
             scroller_x -= 2;
@@ -437,7 +486,7 @@ pub fn main() !void {
             }
         }
 
-        // --- Update Text Flash ---
+        // -- Update Text Flash --
         // Calculate darker amount from sine wave
         const flash_value = flash_sine.tickSine();
         const darker_amount = @as(u8, @intCast(@abs(flash_value)));
@@ -446,7 +495,7 @@ pub fn main() !void {
         const flash_color = movy.color.darker(movy.color.WHITE, darker_amount);
 
         // Center text
-        const text = "< ALPHA BLEND DEMO >";
+        const text = "< MOVY 0.2.0 - ALPHA BLEND DEMO >";
         const text_x_pos = @divTrunc(@as(i32, @intCast(screen_width)), 2) -
             @as(i32, @intCast(text.len / 2));
 
@@ -458,33 +507,34 @@ pub fn main() !void {
             movy.core.types.Rgb{ .r = 0, .g = 0, .b = 0 },
         );
 
-        // --- Render All Surfaces ---
+        // -- Render All Surfaces --
         try screen.renderInit();
 
         // Add in Z-order (first added = top layer)
-        try screen.addRenderSurface(allocator, help_surface); // Top (z=200)
-        try screen.addRenderSurface(allocator, text_surface); // z=100
+        try screen.addRenderSurface(allocator, help_surface);
+        try screen.addRenderSurface(allocator, text_surface);
         for (0..8) |i| {
             try screen.addRenderSurface(
                 allocator,
                 try sprites[i].getCurrentFrameSurface(),
             );
         }
+        try screen.addRenderSurface(allocator, movy_logo.output_surface);
+        try screen.addRenderSurface(allocator, alpha_scroller.output_surface);
+
         for (0..16) |i| {
             try screen.addRenderSurface(
                 allocator,
                 try circle_sprites[i].getCurrentFrameSurface(),
             );
         }
-        try screen.addRenderSurface(allocator, movy_logo.output_surface);
-        try screen.addRenderSurface(allocator, alpha_scroller.output_surface);
 
         screen.renderAlpha();
         try screen.output();
 
         frame += 1;
 
-        // --- Frame Timing ---
+        // -- Frame Timing --
         const frame_end = std.time.nanoTimestamp();
         const frame_time = frame_end - frame_start;
         if (frame_time < frame_delay_ns) {

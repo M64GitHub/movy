@@ -10,6 +10,7 @@ This directory contains working demonstration programs that showcase movy's capa
 | **simple_game** | Complete game starter with player, shooting, collision | `zig build run-simple_game` |
 | **mouse_demo** | Interactive mouse/keyboard input with UI Manager | `zig build run-mouse_demo` |
 | **win_demo** | Multiple TextWindows with themes and styles | `zig build run-win_demo` |
+| **blender_demo** | Alpha blending showcase with morphing visual effects | `zig build run-blender_demo` |
 | **mplayer** | Video playback with FFmpeg (requires `-Dvideo=true`) | `zig build -Dvideo=true run-demo-mplayer <file>` |
 
 ## Detailed Descriptions
@@ -133,6 +134,36 @@ This demo focuses on the UI system, perfect for learning window-based layouts.
 
 ---
 
+### blender_demo.zig - Alpha Blending Showcase
+
+**What it demonstrates:**
+- Alpha blending with `screen.renderAlpha()` - Porter-Duff compositor
+- Multiple animated sprites with 2D wave motion (sine + cosine)
+- 16 sprites in rotating circle with Lissajous deformation
+- Per-sprite alpha animation with phase offsets
+- Scrolling text with 2D wave motion and transparency
+- OutlineRotator effect on logo
+- Complex multi-layer scene composition
+
+**Features:**
+- Graduated alpha values (50-255) creating depth effect
+- Morphing circle using different sine wave frequencies
+- Per-sprite radius wobble for organic breathing effect
+- Smooth 60 FPS animation with multiple concurrent effects
+- Real-time shadow_map manipulation for dynamic transparency
+
+**Controls:**
+- ESC or 'q': Exit
+
+**Run:**
+```bash
+zig build run-blender_demo
+```
+
+This demo showcases the full power of movy's alpha blending system, perfect for learning advanced visual effects and animation composition.
+
+---
+
 ### mplayer.zig - Video Playback (Experimental)
 
 **What it demonstrates:**
@@ -168,7 +199,7 @@ zig build -Dvideo=true run-demo-mplayer path/to/video.mp4
 
 **Intermediate:** Try `simple_game.zig` to understand sprite animation and input handling.
 
-**Advanced:** Explore `mouse_demo.zig` and `win_demo.zig` for UI Manager and advanced interactions.
+**Advanced:** Explore `blender_demo.zig` for alpha blending and complex visual effects, or dive into `mouse_demo.zig` and `win_demo.zig` for UI Manager and advanced interactions.
 
 **Experimental:** Check out `mplayer.zig` for FFmpeg integration (requires video build).
 
