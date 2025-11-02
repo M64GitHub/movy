@@ -90,6 +90,7 @@ pub fn build(b: *std.Build) void {
         "alpha_blending",
         "layered_scene",
         "png_loader",
+        "sprite_alpha_rendering",
     };
 
     for (examples) |name| {
@@ -123,6 +124,7 @@ pub fn build(b: *std.Build) void {
         "win_demo",
         "simple_game",
         "stars",
+        "blender_demo",
     };
 
     for (demos) |name| {

@@ -1,5 +1,393 @@
 # Release Notes
 
+## v0.2.0 - Alpha Blending
+
+# True Transparency - movy v0.2.0
+
+In v0.2.0, movy gains a critical rendering capability that was long overdue: **true alpha blending**. This release implements Porter-Duff alpha compositing, enabling semi-transparent surfaces, smooth fade effects, and layered visual compositions with real transparency. Alongside this core feature, the entire documentation structure has been overhauled to provide comprehensive learning resources for developers new to movy.
+
+## What's New
+
+### Porter-Duff Alpha Compositing
+
+The rendering engine now supports **full alpha blending** using the Porter-Duff "over" operator, enabling true semi-transparent effects. This is a fundamental upgrade to how movy handles transparency.
+
+**Previous behavior:**
+- Binary transparency only (shadow_map != 0 meant fully opaque)
+- No support for semi-transparent surfaces
+- Fade effects required workarounds / RenderEffect engine
+
+**New capability:**
+- True alpha blending with 0-255 opacity levels
+- Semi-transparent overlays (glass effects, shadows, UI elements)
+- Smooth fade-in/fade-out effects
+- Layered compositions with variable transparency
+
+### New Rendering Functions
+
+Two new compositing functions added to `RenderEngine`:
+
+#### 1. `renderWithAlphaToBg()` - **RECOMMENDED**
+
+Optimized alpha blending for opaque backgrounds (the most common use case):
+
+```zig
+pub fn renderWithAlphaToBg(
+    surfaces_in: []const *movy.core.RenderSurface,
+    out_surface: *movy.core.RenderSurface,
+) void
+```
+
+**When to use:**
+- Standard rendering with transparency effects
+- Fading sprites (fade-in, fade-out)
+- Glass-like overlays
+- Shadows and lighting effects
+- **Any time your background is opaque (α=255)**
+
+**Performance:** Optimized for the common case where background alpha is always 255.
+
+#### 2. `renderWithAlpha()` - General Compositing
+
+Full Porter-Duff compositing with variable background alpha:
+
+```zig
+pub fn renderWithAlpha(
+    surfaces_in: []const *movy.core.RenderSurface,
+    out_surface: *movy.core.RenderSurface,
+) void
+```
+
+**When to use:**
+- Pre-compositing surfaces before final render
+- Working with semi-transparent backgrounds
+- Complex multi-pass rendering pipelines
+
+**Performance:** Slightly slower due to full Porter-Duff formula with variable background alpha.
+
+### Technical Implementation
+
+**Alpha Mode:** Straight (non-premultiplied) alpha
+- RGB values are independent of alpha
+- Matches PNG file format directly
+- `shadow_map` values: 0 = transparent, 255 = opaque
+
+**Math:** Integer-only operations with type widening
+- No floating-point arithmetic
+- Type progression: u8 → u16 → u32
+
+**Optimizations:**
+- Fast paths for α=0 (fully transparent) and α=255 (fully opaque)
+- Inline blending functions for performance
+- Minimal branching in hot loops
+
+**Formula (Porter-Duff "over" operator):**
+
+For `renderWithAlphaToBg()` (background opaque):
+```
+C_out = (C_fg × α_fg + C_bg × (255 - α_fg)) / 255
+```
+
+For `renderWithAlpha()` (variable background):
+```
+α_out = α_fg + α_bg × (255 - α_fg) / 255
+C_out = (C_fg × α_fg + C_bg × α_bg × (255 - α_fg) / 255) / α_out
+```
+
+### Code Example
+
+```zig
+const movy = @import("movy");
+
+// Create semi-transparent red sprite
+var sprite = try movy.RenderSurface.init(allocator, 20, 20, red);
+for (sprite.shadow_map) |*alpha| {
+    alpha.* = 128;  // 50% opacity
+}
+
+// Blend onto opaque background
+var surfaces = [_]*movy.RenderSurface{sprite};
+movy.render.RenderEngine.renderWithAlphaToBg(&surfaces, output);
+
+// Result: Dark red (128, 0, 0) from 50% blend
+```
+
+See `examples/alpha_blending.zig` for a complete working example.
+
+---
+
+## Documentation Overhaul
+
+The documentation has been completely restructured:
+
+### 1. Guides (`doc/`)
+
+In-depth documentation on core concepts:
+
+- **[RenderSurface.md](./doc/RenderSurface.md)** (~520 lines)
+  - Creating surfaces with `init()` and `createFromPng()`
+  - Understanding color_map, shadow_map, char_map
+  - Text rendering with `putStrXY()` and `putUtf8XY()`
+  - **Critical detail:** Text must be on even y-coordinates
+  - Integration with Screen
+
+- **[RenderEngine.md](./doc/RenderEngine.md)** (~580 lines)
+  - All rendering functions explained
+  - When to use each render mode
+  - Alpha blending mathematics
+  - Performance considerations
+  - Decision trees for choosing functions
+
+### 2. Examples (`examples/`)
+
+Four focused code examples demonstrating specific features:
+
+| Example | Demonstrates | Run Command |
+|---------|--------------|-------------|
+| `basic_surface.zig` | Surface creation, text rendering, Unicode | `zig build run-basic_surface` |
+| `alpha_blending.zig` | 50% transparent sprite with Porter-Duff | `zig build run-alpha_blending` |
+| `layered_scene.zig` | Multi-layer composition with z-ordering | `zig build run-layered_scene` |
+| `png_loader.zig` | Loading PNG files with alpha channels | `zig build run-png_loader` |
+
+Each example is ~70-110 lines, commented, and runnable.
+
+### 3. Demos (`demos/`)
+
+Complete working programs showing real-world usage:
+
+- **stars.zig** - Animated starfield with 60 FPS control
+- **simple_game.zig** - Game starter template
+- **mouse_demo.zig** - Interactive input with UI Manager
+- **win_demo.zig** - Multiple windows with themes
+- **mplayer.zig** - Video playback (requires `-Dvideo=true`)
+
+See **[demos/README.md](./demos/README.md)** for detailed descriptions.
+
+### Legacy Examples
+
+Previous examples moved to `examples/legacy/` to maintain compatibility:
+- sprite_frame_animation, keyboard, mouse, keyboard_mouse
+- sprite_fade, sprite_fade_chain, sprite_fade_chain_pipeline
+- render_effect_chain, index_animator_print_idx
+
+Run with: `zig build run-legacy-{name}`
+
+---
+
+## Testing Infrastructure
+
+New testing system for render engine validation:
+
+### Test Coverage
+
+**7 comprehensive test blocks** in `RenderEngine.zig`:
+
+1. **Binary transparency** - Legacy render() mode
+2. **Alpha compositing (general)** - renderWithAlpha() validation
+3. **Alpha compositing (to background)** - renderWithAlphaToBg() optimization
+4. **Edge cases** - Zero alpha, full alpha, empty inputs
+5. **Z-ordering** - Correct layering with alpha blending
+6. **Porter-Duff formula** - Mathematical correctness
+7. **Performance characteristics** - Fast path verification
+
+### Running Tests
+
+```bash
+zig build test
+```
+
+Tests verify:
+- Correct color blending at various opacity levels
+- Fast path optimizations (α=0, α=255)
+- Edge case handling
+- Z-index ordering with transparency
+- Mathematical accuracy of Porter-Duff formula
+
+---
+
+## Build System & PNG Loading
+
+### Video Support Parameter
+
+Build system now accepts `-Dvideo=true` for FFmpeg integration:
+
+```bash
+zig build              # Core movy only
+zig build -Dvideo=true # Include movy_video (requires FFmpeg/SDL2)
+```
+
+### PNG Alpha Channel Loading
+
+`RenderSurface.createFromPng()` now correctly loads alpha channels:
+
+- Reads RGBA32 PNG data via lodepng
+- Automatically populates `shadow_map` with alpha values (0-255)
+- Enables direct use of PNG transparency in movy
+
+**Before:**
+- Alpha channel was ignored or incorrectly loaded
+
+**After:**
+- Alpha values directly mapped to shadow_map
+- PNG transparency "just works"
+
+---
+
+## Performance Considerations
+
+### Rendering Mode Comparison
+
+| Mode | Use Case | Performance | Alpha Support |
+|------|----------|-------------|---------------|
+| `render()` | Legacy binary transparency | **Fastest** | Binary (0 or 255) |
+| `renderWithAlphaToBg()` | Standard alpha blending | Fast | Full (0-255) |
+| `renderWithAlpha()` | Complex compositing | Moderate | Full (0-255) |
+
+### When to Use Each Function
+
+**Use `render()` when:**
+- You don't need semi-transparency
+- Performance is critical
+- Working with opaque sprites only
+
+**Use `renderWithAlphaToBg()` when:**
+- You need fade effects
+- Working with semi-transparent sprites
+- Background is opaque (most common case)
+
+**Use `renderWithAlpha()` when:**
+- Pre-compositing surfaces
+- Background itself is semi-transparent
+- Building complex multi-pass pipelines
+
+### Performance Notes
+
+- Alpha blending adds minimal overhead for opaque pixels (α=255 fast path)
+- Fully transparent pixels (α=0) are skipped entirely
+- Integer math ensures predictable performance (no floating-point overhead)
+- Type widening to u32 prevents overflow without branches
+
+---
+
+## Migration Guide
+
+### For New Projects
+
+Use `renderWithAlphaToBg()` for standard rendering:
+
+```zig
+var surfaces = [_]*movy.RenderSurface{ sprite1, sprite2 };
+movy.render.RenderEngine.renderWithAlphaToBg(&surfaces, output);
+```
+
+### For Existing Projects
+
+**No breaking changes** - existing code continues to work:
+
+- Legacy `render()` function unchanged
+- Binary transparency still available
+- `renderOver()` and other functions unaffected
+
+**To add alpha blending:**
+
+1. Switch from `render()` to `renderWithAlphaToBg()`
+2. Set `shadow_map` values for transparency:
+   ```zig
+   for (sprite.shadow_map) |*alpha| {
+       alpha.* = 128;  // 50% opacity
+   }
+   ```
+
+### Example: Adding Fade Effect
+
+**Before (binary transparency):**
+```zig
+screen.render();  // Uses RenderEngine.render() internally
+```
+
+**After (with fade effect):**
+```zig
+// Set opacity on your sprites
+sprite.shadow_map[i] = fade_alpha;  // 0-255
+
+// Use alpha-aware rendering
+var surfaces = [_]*movy.RenderSurface{sprite};
+movy.render.RenderEngine.renderWithAlphaToBg(&surfaces, screen.output_surface);
+```
+
+---
+
+## API Changes
+
+### New Public Functions
+
+**`RenderEngine`** (`src/render/RenderEngine.zig`):
+- `renderWithAlphaToBg()` - Alpha blending for opaque backgrounds
+- `renderWithAlpha()` - Full Porter-Duff compositing
+
+### New Private Helper Functions
+
+**Inline blending functions** (internal use only):
+- `blendChannelGeneral()` - General Porter-Duff channel blend
+- `blendPixelGeneral()` - RGB pixel blend with variable background alpha
+- `blendChannelToBg()` - Optimized blend to opaque background
+- `blendPixelToBg()` - Optimized RGB blend to opaque background
+
+### Documentation Updates
+
+Added **58-line professional doc comment** to `RenderEngine` struct explaining:
+- Purpose of each render function
+- When to use which mode
+- Performance characteristics
+- Alpha blending behavior
+
+---
+
+## File Changes Summary
+
+### New Files
+
+**Documentation:**
+- `doc/README.md` - Documentation index
+- `doc/RenderSurface.md` - RenderSurface guide (~520 lines)
+- `doc/RenderEngine.md` - RenderEngine guide (~580 lines)
+- `demos/README.md` - Demos catalog with descriptions
+
+**Examples:**
+- `examples/basic_surface.zig` - Surface basics
+- `examples/alpha_blending.zig` - Alpha compositing demo
+- `examples/layered_scene.zig` - Multi-layer z-ordering
+- `examples/png_loader.zig` - PNG loading workflow
+
+**Demos:**
+- `demos/stars.zig` - Starfield with 60 FPS control
+- `demos/StarField.zig` - Reusable starfield module
+
+### Modified Files
+
+**Core:**
+- `src/render/RenderEngine.zig` - Added alpha blending functions and tests
+- `src/core/RenderSurface.zig` - Fixed PNG alpha channel loading (createFromPng)
+
+**Build System:**
+- `build.zig` - Updated for new examples, tests, and video parameter
+- Added test infrastructure with `zig build test`
+
+**Documentation:**
+- `README.md` - Updated Docs section and RenderEngine description
+
+### Moved Files
+
+**Legacy Examples** → `examples/legacy/`:
+- All 9 previous examples preserved with new run commands
+- Run with: `zig build run-legacy-{name}`
+
+**Video Demo** → `demos/`:
+- `mplayer.zig` moved from examples/ to demos/
+- Run with: `zig build -Dvideo=true run-demo-mplayer`
+
+---
+
 ## v0.1.0
 
 # Performance Optimization - movy v0.1.0
