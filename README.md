@@ -28,7 +28,7 @@ The result is a **modular visual engine** — expressive, composable, and built 
 (window demo)
 
 ![Sequence_600](https://github.com/user-attachments/assets/a151f672-0bbf-4601-905f-1e1584be95fc)  
-(alpha blending demo)
+(alpha blending demo - [blender_demo.zig](./demos/blender_demo.zig))
 
 ## Made with movy
 
