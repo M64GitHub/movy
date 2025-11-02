@@ -65,6 +65,32 @@ pub fn renderWithAlpha(
 
 **Performance:** Slightly slower due to full Porter-Duff formula with variable background alpha.
 
+#### 3. `screen.renderAlpha()` - Convenience Method
+
+High-level rendering function added to `Screen`:
+
+```zig
+pub fn renderAlpha(self: *Screen) void
+```
+
+**What it does:**
+- Calls `RenderEngine.renderWithAlphaToBg()` internally
+- Composites all added surfaces with alpha blending
+- Uses the screen's output surface as background
+
+**When to use:**
+- Standard application rendering with transparency
+- Simplifies the common workflow of adding surfaces and rendering with alpha
+- Recommended for most use cases requiring transparency
+
+**Example:**
+```zig
+try screen.renderInit();
+try screen.addRenderSurface(allocator, sprite_surface);
+screen.renderAlpha();  // Composite with alpha blending
+try screen.output();
+```
+
 ### Technical Implementation
 
 **Alpha Mode:** Straight (non-premultiplied) alpha
