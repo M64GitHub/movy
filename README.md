@@ -52,7 +52,7 @@ At its heart, **movy** is built on composable rendering, effect-driven visuals, 
 
 - **RenderPipeline** processes a list of `RenderObject`s. Each object's effect chain (if present) is run, and their results are composited using the **RenderEngine**. Optionally, a final post-processing chain can be applied to the merged result.
 
-- **RenderEngine** performs the actual surface merge. It composites multiple `RenderSurface`s into a single output, applying z-ordering, pixel blending, and visibility logic. This is used by the pipeline, UI system, and manual rendering flows.
+- **RenderEngine** performs the actual surface merge. It composites multiple `RenderSurface`s into a single output, applying z-ordering and visibility logic. It supports multiple blending modes: binary transparency for performance-critical rendering, and full Porter-Duff alpha compositing for true semi-transparent effects. This is used by the pipeline, UI system, and manual rendering flows.
 
 - **Screen** holds the final output surface. Manually, it allows you to add `RenderSurface`s or `Sprite`s directly and call `screen.render()` to composite them using the **RenderEngine**. Alternatively, its output surface can be rendered by the **RenderPipeline** or the **UI Manager**. Finally, `screen.output()` prints the result to the terminal using ANSI escape sequences.
 
@@ -100,9 +100,13 @@ zig build -Dvideo=true # build full movy incl movy_video, requires ffmpeg
 ```
 ## Docs
 
-Please see the [doc](./doc) folder for comprehensive guides and descriptions!
+**movy** provides comprehensive learning resources organized in three tiers:
 
-You can use [demos/simple_game.zig](./demos/simple_game.zig) as a starter / template.
+- **[Guides](./doc/README.md)** — In-depth documentation on core concepts like RenderSurface and RenderEngine, written for developers new to movy
+- **[Examples](./examples/)** — Focused code examples demonstrating specific features (alpha blending, PNG loading, layered scenes)
+- **[Demos](./demos/README.md)** — Complete working programs showcasing visual effects, animations, and interaction
+
+Start with [simple_game.zig](./demos/simple_game.zig) as a game starter template, or explore [stars.zig](./demos/stars.zig) to learn framerate control and animation.
 
 ## Showcase: Built with movy
 
@@ -124,7 +128,7 @@ Whether it's a game, a demo, an effect, or a tool — if it glows in the termina
 ## Performance Suite
 <img width="895" height="423" alt="image" src="https://github.com/user-attachments/assets/e233388d-b858-4c41-8c63-d2639f594f1e" />
 
-New since `v0.0.4`! Want to measure rendering performance and track optimizations? The integrated performance suite benchmarks ANSI conversion, sprite rendering, and the full pipeline across different sizes and configurations.
+The integrated performance suite benchmarks ANSI conversion, sprite rendering, and the full pipeline across different sizes and configurations.
 
 ```bash
 zig build perf-runner
