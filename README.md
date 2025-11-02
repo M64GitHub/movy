@@ -98,15 +98,17 @@ The module uses the modern FFmpeg channel layout API (`AVChannelLayout`) and is 
 zig build              # build without ffmpeg dependencies, movy_video
 zig build -Dvideo=true # build full movy incl movy_video, requires ffmpeg
 ```
-## Docs
+## Documentation
 
-**movy** provides comprehensive learning resources organized in three tiers:
+**movy** will provide comprehensive learning resources organized in three tiers:
 
 - **[Guides](./doc/README.md)** — In-depth documentation on core concepts like RenderSurface and RenderEngine, written for developers new to movy
 - **[Examples](./examples/)** — Focused code examples demonstrating specific features (alpha blending, PNG loading, layered scenes)
 - **[Demos](./demos/README.md)** — Complete working programs showcasing visual effects, animations, and interaction
 
-Start with [simple_game.zig](./demos/simple_game.zig) as a game starter template, or explore [stars.zig](./demos/stars.zig) to learn framerate control and animation.
+Start with [simple_game.zig](./demos/simple_game.zig) as a game starter template, or explore [stars.zig](./demos/stars.zig) to learn framerate control and animation.  
+
+The sections are being updated frequently.
 
 ## Showcase: Built with movy
 
