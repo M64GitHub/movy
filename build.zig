@@ -34,8 +34,20 @@ pub fn build(b: *std.Build) void {
     lib.linkLibC();
     b.installArtifact(lib);
 
-    // -- Examples
-    const examples = [_][]const u8{
+    // -- Tests
+    // Create test artifact using the movy module
+    const lib_unit_tests = b.addTest(.{
+        .root_module = movy_mod,
+    });
+    lib_unit_tests.linkLibC();
+
+    const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
+
+    const test_step = b.step("test", "Run unit tests");
+    test_step.dependOn(&run_lib_unit_tests.step);
+
+    // -- Legacy Examples (moved to examples/legacy/)
+    const legacy_examples = [_][]const u8{
         "sprite_frame_animation",
         "index_animator_print_idx",
         "keyboard",
@@ -47,10 +59,10 @@ pub fn build(b: *std.Build) void {
         "render_effect_chain",
     };
 
-    for (examples) |name| {
-        // Create module for example
-        const example_mod = b.addModule(b.fmt("example_{s}", .{name}), .{
-            .root_source_file = b.path(b.fmt("examples/{s}.zig", .{name})),
+    for (legacy_examples) |name| {
+        // Create module for legacy example
+        const example_mod = b.addModule(b.fmt("legacy_example_{s}", .{name}), .{
+            .root_source_file = b.path(b.fmt("examples/legacy/{s}.zig", .{name})),
             .target = target,
             .optimize = optimize,
         });
@@ -67,10 +79,13 @@ pub fn build(b: *std.Build) void {
         run_example.step.dependOn(b.getInstallStep());
         if (b.args) |args| run_example.addArgs(args);
         b.step(
-            b.fmt("run-{s}", .{name}),
-            b.fmt("Run example: {s}", .{name}),
+            b.fmt("run-legacy-{s}", .{name}),
+            b.fmt("Run legacy example: {s}", .{name}),
         ).dependOn(&run_example.step);
     }
+
+    // -- Examples
+    // New examples will be added here
 
     // -- Demos
     const demos = [_][]const u8{
