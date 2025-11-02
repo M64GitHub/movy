@@ -642,7 +642,7 @@ B = (0 × 128 + 255 × 127) / 255 = 32385 / 255 ≈ 127
 - **Yes** → Continue...
 
 **Are you rendering onto an opaque background?**
-- **Yes** → Use `renderWithAlphaToBg()` ⭐ **(RECOMMENDED)**
+- **Yes** → Use `renderWithAlphaToBg()` **(RECOMMENDED)**
 - **No (both fg and bg can be semi-transparent)** → Use `renderWithAlpha()`
 
 **Special cases:**
@@ -658,12 +658,12 @@ B = (0 × 128 + 255 × 127) / 255 = 32385 / 255 ≈ 127
 
 | Function | Alpha Blending | Performance | Use Case |
 |----------|---------------|-------------|----------|
-| `render()` | No (binary) | ⚡⚡⚡ Fastest | Simple sprites |
-| `renderWithAlphaToBg()` ⭐ | Yes (optimized) | ⚡⚡ Fast | Standard rendering |
-| `renderWithAlpha()` | Yes (complete) | ⚡ Slower | Pre-compositing |
-| `renderOver()` | No (binary) | ⚡⚡ Fast | Force overwrite |
-| `renderSurfaceOver()` | No (binary) | ⚡⚡⚡ Fastest | Single surface |
-| `renderComposite()` | No (binary) | ⚡⚡ Fast | Aligned layers |
+| `render()` | No (binary) |  Fastest | Simple sprites |
+| `renderWithAlphaToBg()`  | Yes (optimized) |  Fast | Standard rendering |
+| `renderWithAlpha()` | Yes (complete) |  Slower | Pre-compositing |
+| `renderOver()` | No (binary) | Fast | Force overwrite |
+| `renderSurfaceOver()` | No (binary) |  Fastest | Single surface |
+| `renderComposite()` | No (binary) |  Fast | Aligned layers |
 
 ### Common Code Snippets
 
