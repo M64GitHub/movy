@@ -34,8 +34,20 @@ pub fn build(b: *std.Build) void {
     lib.linkLibC();
     b.installArtifact(lib);
 
-    // -- Examples
-    const examples = [_][]const u8{
+    // -- Tests
+    // Create test artifact using the movy module
+    const lib_unit_tests = b.addTest(.{
+        .root_module = movy_mod,
+    });
+    lib_unit_tests.linkLibC();
+
+    const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
+
+    const test_step = b.step("test", "Run unit tests");
+    test_step.dependOn(&run_lib_unit_tests.step);
+
+    // -- Legacy Examples (moved to examples/legacy/)
+    const legacy_examples = [_][]const u8{
         "sprite_frame_animation",
         "index_animator_print_idx",
         "keyboard",
@@ -45,6 +57,39 @@ pub fn build(b: *std.Build) void {
         "sprite_fade_chain",
         "sprite_fade_chain_pipeline",
         "render_effect_chain",
+    };
+
+    for (legacy_examples) |name| {
+        // Create module for legacy example
+        const example_mod = b.addModule(b.fmt("legacy_example_{s}", .{name}), .{
+            .root_source_file = b.path(b.fmt("examples/legacy/{s}.zig", .{name})),
+            .target = target,
+            .optimize = optimize,
+        });
+        example_mod.addImport("movy", movy_mod);
+
+        const example_exe = b.addExecutable(.{
+            .name = name,
+            .root_module = example_mod,
+        });
+        b.installArtifact(example_exe);
+
+        // Add run step
+        const run_example = b.addRunArtifact(example_exe);
+        run_example.step.dependOn(b.getInstallStep());
+        if (b.args) |args| run_example.addArgs(args);
+        b.step(
+            b.fmt("run-legacy-{s}", .{name}),
+            b.fmt("Run legacy example: {s}", .{name}),
+        ).dependOn(&run_example.step);
+    }
+
+    // -- Examples
+    const examples = [_][]const u8{
+        "basic_surface",
+        "alpha_blending",
+        "layered_scene",
+        "png_loader",
     };
 
     for (examples) |name| {
@@ -77,6 +122,7 @@ pub fn build(b: *std.Build) void {
         "mouse_demo",
         "win_demo",
         "simple_game",
+        "stars",
     };
 
     for (demos) |name| {
@@ -277,15 +323,15 @@ pub fn build(b: *std.Build) void {
         // link SDL2
         movy_video_mod.linkSystemLibrary("SDL2", .{});
 
-        // Executables for movy_video
+        // Executables for movy_video (in demos/)
         const names = [_][]const u8{
             "mplayer",
         };
 
         for (names) |name| {
-            // Create module for ffmpeg example
+            // Create module for ffmpeg demo
             const ffmpeg_mod = b.addModule(b.fmt("ffmpeg_{s}", .{name}), .{
-                .root_source_file = b.path(b.fmt("examples/{s}.zig", .{name})),
+                .root_source_file = b.path(b.fmt("demos/{s}.zig", .{name})),
                 .target = target,
                 .optimize = optimize,
             });
@@ -303,8 +349,8 @@ pub fn build(b: *std.Build) void {
             run_ffmpeg.step.dependOn(b.getInstallStep());
             if (b.args) |args| run_ffmpeg.addArgs(args);
             b.step(
-                b.fmt("run-{s}", .{name}),
-                b.fmt("Run {s}", .{name}),
+                b.fmt("run-demo-{s}", .{name}),
+                b.fmt("Run demo: {s}", .{name}),
             ).dependOn(&run_ffmpeg.step);
         }
     }

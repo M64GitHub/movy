@@ -186,7 +186,11 @@ pub fn main() !void {
     ));
 
     // allocate raw buffer
-    const rgb_buf = try allocator.alignedAlloc(u8, std.mem.Alignment.@"32", rgb_buf_size);
+    const rgb_buf = try allocator.alignedAlloc(
+        u8,
+        std.mem.Alignment.@"32",
+        rgb_buf_size,
+    );
     defer allocator.free(rgb_buf);
 
     _ = c.av_image_fill_arrays(
@@ -311,7 +315,8 @@ pub fn main() !void {
                     const now = std.time.nanoTimestamp();
                     const delay = now - last_frame_time;
                     if (delay < frame_duration_ns) {
-                        const ns: u64 = @as(u64, @intCast(frame_duration_ns - delay));
+                        const ns: u64 =
+                            @as(u64, @intCast(frame_duration_ns - delay));
                         std.Thread.sleep(ns);
                     }
 
