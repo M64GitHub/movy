@@ -483,7 +483,7 @@ screen.bg_color = movy.core.types.Rgb{ .r = 0x20, .g = 0x20, .b = 0x20 };  // Da
 
 ---
 
-## Complete Example: Animated Text and Graphics
+## Complete Example: Text and Graphics
 
 ```zig
 const std = @import("std");
@@ -552,10 +552,10 @@ pub fn main() !void {
 
 ### Important Reminders
 
-- ✓ Always `defer surface.deinit(allocator);` after creation
-- ✓ Text must be on **even y coordinates** (0, 2, 4, 6, ...)
-- ✓ Height (`h`) is in **pixel rows**, not terminal lines (divide by 2 for lines)
-- ✓ Higher `z` values render on top
-- ✓ shadow_map: 0 = transparent, 255 = opaque
+- Always `defer surface.deinit(allocator);` after creation
+- Text must be on **even y coordinates** (0, 2, 4, 6, ...)
+- Height (`h`) is in **pixel rows**, not terminal lines (divide by 2 for lines)
+- Higher `z` values render on top
+- shadow_map: 0 = transparent, 255 = opaque
 
 Happy rendering!

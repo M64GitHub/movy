@@ -134,13 +134,16 @@ pub const RenderEngine = struct {
                     if (out_x < 0 or out_x >= out_w_i32) continue;
 
                     // Use pre-computed row offset
-                    const idx_out = out_row_offset + @as(usize, @intCast(out_x));
+                    const idx_out =
+                        out_row_offset + @as(usize, @intCast(out_x));
 
                     // Only write if destination is not already occupied
                     if (out_surface.shadow_map[idx_out] != 1) {
-                        out_surface.color_map[idx_out] = surface_in.color_map[idx_in];
+                        out_surface.color_map[idx_out] =
+                            surface_in.color_map[idx_in];
                         out_surface.shadow_map[idx_out] = 1;
-                        out_surface.char_map[idx_out] = surface_in.char_map[idx_in];
+                        out_surface.char_map[idx_out] =
+                            surface_in.char_map[idx_in];
                     }
                 }
             }
@@ -644,9 +647,12 @@ pub const RenderEngine = struct {
         const alpha_out = @as(u8, @intCast(alpha_out_scaled / 255));
 
         // Blend each color channel
-        const r_out = blendChannelGeneral(fg.r, a_fg, bg.r, a_bg, inv_a_fg, alpha_out);
-        const g_out = blendChannelGeneral(fg.g, a_fg, bg.g, a_bg, inv_a_fg, alpha_out);
-        const b_out = blendChannelGeneral(fg.b, a_fg, bg.b, a_bg, inv_a_fg, alpha_out);
+        const r_out =
+            blendChannelGeneral(fg.r, a_fg, bg.r, a_bg, inv_a_fg, alpha_out);
+        const g_out =
+            blendChannelGeneral(fg.g, a_fg, bg.g, a_bg, inv_a_fg, alpha_out);
+        const b_out =
+            blendChannelGeneral(fg.b, a_fg, bg.b, a_bg, inv_a_fg, alpha_out);
 
         return movy.core.types.Rgb{ .r = r_out, .g = g_out, .b = b_out };
     }

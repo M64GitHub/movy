@@ -85,13 +85,44 @@ pub fn build(b: *std.Build) void {
     }
 
     // -- Examples
-    // New examples will be added here
+    const examples = [_][]const u8{
+        "basic_surface",
+        "alpha_blending",
+        "layered_scene",
+        "png_loader",
+    };
+
+    for (examples) |name| {
+        // Create module for example
+        const example_mod = b.addModule(b.fmt("example_{s}", .{name}), .{
+            .root_source_file = b.path(b.fmt("examples/{s}.zig", .{name})),
+            .target = target,
+            .optimize = optimize,
+        });
+        example_mod.addImport("movy", movy_mod);
+
+        const example_exe = b.addExecutable(.{
+            .name = name,
+            .root_module = example_mod,
+        });
+        b.installArtifact(example_exe);
+
+        // Add run step
+        const run_example = b.addRunArtifact(example_exe);
+        run_example.step.dependOn(b.getInstallStep());
+        if (b.args) |args| run_example.addArgs(args);
+        b.step(
+            b.fmt("run-{s}", .{name}),
+            b.fmt("Run example: {s}", .{name}),
+        ).dependOn(&run_example.step);
+    }
 
     // -- Demos
     const demos = [_][]const u8{
         "mouse_demo",
         "win_demo",
         "simple_game",
+        "stars",
     };
 
     for (demos) |name| {
@@ -292,15 +323,15 @@ pub fn build(b: *std.Build) void {
         // link SDL2
         movy_video_mod.linkSystemLibrary("SDL2", .{});
 
-        // Executables for movy_video
+        // Executables for movy_video (in demos/)
         const names = [_][]const u8{
             "mplayer",
         };
 
         for (names) |name| {
-            // Create module for ffmpeg example
+            // Create module for ffmpeg demo
             const ffmpeg_mod = b.addModule(b.fmt("ffmpeg_{s}", .{name}), .{
-                .root_source_file = b.path(b.fmt("examples/{s}.zig", .{name})),
+                .root_source_file = b.path(b.fmt("demos/{s}.zig", .{name})),
                 .target = target,
                 .optimize = optimize,
             });
@@ -318,8 +349,8 @@ pub fn build(b: *std.Build) void {
             run_ffmpeg.step.dependOn(b.getInstallStep());
             if (b.args) |args| run_ffmpeg.addArgs(args);
             b.step(
-                b.fmt("run-{s}", .{name}),
-                b.fmt("Run {s}", .{name}),
+                b.fmt("run-demo-{s}", .{name}),
+                b.fmt("Run demo: {s}", .{name}),
             ).dependOn(&run_ffmpeg.step);
         }
     }
