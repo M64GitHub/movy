@@ -120,7 +120,7 @@ zig build test
 - **[Examples](./examples/)** — Focused code examples demonstrating specific features (alpha blending, PNG loading, layered scenes)
 - **[Demos](./demos/README.md)** — Complete working programs showcasing visual effects, animations, and interaction
 
-Start with [simple_game.zig](./demos/simple_game.zig) as a game starter template, or explore [stars.zig](./demos/stars.zig) to learn framerate control and animation.  
+Start with [simple_game.zig](./demos/simple_game.zig) as a game starter template, and to learn framerate control and animation.  
 
 The sections are being updated frequently.
 
