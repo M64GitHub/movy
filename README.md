@@ -27,6 +27,9 @@ The result is a **modular visual engine** — expressive, composable, and built 
 ![win_demo](https://github.com/user-attachments/assets/4ceae31d-bbb1-4a2c-95d9-8bd09e2a513b)
 (window demo)
 
+![Sequence_600](https://github.com/user-attachments/assets/a151f672-0bbf-4601-905f-1e1584be95fc)  
+(alpha blending demo)
+
 ## Made with movy
 
 Check out games, demos, and tools built with movy in the **[Gallery](#showcase-built-with-movy)** below!
