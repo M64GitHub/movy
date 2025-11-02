@@ -729,7 +729,7 @@ pub const RenderSurface = struct {
             self.char_map[idx] = char;
             self.color_map[idx] = fg_color; // fg at y
             self.color_map[idx + self.w] = bg_color; // bg at y+1
-            self.shadow_map[idx] = 1;
+            self.shadow_map[idx] = 255;
         }
     }
 
@@ -753,7 +753,7 @@ pub const RenderSurface = struct {
             self.char_map[idx] = print_char;
             self.color_map[idx] = fg_color; // fg at y
             self.color_map[idx + self.w] = bg_color; // bg at y+1
-            self.shadow_map[idx] = 1;
+            self.shadow_map[idx] = 255;
         }
     }
 
@@ -790,7 +790,7 @@ pub const RenderSurface = struct {
                 self.char_map[idx] = char;
                 self.color_map[idx] = fg_color; // fg at y
                 self.color_map[idx + self.w] = bg_color; // bg at y+1
-                self.shadow_map[idx] = 1;
+                self.shadow_map[idx] = 255;
             }
             x += 1;
         }
@@ -840,7 +840,7 @@ pub const RenderSurface = struct {
                     self.char_map[idx] = char;
                     self.color_map[idx] = fg_color; // fg at y
                     self.color_map[idx + self.w] = bg_color; // bg at y+1
-                    self.shadow_map[idx] = 1;
+                    self.shadow_map[idx] = 255;
                 }
             }
             x += 1;
@@ -907,7 +907,7 @@ pub const RenderSurface = struct {
                 self.char_map[map_idx] = char;
                 self.color_map[map_idx] = fg; // fg at y
                 self.color_map[map_idx + self.w] = bg; // bg at y+1
-                self.shadow_map[map_idx] = 1;
+                self.shadow_map[map_idx] = 255;
             }
             x += 1;
             str_idx += 1;

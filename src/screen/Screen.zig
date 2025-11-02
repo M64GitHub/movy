@@ -126,6 +126,22 @@ pub const Screen = struct {
         );
     }
 
+    /// Merges down all elements into a final output surface with alpha blending
+    pub fn renderAlpha(self: *Screen) void {
+        if (self.output_surfaces.items.len == 0) return;
+
+        if (self.screen_mode == .transparent) {
+            self.output_surface.clearTransparent();
+        } else {
+            self.output_surface.clearColored(self.bg_color);
+        }
+
+        movy.render.RenderEngine.renderWithAlphaToBg(
+            self.output_surfaces.items,
+            self.output_surface,
+        );
+    }
+
     pub fn renderInit(self: *Screen) !void {
         self.output_surfaces.clearRetainingCapacity();
     }
