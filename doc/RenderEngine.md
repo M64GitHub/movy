@@ -174,9 +174,7 @@ pub fn main() !void {
     );
     defer output.deinit(allocator);
     // Ensure background is opaque
-    for (output.shadow_map) |*alpha| {
-        alpha.* = 255;
-    }
+    output.setAlpha(255); // make fully opaque (this is already the default after init)
 
     // Create a semi-transparent sprite
     var sprite = try movy.RenderSurface.init(
@@ -187,9 +185,8 @@ pub fn main() !void {
     );
     defer sprite.deinit(allocator);
     // Set to 50% transparent
-    for (sprite.shadow_map) |*alpha| {
-        alpha.* = 128;  // 50% opacity
-    }
+    sprite.setAlpha(128);  // 50% opacity
+    
     sprite.x = 10;
     sprite.y = 5;
     sprite.z = 1;
@@ -246,8 +243,7 @@ var overlay = try movy.RenderSurface.init(
 );
 defer overlay.deinit(allocator);
 // Make overlay semi-transparent
-for (overlay.shadow_map) |*alpha| {
-    alpha.* = 128;  // 50% opacity
+overlay.setAlpha(128);  // 50% opacity
 }
 
 // Create another semi-transparent layer
@@ -258,9 +254,8 @@ var effect = try movy.RenderSurface.init(
     movy.core.types.Rgb{ .r = 255, .g = 0, .b = 0 },
 );
 defer effect.deinit(allocator);
-for (effect.shadow_map) |*alpha| {
-    alpha.* = 128;  // 50% opacity
-}
+effect.setAlpha(128);  // 50% opacity
+
 effect.x = 10;
 effect.y = 5;
 effect.z = 1;
@@ -404,9 +399,8 @@ pub fn main() !void {
     );
     defer ui_overlay.deinit(allocator);
     // Make UI semi-transparent
-    for (ui_overlay.shadow_map) |*alpha| {
-        alpha.* = 192;  // 75% opacity
-    }
+    ui_overlay.setAlpha(192);  // 75% opacity
+    
     ui_overlay.y = 0;
     ui_overlay.z = 100;  // Top layer
 
@@ -506,10 +500,8 @@ movy.render.RenderEngine.renderWithAlphaToBg(&all_surfaces, output);
 var alpha: u8 = 0;
 while (alpha < 255) : (alpha += 5) {
     // Set sprite alpha
-    for (sprite.shadow_map) |*a| {
-        a.* = alpha;
-    }
-
+    sprite.setAlpha(alpha);
+    
     // Render frame
     try screen.renderInit();
     try screen.addRenderSurface(allocator, background);
@@ -541,9 +533,7 @@ var text_layer = try movy.RenderSurface.init(
 );
 defer text_layer.deinit(allocator);
 // Make text layer mostly transparent
-for (text_layer.shadow_map) |*alpha| {
-    alpha.* = 32;  // Very transparent background
-}
+text_layer.setAlpha(32);  // Very transparent background
 
 // Add text
 const white = movy.core.types.Rgb{ .r = 255, .g = 255, .b = 255 };
@@ -576,8 +566,7 @@ var effect_buffer = try movy.RenderSurface.init(
 defer effect_buffer.deinit(allocator);
 
 // Make buffer semi-transparent
-for (effect_buffer.shadow_map) |*alpha| {
-    alpha.* = 128;
+effect_buffer.setAlpha(128);
 }
 
 // Composite multiple layers into the effect buffer
@@ -658,12 +647,12 @@ B = (0 × 128 + 255 × 127) / 255 = 32385 / 255 ≈ 127
 
 | Function | Alpha Blending | Performance | Use Case |
 |----------|---------------|-------------|----------|
-| `render()` | No (binary) | ⚡⚡⚡ Fastest | Simple sprites |
-| `renderWithAlphaToBg()` ⭐ | Yes (optimized) | ⚡⚡ Fast | Standard rendering |
-| `renderWithAlpha()` | Yes (complete) | ⚡ Slower | Pre-compositing |
-| `renderOver()` | No (binary) | ⚡⚡ Fast | Force overwrite |
-| `renderSurfaceOver()` | No (binary) | ⚡⚡⚡ Fastest | Single surface |
-| `renderComposite()` | No (binary) | ⚡⚡ Fast | Aligned layers |
+| `render()` | No (binary) | Fastest | Simple sprites |
+| `renderWithAlphaToBg()`  | Yes (optimized) |  Fast | Standard rendering |
+| `renderWithAlpha()` | Yes (complete) |  Slower | Pre-compositing |
+| `renderOver()` | No (binary) |  Fast | Force overwrite |
+| `renderSurfaceOver()` | No (binary) |  Fastest | Single surface |
+| `renderComposite()` | No (binary) |  Fast | Aligned layers |
 
 ### Common Code Snippets
 
@@ -675,8 +664,7 @@ movy.render.RenderEngine.renderWithAlphaToBg(&surfaces, output);
 
 **Set alpha for transparency:**
 ```zig
-for (surface.shadow_map) |*alpha| {
-    alpha.* = 128;  // 50% transparent
+surface.setAlpha(128);  // 50% transparent
 }
 ```
 
