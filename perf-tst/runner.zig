@@ -25,7 +25,7 @@ fn printUsage() void {
         \\
         \\OPTIONS:
         \\  -tests <names>       Comma-separated test names to run (default: all)
-        \\                       Available: render_stable, toAnsi, render_stable_with_toAnsi
+        \\                       Available: alpha_comparison, render_stable, toAnsi, render_stable_with_toAnsi
         \\  -output_dir <path>   Base output directory (default: perf-results)
         \\  -suffix <timestamp>  Manual timestamp override (default: auto-generated)
         \\  -iterations <count>  Override iteration count for all tests (default: 100000)
@@ -112,6 +112,10 @@ pub fn main() !void {
 
     // Define all available tests
     const all_tests = [_]TestInfo{
+        .{
+            .name = "RenderEngine.alpha_comparison",
+            .executable = "perf-RenderEngine.alpha_comparison",
+        },
         .{
             .name = "RenderSurface.toAnsi",
             .executable = "perf-RenderSurface.toAnsi",

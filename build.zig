@@ -227,6 +227,7 @@ pub fn build(b: *std.Build) void {
     perf_html_generator_mod.addImport("json_writer", perf_json_writer_mod);
 
     const perf_tests = [_][]const u8{
+        "RenderEngine.alpha_comparison",
         "RenderEngine.render",
         "RenderSurface.toAnsi",
         "RenderEngine.render_with_toAnsi",

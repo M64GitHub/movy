@@ -223,6 +223,11 @@ function renderCharts(data, runInfo) {
     `;
     container.appendChild(header);
 
+    // IMPORTANT: Render alpha comparison charts FIRST
+    if (data['RenderEngine.alpha_comparison']) {
+        renderAlphaComparisonCharts(container, data['RenderEngine.alpha_comparison']);
+    }
+
     // Create charts for each test type
     if (data['RenderSurface.toAnsi']) {
         renderToAnsiCharts(container, data['RenderSurface.toAnsi']);
@@ -240,6 +245,203 @@ function renderCharts(data, runInfo) {
     if (Object.keys(data).length > 1) {
         renderComparisonChart(container, data);
     }
+}
+
+// ====================================================================
+// CHART: RenderEngine.alpha_comparison
+// ====================================================================
+
+function renderAlphaComparisonCharts(container, testData) {
+    const section = createChartSection(container, 'Alpha Blending Performance Comparison', 'pink');
+
+    // Parse measurement names to extract: method, size, surface_count
+    // Example: "render()_10x10_3surf" -> { method: "render()", size: "10x10", surfCount: 3 }
+    const parsed = testData.results.map(r => {
+        const parts = r.name.split('_');
+        return {
+            method: parts[0],
+            size: parts[1],
+            surfCount: parseInt(parts[2].replace('surf', '')),
+            data: r
+        };
+    });
+
+    // Group by surface count
+    const bySurfaceCount = {
+        3: parsed.filter(p => p.surfCount === 3),
+        5: parsed.filter(p => p.surfCount === 5),
+        10: parsed.filter(p => p.surfCount === 10)
+    };
+
+    // Color mapping for each method
+    const methodColors = {
+        'render()': { line: COLORS.cyan, fill: COLORS.cyanTransparent },
+        'renderWithAlphaToBg()': { line: COLORS.magenta, fill: COLORS.magentaTransparent },
+        'renderWithAlpha()': { line: COLORS.purple, fill: COLORS.purpleTransparent }
+    };
+
+    // Create one chart per surface count scenario
+    Object.keys(bySurfaceCount).forEach(surfCount => {
+        const data = bySurfaceCount[surfCount];
+        if (data.length === 0) return;
+
+        // Group by method
+        const byMethod = {};
+        data.forEach(item => {
+            if (!byMethod[item.method]) {
+                byMethod[item.method] = [];
+            }
+            byMethod[item.method].push(item);
+        });
+
+        // Sort by size (extract numeric part)
+        Object.keys(byMethod).forEach(method => {
+            byMethod[method].sort((a, b) => {
+                const aNum = parseInt(a.size.split('x')[0]);
+                const bNum = parseInt(b.size.split('x')[0]);
+                return aNum - bNum;
+            });
+        });
+
+        // Get unique sizes (sorted)
+        const sizes = [...new Set(data.map(d => d.size))].sort((a, b) => {
+            const aNum = parseInt(a.split('x')[0]);
+            const bNum = parseInt(b.split('x')[0]);
+            return aNum - bNum;
+        });
+
+        // Chart 1: Throughput Comparison (Line Chart)
+        const canvas1 = createCanvas(section, `alpha-throughput-${surfCount}surf`);
+        const ctx1 = canvas1.getContext('2d');
+
+        const datasets = Object.keys(byMethod).map(method => {
+            const methodData = byMethod[method];
+            const color = methodColors[method] || { line: COLORS.yellow, fill: COLORS.yellowTransparent };
+
+            return {
+                label: method,
+                data: sizes.map(size => {
+                    const item = methodData.find(d => d.size === size);
+                    return item ? item.data.megapixels_per_sec : null;
+                }),
+                borderColor: color.line,
+                backgroundColor: color.fill,
+                borderWidth: 3,
+                pointRadius: 6,
+                pointHoverRadius: 8,
+                pointBackgroundColor: color.line,
+                pointBorderColor: '#0a0e27',
+                pointBorderWidth: 2,
+                tension: 0.4,
+                fill: true,
+                spanGaps: false
+            };
+        });
+
+        currentCharts.push(new Chart(ctx1, {
+            type: 'line',
+            data: {
+                labels: sizes,
+                datasets: datasets
+            },
+            options: getSynthwaveChartOptions(`Surface Size (${surfCount} overlapping surfaces)`, 'MP/sec')
+        }));
+
+        // Chart 2: Time per Iteration Comparison (Grouped Bar Chart)
+        const canvas2 = createCanvas(section, `alpha-time-${surfCount}surf`);
+        const ctx2 = canvas2.getContext('2d');
+
+        const barDatasets = Object.keys(byMethod).map(method => {
+            const methodData = byMethod[method];
+            const color = methodColors[method] || { line: COLORS.yellow, fill: COLORS.yellowTransparent };
+
+            return {
+                label: method,
+                data: sizes.map(size => {
+                    const item = methodData.find(d => d.size === size);
+                    return item ? item.data.time_per_iter_us : null;
+                }),
+                backgroundColor: color.fill,
+                borderColor: color.line,
+                borderWidth: 2
+            };
+        });
+
+        currentCharts.push(new Chart(ctx2, {
+            type: 'bar',
+            data: {
+                labels: sizes,
+                datasets: barDatasets
+            },
+            options: getSynthwaveChartOptions(`Surface Size (${surfCount} overlapping surfaces)`, 'Time per Iteration (µs)')
+        }));
+    });
+
+    // Chart 3: Performance Ratio Chart (shows overhead of alpha blending)
+    // Only create if we have render() as baseline
+    const baselineData = parsed.filter(p => p.method === 'render()');
+    if (baselineData.length > 0) {
+        renderAlphaOverheadChart(section, parsed, baselineData);
+    }
+}
+
+function renderAlphaOverheadChart(section, allData, baselineData) {
+    const canvas = createCanvas(section, 'alpha-overhead');
+    const ctx = canvas.getContext('2d');
+
+    // Calculate overhead ratios for each surface count
+    const surfCounts = [3, 5, 10];
+    const methods = ['renderWithAlphaToBg()', 'renderWithAlpha()'];
+
+    const datasets = methods.map((method, idx) => {
+        const color = idx === 0 ? COLORS.magenta : COLORS.purple;
+        const colorTransparent = idx === 0 ? COLORS.magentaTransparent : COLORS.purpleTransparent;
+
+        return {
+            label: `${method} overhead`,
+            data: surfCounts.map(surfCount => {
+                // Find matching baseline and method data
+                const baseline = baselineData.find(b => b.surfCount === surfCount);
+                const methodItem = allData.find(d => d.method === method && d.surfCount === surfCount);
+
+                if (!baseline || !methodItem) return null;
+
+                // Calculate slowdown ratio (higher = slower)
+                const ratio = methodItem.data.time_per_iter_us / baseline.data.time_per_iter_us;
+                return (ratio - 1) * 100; // Convert to percentage overhead
+            }),
+            backgroundColor: colorTransparent,
+            borderColor: color,
+            borderWidth: 2
+        };
+    });
+
+    currentCharts.push(new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: surfCounts.map(c => `${c} surfaces`),
+            datasets: datasets
+        },
+        options: {
+            ...getSynthwaveChartOptions('Surface Count', 'Overhead vs render() (%)'),
+            plugins: {
+                ...getSynthwaveChartOptions('', '').plugins,
+                tooltip: {
+                    ...getSynthwaveChartOptions('', '').plugins.tooltip,
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            label += '+' + context.parsed.y.toFixed(1) + '%';
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    }));
 }
 
 // ====================================================================
