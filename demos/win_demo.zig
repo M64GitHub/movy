@@ -4,16 +4,13 @@ const movy = @import("movy");
 pub fn main() !void {
     const allocator = std.heap.page_allocator;
 
-    // Get the terminal size
     const terminal_size = try movy.terminal.getSize();
 
-    // Set raw mode, switch to alternate screen
     try movy.terminal.beginRawMode();
     defer movy.terminal.endRawMode();
     try movy.terminal.beginAlternateScreen();
     defer movy.terminal.endAlternateScreen();
 
-    // -- Initialize screen (height in line numbers)
     var screen = try movy.Screen.init(
         allocator,
         terminal_size.width,
@@ -23,17 +20,12 @@ pub fn main() !void {
     defer screen.deinit(allocator);
     screen.setScreenMode(movy.Screen.Mode.bgcolor);
 
-    // -- Sprites Setup: 2 logos loaded from PNG:
-    // m64 logo
     var sprite_m64_logo = try movy.graphic.Sprite.initFromPng(
         allocator,
         "demos/assets/m64logo.png",
         "sprite 1",
     );
-    // we dont defer .deinit() here, as sprite will be added to the manager,
-    // which keeps track, and destroys it on its .deinit().
 
-    // configure an outlineRotator effect
     var outline_rotator = movy.render.Effect.OutlineRotator{
         .start_x = 0,
         .start_y = 0,
@@ -41,32 +33,25 @@ pub fn main() !void {
     };
     var rotator_effect = outline_rotator.asEffect();
 
-    // movy logo
     var sprite_movy_logo = try movy.graphic.Sprite.initFromPng(
         allocator,
         "demos/assets/movy_100_transparent.png",
         "sprite 2",
     );
 
-    // -- Create a UI manager - owns and tracks all UI elements, sprites
     var manager = movy.ui.Manager.init(allocator, &screen);
     defer manager.deinit();
 
-    // -- Load default theme and style
     const theme = movy.ui.ColorTheme.initTokyoNightStorm();
     const style = movy.ui.Style.initNeoVim();
-    // apply theme background to screen, but darker
     screen.bg_color = movy.color.darker(theme.getColor(.BackgroundColor), 50);
 
-    // -- Position sprites (need manager to center)
     var spr_pos_m64 = manager.getCenterCoords(
         sprite_m64_logo.w,
         sprite_m64_logo.h,
     );
     spr_pos_m64.y += @divTrunc(spr_pos_m64.y, 2);
 
-    // set up sine movement
-    // 150 frames for a full cycle, amplitude little less than screen.w / 2
     var amplitude: i32 = @divTrunc(@as(i32, @intCast(screen.w)), 2);
     const amplitude_border: i32 = @divTrunc(@as(i32, @intCast(screen.w)), 8);
     amplitude = amplitude - amplitude_border;
@@ -84,9 +69,6 @@ pub fn main() !void {
         spr_pos_movy.y + @rem(spr_pos_movy.y, 2),
     );
 
-    // -- Add Textwindows
-    // Calculate centered window position for a 40x60 window
-    // This size will be used for all windows
     const window_w: usize = 50;
     const window_h: usize = 70;
 

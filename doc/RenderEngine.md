@@ -44,8 +44,8 @@ The RenderEngine sorts surfaces from highest to lowest z-index before rendering 
 When a surface extends beyond the boundaries of the output surface, the RenderEngine automatically clips it:
 
 ```zig
-// Output surface is 80×40
-// Source surface is at position (70, 0) with size 20×10
+// Output surface is 80*40
+// Source surface is at position (70, 0) with size 20*10
 // Result: Only the left 10 columns of the source will be visible
 ```
 
@@ -145,7 +145,7 @@ pub fn renderWithAlphaToBg(
 
 **Alpha blending formula (simplified):**
 ```
-output_color = (foreground_color × alpha + background_color × (255 - alpha)) / 255
+output_color = (foreground_color * alpha + background_color * (255 - alpha)) / 255
 ```
 
 **When to use:** **This should be your default choice for alpha blending!**
@@ -174,9 +174,7 @@ pub fn main() !void {
     );
     defer output.deinit(allocator);
     // Ensure background is opaque
-    for (output.shadow_map) |*alpha| {
-        alpha.* = 255;
-    }
+    output.setAlpha(255); // make fully opaque (this is already the default after init)
 
     // Create a semi-transparent sprite
     var sprite = try movy.RenderSurface.init(
@@ -187,9 +185,8 @@ pub fn main() !void {
     );
     defer sprite.deinit(allocator);
     // Set to 50% transparent
-    for (sprite.shadow_map) |*alpha| {
-        alpha.* = 128;  // 50% opacity
-    }
+    sprite.setAlpha(128);  // 50% opacity
+    
     sprite.x = 10;
     sprite.y = 5;
     sprite.z = 1;
@@ -246,8 +243,7 @@ var overlay = try movy.RenderSurface.init(
 );
 defer overlay.deinit(allocator);
 // Make overlay semi-transparent
-for (overlay.shadow_map) |*alpha| {
-    alpha.* = 128;  // 50% opacity
+overlay.setAlpha(128);  // 50% opacity
 }
 
 // Create another semi-transparent layer
@@ -258,9 +254,8 @@ var effect = try movy.RenderSurface.init(
     movy.core.types.Rgb{ .r = 255, .g = 0, .b = 0 },
 );
 defer effect.deinit(allocator);
-for (effect.shadow_map) |*alpha| {
-    alpha.* = 128;  // 50% opacity
-}
+effect.setAlpha(128);  // 50% opacity
+
 effect.x = 10;
 effect.y = 5;
 effect.z = 1;
@@ -404,9 +399,8 @@ pub fn main() !void {
     );
     defer ui_overlay.deinit(allocator);
     // Make UI semi-transparent
-    for (ui_overlay.shadow_map) |*alpha| {
-        alpha.* = 192;  // 75% opacity
-    }
+    ui_overlay.setAlpha(192);  // 75% opacity
+    
     ui_overlay.y = 0;
     ui_overlay.z = 100;  // Top layer
 
@@ -465,7 +459,7 @@ All alpha-related functions use **u8 values (0-255)**:
 Remember that movy uses half-block rendering:
 - `y` coordinates are in **terminal lines** (not pixels)
 - Each line displays **2 pixel rows** stacked vertically
-- Height calculations: `pixel_height = line_height × 2`
+- Height calculations: `pixel_height = line_height * 2`
 
 ---
 
@@ -506,10 +500,8 @@ movy.render.RenderEngine.renderWithAlphaToBg(&all_surfaces, output);
 var alpha: u8 = 0;
 while (alpha < 255) : (alpha += 5) {
     // Set sprite alpha
-    for (sprite.shadow_map) |*a| {
-        a.* = alpha;
-    }
-
+    sprite.setAlpha(alpha);
+    
     // Render frame
     try screen.renderInit();
     try screen.addRenderSurface(allocator, background);
@@ -541,9 +533,7 @@ var text_layer = try movy.RenderSurface.init(
 );
 defer text_layer.deinit(allocator);
 // Make text layer mostly transparent
-for (text_layer.shadow_map) |*alpha| {
-    alpha.* = 32;  // Very transparent background
-}
+text_layer.setAlpha(32);  // Very transparent background
 
 // Add text
 const white = movy.core.types.Rgb{ .r = 255, .g = 255, .b = 255 };
@@ -576,8 +566,7 @@ var effect_buffer = try movy.RenderSurface.init(
 defer effect_buffer.deinit(allocator);
 
 // Make buffer semi-transparent
-for (effect_buffer.shadow_map) |*alpha| {
-    alpha.* = 128;
+effect_buffer.setAlpha(128);
 }
 
 // Composite multiple layers into the effect buffer
@@ -614,9 +603,9 @@ Simple and fast, but no in-between states.
 
 ### True Alpha Blending (renderWithAlphaToBg())
 ```
-output_red = (fg_red × alpha + bg_red × (255 - alpha)) / 255
-output_green = (fg_green × alpha + bg_green × (255 - alpha)) / 255
-output_blue = (fg_blue × alpha + bg_blue × (255 - alpha)) / 255
+output_red = (fg_red * alpha + bg_red * (255 - alpha)) / 255
+output_green = (fg_green * alpha + bg_green * (255 - alpha)) / 255
+output_blue = (fg_blue * alpha + bg_blue * (255 - alpha)) / 255
 ```
 
 **Example:**
@@ -626,9 +615,9 @@ output_blue = (fg_blue × alpha + bg_blue × (255 - alpha)) / 255
 
 **Calculation:**
 ```
-R = (255 × 128 + 0 × 127) / 255 = 32640 / 255 = 128
-G = (0 × 128 + 0 × 127) / 255 = 0
-B = (0 × 128 + 255 × 127) / 255 = 32385 / 255 ≈ 127
+R = (255 * 128 + 0 * 127) / 255 = 32640 / 255 = 128
+G = (0 * 128 + 0 * 127) / 255 = 0
+B = (0 * 128 + 255 * 127) / 255 = 32385 / 255 ~= 127
 ```
 
 ---
@@ -638,17 +627,18 @@ B = (0 × 128 + 255 × 127) / 255 = 32385 / 255 ≈ 127
 ### Decision Tree
 
 **Do you need semi-transparent surfaces?**
-- **No** → Use `render()` (fastest)
-- **Yes** → Continue...
+- **No** -> Use `render()` (fastest)
+- **Yes** -> Continue...
 
 **Are you rendering onto an opaque background?**
-- **Yes** → Use `renderWithAlphaToBg()` **(RECOMMENDED)**
-- **No (both fg and bg can be semi-transparent)** → Use `renderWithAlpha()`
+
+- **Yes** -> Use `renderWithAlphaToBg()` **(RECOMMENDED)**
+- **No (both fg and bg can be semi-transparent)** -> Use `renderWithAlpha()`
 
 **Special cases:**
-- **Single surface only?** → Use `renderSurfaceOver()`
-- **All surfaces same size and aligned?** → Use `renderComposite()`
-- **Need to forcefully overwrite?** → Use `renderOver()`
+- **Single surface only?** -> Use `renderSurfaceOver()`
+- **All surfaces same size and aligned?** -> Use `renderComposite()`
+- **Need to forcefully overwrite?** -> Use `renderOver()`
 
 ---
 
@@ -658,10 +648,10 @@ B = (0 × 128 + 255 × 127) / 255 = 32385 / 255 ≈ 127
 
 | Function | Alpha Blending | Performance | Use Case |
 |----------|---------------|-------------|----------|
-| `render()` | No (binary) |  Fastest | Simple sprites |
+| `render()` | No (binary) | Fastest | Simple sprites |
 | `renderWithAlphaToBg()`  | Yes (optimized) |  Fast | Standard rendering |
 | `renderWithAlpha()` | Yes (complete) |  Slower | Pre-compositing |
-| `renderOver()` | No (binary) | Fast | Force overwrite |
+| `renderOver()` | No (binary) |  Fast | Force overwrite |
 | `renderSurfaceOver()` | No (binary) |  Fastest | Single surface |
 | `renderComposite()` | No (binary) |  Fast | Aligned layers |
 
@@ -675,8 +665,7 @@ movy.render.RenderEngine.renderWithAlphaToBg(&surfaces, output);
 
 **Set alpha for transparency:**
 ```zig
-for (surface.shadow_map) |*alpha| {
-    alpha.* = 128;  // 50% transparent
+surface.setAlpha(128);  // 50% transparent
 }
 ```
 

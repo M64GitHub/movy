@@ -4,16 +4,22 @@ const Error = movy.render.RenderEffectError;
 const RenderEffect = movy.render.RenderEffect;
 const SurfaceExpand = movy.render.Effect.SurfaceExpand;
 
+/// Darkens a surface by reducing RGB values over a duration.
+/// The darkening effect interpolates from 0 to `amount` percent over
+/// `duration` frames, starting at `start_frame`.
 pub const Darker = struct {
     surface_expand: ?SurfaceExpand = null,
     amount: u8 = 0,
     start_frame: usize = 0,
     duration: usize = 60,
 
+    /// Validates that amount is within 0-100 range.
     pub fn validate(self: *Darker) !void {
         if (self.amount > 100) return Error.InvalidValue;
     }
 
+    /// Applies darkening effect to the input surface.
+    /// Interpolates darkening amount based on current frame.
     pub fn run(
         self: *Darker,
         in_surface: *const movy.core.RenderSurface,
@@ -39,7 +45,7 @@ pub const Darker = struct {
         }
     }
 
-    /// Helper to wrap this effect into a RenderEffect.
+    /// Wraps this effect for use in rendering pipelines.
     pub fn asEffect(self: *Darker) RenderEffect {
         return RenderEffect.init(
             Darker,

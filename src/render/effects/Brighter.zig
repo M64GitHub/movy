@@ -4,16 +4,22 @@ const Error = movy.render.RenderEffectError;
 const RenderEffect = movy.render.RenderEffect;
 const SurfaceExpand = movy.render.Effect.SurfaceExpand;
 
+/// Brightens a surface by increasing RGB values over a duration.
+/// The brightening effect interpolates from 0 to `amount` percent over
+/// `duration` frames, starting at `start_frame`.
 pub const Brighter = struct {
     surface_expand: ?SurfaceExpand = null,
     amount: u8 = 0,
     start_frame: usize = 0,
     duration: usize = 60,
 
+    /// Validates that amount is within 0-100 range.
     pub fn validate(self: *Brighter) !void {
         if (self.amount > 100) return Error.InvalidValue;
     }
 
+    /// Applies brightening effect to the input surface.
+    /// Interpolates brightening amount based on current frame.
     pub fn run(
         self: *Brighter,
         in_surface: *const movy.core.RenderSurface,
@@ -39,7 +45,7 @@ pub const Brighter = struct {
         }
     }
 
-    /// Helper to wrap this effect into a RenderEffect.
+    /// Wraps this effect for use in rendering pipelines.
     pub fn asEffect(self: *Brighter) RenderEffect {
         return RenderEffect.init(
             Brighter,

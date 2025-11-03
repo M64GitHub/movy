@@ -113,13 +113,11 @@ pub fn parseAnsiPixel(str: [:0]const u8, pos: usize) !ParseResult {
                 };
             }
         }
-        try stdout.print(
-            "[parseAnsiPixel()] ERROR: incomplete double pixel at pos " ++
-                "{}, idx = " ++
-                "{}, next 20 bytes: " ++
-                "{x}\n",
-            .{ pos, idx, str[idx..@min(idx + 20, str.len)] },
-        );
+        // try stdout.print(
+        //     "[parseAnsiPixel()] ERROR: incomplete double pixel at " ++
+        //         "pos {}, idx = {}, next 20 bytes: {x}\n",
+        //     .{ pos, idx, str[idx..@min(idx + 20, str.len)] },
+        // );
         return error.InvalidFormat;
     }
 
@@ -188,17 +186,18 @@ pub fn parseAnsiPixel(str: [:0]const u8, pos: usize) !ParseResult {
                 }
             }
         }
-        try stdout.print(
-            "[parseAnsiPixel()] ERROR: no block char after single pixel at" ++
-                " pos {}, idx = {}, next 20 bytes: {x}\n",
-            .{ pos, idx, str[idx..@min(idx + 20, str.len)] },
-        );
+        // try stdout.print(
+        //     "[parseAnsiPixel()] ERROR: no block char after single " ++
+        //         "pixel at pos {}, idx = {}, next 20 bytes: {x}\n",
+        //     .{ pos, idx, str[idx..@min(idx + 20, str.len)] },
+        // );
         return error.InvalidFormat;
     }
 
-    try stdout.print(
-        "[parseAnsiPixel()] ERROR: no match at pos {}, next 20 bytes: {x}\n",
-        .{ pos, str[pos..@min(pos + 20, str.len)] },
-    );
+    // try stdout.print(
+    //     "[parseAnsiPixel()] ERROR: no match at pos {}, " ++
+    //         "next 20 bytes: {x}\n",
+    //     .{ pos, str[pos..@min(pos + 20, str.len)] },
+    // );
     return error.InvalidFormat;
 }

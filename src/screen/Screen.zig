@@ -1,7 +1,9 @@
 const std = @import("std");
 const movy = @import("../movy.zig");
 
-/// Manages terminal display and renders attached elements like sprites.
+/// Terminal rendering canvas for compositing and displaying visual content.
+/// Manages sprites and render surfaces, composites them, and outputs to
+/// terminal using ANSI codes.
 pub const Screen = struct {
     w: usize = 0,
     h: usize = 0,
@@ -22,7 +24,7 @@ pub const Screen = struct {
         bgcolor,
     };
 
-    /// Initializes a new Screen with the given width and height in characters
+    /// Creates a Screen with the given dimensions (w, h in terminal chars).
     pub fn init(allocator: std.mem.Allocator, w: usize, h: usize) !Screen {
         var screen = Screen{
             .w = w,
@@ -48,7 +50,7 @@ pub const Screen = struct {
         return screen;
     }
 
-    /// Frees all resources allocated for the Screen
+    /// Frees all resources and restores terminal cursor visibility.
     pub fn deinit(self: *Screen, allocator: std.mem.Allocator) void {
         if (self.clr_line) |cl| allocator.free(cl);
         self.sprites.deinit(allocator);
@@ -58,27 +60,27 @@ pub const Screen = struct {
         movy.terminal.cursorOn();
     }
 
-    /// Adds a Sprite to the Screen for rendering its output_surface
+    /// Adds a sprite to be rendered (use with renderWithSprites).
     pub fn addSprite(self: *Screen, allocator: std.mem.Allocator, spr: *movy.graphic.Sprite) !void {
         try self.sprites.append(allocator, spr);
     }
 
-    /// Adds an output surface to the Screen for rendering
+    /// Adds a render surface for compositing in the next render call.
     pub fn addRenderSurface(self: *Screen, allocator: std.mem.Allocator, rs: *movy.core.RenderSurface) !void {
         try self.output_surfaces.append(allocator, rs);
     }
 
-    /// Returns the height of the Screen in half block characters
+    /// Returns height in pixels (double vertical resolution).
     pub fn height(self: Screen) usize {
         return self.h;
     }
 
-    /// Returns the width of the Screen in characters
+    /// Returns width in terminal characters.
     pub fn width(self: Screen) usize {
         return self.w;
     }
 
-    /// Sets the x and y coordinates of the Screen
+    /// Sets the screen position offset for rendering.
     pub fn setXY(self: *Screen, px: i32, py: i32) void {
         self.x = px;
         self.y = py;
@@ -88,7 +90,7 @@ pub const Screen = struct {
         }
     }
 
-    /// Clears the Screen with the background color
+    /// Clears the entire terminal screen with the background color.
     pub fn colorClear(self: *Screen, allocator: std.mem.Allocator) !void {
         if (self.clr_line == null) {
             var clr_line = try allocator.alloc(u8, @intCast(self.w + 2));
@@ -110,7 +112,7 @@ pub const Screen = struct {
         self.output_surface.clearColored(self.bg_color);
     }
 
-    /// Merges down all elements into a final output surface
+    /// Composites all added surfaces into the output surface.
     pub fn render(self: *Screen) void {
         if (self.output_surfaces.items.len == 0) return;
 
@@ -126,8 +128,8 @@ pub const Screen = struct {
         );
     }
 
-    /// Merges down all elements into a final output surface with alpha blending
-    pub fn renderAlpha(self: *Screen) void {
+    /// Composites all surfaces with alpha blending to background.
+    pub fn renderWithAlpha(self: *Screen) void {
         if (self.output_surfaces.items.len == 0) return;
 
         if (self.screen_mode == .transparent) {
@@ -142,11 +144,12 @@ pub const Screen = struct {
         );
     }
 
+    /// Clears the list of surfaces to render (call before adding surfaces).
     pub fn renderInit(self: *Screen) !void {
         self.output_surfaces.clearRetainingCapacity();
     }
 
-    // renders sprites and surfaces
+    /// Renders all added sprites and surfaces together.
     pub fn renderWithSprites(self: *Screen, allocator: std.mem.Allocator) !void {
         for (self.sprites.items) |sprite| {
             if (sprite.active_animation) |_| {
@@ -169,8 +172,7 @@ pub const Screen = struct {
         );
     }
 
-    /// Renders output_surfaces on top of current output_surface, without
-    /// clearing
+    /// Renders surfaces on top of existing output without clearing.
     pub fn renderOnTop(self: *Screen) void {
         if (self.output_surfaces.items.len == 0) return;
 
@@ -180,6 +182,7 @@ pub const Screen = struct {
         );
     }
 
+    /// Outputs the composited result to terminal as ANSI codes.
     pub fn output(self: *Screen) !void {
         movy.terminal.cursorHome();
         if (self.x > 0) movy.terminal.cursorRight(self.x);
@@ -197,8 +200,7 @@ pub const Screen = struct {
         self.screen_mode = m;
     }
 
-    /// Get the x and y position as for the topleft corner of a
-    /// rectangle (window, sprite, ...) of dimensions widht and height.
+    /// Returns centered position for a rectangle of given dimensions.
     pub fn getCenterCoords(
         self: *Screen,
         w: usize,

@@ -63,12 +63,12 @@ pub fn renderWithAlpha(
 
 **Performance:** Slightly slower due to full Porter-Duff formula with variable background alpha.
 
-#### 3. `screen.renderAlpha()` - Convenience Method
+#### 3. `screen.renderWithAlpha()` - Convenience Method
 
 High-level rendering function added to `Screen`:
 
 ```zig
-pub fn renderAlpha(self: *Screen) void
+pub fn renderWithAlpha(self: *Screen) void
 ```
 
 **What it does:**
@@ -85,7 +85,7 @@ pub fn renderAlpha(self: *Screen) void
 ```zig
 try screen.renderInit();
 try screen.addRenderSurface(allocator, sprite_surface);
-screen.renderAlpha();  // Composite with alpha blending
+screen.renderWithAlpha();  // Composite with alpha blending
 try screen.output();
 ```
 

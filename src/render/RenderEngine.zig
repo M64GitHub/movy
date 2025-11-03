@@ -416,9 +416,9 @@ pub const RenderEngine = struct {
     }
 
     /// Merges multiple surfaces with optimized alpha blending onto opaque background
-    /// Assumes background is always opaque (α_bg = 255)
-    /// Uses simplified formula: C_out = (C_fg × α_fg + C_bg × (255 - α_fg)) / 255
-    /// Output is always opaque (α_out = 255)
+    /// Assumes background is always opaque (a_bg = 255)
+    /// Uses simplified formula: C_out = (C_fg * a_fg + C_bg * (255 - a_fg)) / 255
+    /// Output is always opaque (a_out = 255)
     /// FASTER than renderWithAlpha() - use for typical rendering scenarios
     /// Surfaces are rendered front-to-back (highest Z first)
     pub fn renderWithAlphaToBg(
@@ -594,7 +594,7 @@ pub const RenderEngine = struct {
     /// Blends a single color channel using Porter-Duff "over" operator
     /// (general case)
     /// Handles any alpha values for both foreground and background
-    /// Formula: C_out = (C_fg × α_fg + C_bg × α_bg × (255 - α_fg) / 255) / α_out
+    /// Formula: C_out = (C_fg * a_fg + C_bg * a_bg * (255 - a_fg) / 255) / a_out
     inline fn blendChannelGeneral(
         fg_val: u8,
         alpha_fg: u16,
@@ -606,11 +606,11 @@ pub const RenderEngine = struct {
         // Avoid division by zero (both fg and bg fully transparent)
         if (alpha_out == 0) return 0;
 
-        // Widen to u32 to prevent overflow: max value is 255 × 255 = 65,025
+        // Widen to u32 to prevent overflow: max value is 255 * 255 = 65,025
         const fg_contrib = @as(u32, fg_val) * alpha_fg;
 
         // Pre-divide by 255 to keep intermediate result manageable
-        // Max: (255 × 255 × 255) / 255 = 65,025
+        // Max: (255 * 255 * 255) / 255 = 65,025
         const bg_contrib = @as(u32, bg_val) * alpha_bg * inv_alpha_fg / 255;
 
         // Sum contributions
@@ -642,7 +642,7 @@ pub const RenderEngine = struct {
         const a_bg = @as(u16, alpha_bg);
         const inv_a_fg = 255 - a_fg;
 
-        // Compute output alpha: α_out = α_fg + α_bg × (255 - α_fg) / 255
+        // Compute output alpha: a_out = a_fg + a_bg * (255 - a_fg) / 255
         const alpha_out_scaled = a_fg * 255 + a_bg * inv_a_fg;
         const alpha_out = @as(u8, @intCast(alpha_out_scaled / 255));
 
@@ -658,15 +658,15 @@ pub const RenderEngine = struct {
     }
 
     /// Blends a single color channel onto an opaque background (optimized)
-    /// Assumes α_bg = 255 (background is always opaque)
-    /// Simplified formula: C_out = (C_fg × α_fg + C_bg × (255 - α_fg)) / 255
+    /// Assumes a_bg = 255 (background is always opaque)
+    /// Simplified formula: C_out = (C_fg * a_fg + C_bg * (255 - a_fg)) / 255
     inline fn blendChannelToBg(
         fg_val: u8,
         alpha_fg: u16,
         bg_val: u8,
         inv_alpha_fg: u16,
     ) u8 {
-        // Widen to u32 to prevent overflow: max value is 255 × 255 = 65,025
+        // Widen to u32 to prevent overflow: max value is 255 * 255 = 65,025
         const fg_contrib = @as(u32, fg_val) * alpha_fg;
         const bg_contrib = @as(u32, bg_val) * inv_alpha_fg;
         const numerator = fg_contrib + bg_contrib; // Max: 130,050
@@ -677,8 +677,8 @@ pub const RenderEngine = struct {
     }
 
     /// Blends an RGB pixel onto an opaque background (optimized)
-    /// Assumes background is always opaque (α_bg = 255)
-    /// Output is always opaque (α_out = 255)
+    /// Assumes background is always opaque (a_bg = 255)
+    /// Output is always opaque (a_out = 255)
     /// Much faster than general blending - use for typical rendering scenarios
     inline fn blendPixelToBg(
         fg: movy.core.types.Rgb,
@@ -747,8 +747,8 @@ test "RenderEngine: renderWithAlphaToBg blends semi-transparent red over black" 
     var surfaces = [_]*movy.core.RenderSurface{red_surface};
     RenderEngine.renderWithAlphaToBg(&surfaces, output);
 
-    // Verify: Red (255, 0, 0) with α=128 over Black (0, 0, 0) with α=255
-    // Expected: R = (255×128 + 0×127) / 255 ≈ 128
+    // Verify: Red (255, 0, 0) with a=128 over Black (0, 0, 0) with a=255
+    // Expected: R = (255*128 + 0*127) / 255 ~= 128
     const pixel = output.color_map[8 * 40 + 10]; // Inside red area
     try testing.expectEqual(@as(u8, 128), pixel.r);
     try testing.expectEqual(@as(u8, 0), pixel.g);
@@ -795,8 +795,8 @@ test "RenderEngine: renderWithAlphaToBg blends semi-transparent blue over black"
     var surfaces = [_]*movy.core.RenderSurface{blue_surface};
     RenderEngine.renderWithAlphaToBg(&surfaces, output);
 
-    // Verify: Blue (0, 0, 255) with α=128 over Black (0, 0, 0) with α=255
-    // Expected: B = (255×128 + 0×127) / 255 ≈ 128
+    // Verify: Blue (0, 0, 255) with a=128 over Black (0, 0, 0) with a=255
+    // Expected: B = (255*128 + 0*127) / 255 ~= 128
     const pixel = output.color_map[12 * 40 + 20]; // Inside blue area
     try testing.expectEqual(@as(u8, 0), pixel.r);
     try testing.expectEqual(@as(u8, 0), pixel.g);
@@ -873,11 +873,11 @@ test "RenderEngine: renderWithAlphaToBg handles overlapping surfaces with z-orde
 
     // Check overlap area: Blue (z=2) renders first, then Red (z=1) blends on top
     // Blue over black: (0, 0, 128)
-    // Red over that: R = (255×128 + 0×127)/255 = 128, B = (0×128 + 128×127)/255 ≈ 63
+    // Red over that: R = (255*128 + 0*127)/255 = 128, B = (0*128 + 128*127)/255 ~= 63
     const overlap_pixel = output.color_map[10 * 40 + 16];
     try testing.expectEqual(@as(u8, 128), overlap_pixel.r);
     try testing.expectEqual(@as(u8, 0), overlap_pixel.g);
-    // Allow tolerance for integer rounding (63 ± 1)
+    // Allow tolerance for integer rounding (63 +/- 1)
     try testing.expect(overlap_pixel.b >= 62 and overlap_pixel.b <= 64);
 }
 
@@ -1017,7 +1017,7 @@ test "RenderEngine: blendPixelToBg fast paths work correctly" {
 
     // Regular path: semi-transparent (alpha = 128)
     const result_semi = RenderEngine.blendPixelToBg(fg, 128, bg);
-    try testing.expectEqual(@as(u8, 128), result_semi.r); // (255×128 + 0×127)/255
+    try testing.expectEqual(@as(u8, 128), result_semi.r); // (255*128 + 0*127)/255
     try testing.expectEqual(@as(u8, 0), result_semi.g);
-    try testing.expectEqual(@as(u8, 127), result_semi.b); // (0×128 + 255×127)/255
+    try testing.expectEqual(@as(u8, 127), result_semi.b); // (0*128 + 255*127)/255
 }

@@ -4,21 +4,31 @@ This folder contains user guide documentation for the movy terminal graphics ren
 
 ## Available Documentation
 
-- **[RenderSurface.md](./RenderSurface.md)** - The foundational struct for all visual content: creating surfaces, loading PNGs, adding text, and rendering to the terminal
+- **[RenderSurface.md](./RenderSurface.md)** - The foundational struct for all visual content: creating surfaces, loading PNGs, adding text, transparency, and rendering to the terminal
+- **[Sprite.md](./Sprite.md)** - Animated sprites with frame management: loading sprite sheets, splitting frames, creating animations, and controlling transparency
 - **[RenderEngine.md](./RenderEngine.md)** - The compositor: combining multiple surfaces with z-ordering, clipping, and alpha blending
+- **[Screen.md](./Screen.md)** - The terminal rendering canvas: compositing layers, managing sprites and surfaces, and outputting to the terminal
 
 ## Code Examples
 
-Complete, runnable code examples demonstrating the concepts in this documentation can be found in the `../examples/` directory. These examples can be built and run using:
+Complete, runnable code examples demonstrating the concepts in this
+documentation can be found in the `../examples/` directory. These
+examples can be built and run using:
 
 ```bash
-zig build run-basic_surface        # RenderSurface basics: creating surfaces, adding text
-zig build run-alpha_blending       # Alpha blending with semi-transparent surfaces
-zig build run-layered_scene        # Multi-layer scene composition with z-ordering
-zig build run-png_loader           # Loading and displaying PNG images
+zig build run-basic_surface          # RenderSurface basics
+zig build run-alpha_blending         # Transparency and overlapping
+zig build run-layered_scene          # Z-index layering
+zig build run-png_loader             # Loading PNG images
+zig build run-sprite_animation       # Sprite frame animation
+zig build run-sprite_alpha_rendering # Sprites with transparency
+zig build run-sprite_pool            # Managing multiple sprites
+zig build run-framerate_template     # Frame-based game loop template
 ```
 
-Each example corresponds to code snippets and concepts shown in the documentation above.
+Each example corresponds to code snippets and concepts shown in the
+documentation above. See **[examples/README.md](../examples/README.md)**
+for more details.
 
 ## Demos
 
