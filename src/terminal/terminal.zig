@@ -97,7 +97,7 @@ pub fn resetColor() void {
     _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[0m") catch {};
 }
 
-/// Begins alternate screen mode, preparing the terminal for full-screen use
+/// Begins alternate screen mode for full-screen terminal use.
 pub fn beginAlternateScreen() !void {
     // ESC s: Save current cursor position
     _ = try std.posix.write(std.posix.STDOUT_FILENO, "\x1b[s");
@@ -136,8 +136,8 @@ pub fn beginRawMode() !void {
     original_term = term; // Store original terminal settings
 
     var raw = term;
-    // Disable: ECHO (echo input), ICANON (canonical mode), ISIG (signal keys),
-    // IEXTEN (extended input)
+    // Disable: ECHO (echo input), ICANON (canonical mode),
+    // ISIG (signal keys), IEXTEN (extended input)
     raw.c_lflag &= ~@as(c_uint, c.ECHO | c.ICANON | c.ISIG | c.IEXTEN);
     // Disable: ICRNL (CR to NL conversion), IXON (Ctrl+S/Q flow control)
     raw.c_iflag &= ~@as(c_uint, c.ICRNL | c.IXON);

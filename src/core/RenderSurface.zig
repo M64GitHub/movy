@@ -5,6 +5,12 @@ const cimp = @cImport({
     @cInclude("lodepng.h");
 });
 
+/// Maximum bytes per pixel for ANSI escape sequences
+/// Calculation: ESC[38;2;RRR;GGG;BBBm (24 bytes) +
+/// ESC[48;2;RRR;GGG;BBBm (24 bytes) + UTF-8 char (4 bytes) + margin
+/// = ~50 bytes conservatively, 45 typically sufficient
+const ansi_bytes_per_pixel = 45;
+
 /// Defines a 2D grid for rendering pixels and text
 /// supports half-block rendering and Unicode text overlays.
 pub const RenderSurface = struct {
@@ -41,7 +47,6 @@ pub const RenderSurface = struct {
         self.char_map = try allocator.alloc(u21, w * h);
         errdefer allocator.free(self.char_map);
 
-        const ansi_bytes_per_pixel = 45; // Max: ESC[38;2;RRR;GGG;BBBm + UTF-8 char
         self.rendered_str = try allocator.alloc(
             u8,
             self.w * self.h * ansi_bytes_per_pixel,
@@ -177,11 +182,10 @@ pub const RenderSurface = struct {
             return error.InvalidAnsiString;
         }
 
-        if (str.len < movy.utils.ansi_parser.ANSI_HEADER.len or !std.mem.eql(
-            u8,
-            str[0..movy.utils.ansi_parser.ANSI_HEADER.len],
-            &movy.utils.ansi_parser.ANSI_HDR,
-        )) {
+        const header_len = movy.utils.ansi_parser.ANSI_HEADER.len;
+        if (str.len < header_len or
+            !std.mem.eql(u8, str[0..header_len], &movy.utils.ansi_parser.ANSI_HDR))
+        {
             std.debug.print(
                 "[movy][RenderSurface][createFromAnsi] " ++
                     "ERROR: invalid file type!\n",
@@ -621,11 +625,9 @@ pub const RenderSurface = struct {
     /// and clears all characters.
     /// The provided RGB color is applied to every pixel in the color_map.
     pub fn clearColored(self: *RenderSurface, c: movy.core.types.Rgb) void {
-        for (self.color_map, 0..) |*color, i| {
-            color.* = c;
-            self.shadow_map[i] = 255;
-            self.char_map[i] = 0;
-        }
+        @memset(self.color_map, c);
+        @memset(self.shadow_map, 255);
+        @memset(self.char_map, 0);
     }
 
     /// Clears the RenderSurface to a fully transparent state with black color.
@@ -633,10 +635,22 @@ pub const RenderSurface = struct {
     /// and char_map to 0 (no characters).
     pub fn clearTransparent(self: *RenderSurface) void {
         const c = movy.core.types.Rgb{ .r = 0, .g = 0, .b = 0 };
-        for (0..self.w * self.h) |i| {
-            self.color_map[i] = c;
-            self.shadow_map[i] = 0;
-            self.char_map[i] = 0;
+        @memset(self.color_map, c);
+        @memset(self.shadow_map, 0);
+        @memset(self.char_map, 0);
+    }
+
+    /// Sets the alpha (opacity) for all non-transparent pixels in the surface.
+    /// Alpha values range from 0 (fully transparent) to 255 (fully opaque).
+    /// Only affects pixels that are already visible (shadow_map != 0).
+    /// Note: Alpha value 0 is automatically converted to 1 to maintain the
+    /// shadow_map rendering logic (0 = skip pixel, non-zero = render pixel).
+    pub fn setAlpha(self: *RenderSurface, alpha: u8) void {
+        const actual_alpha = if (alpha == 0) 1 else alpha;
+        for (self.shadow_map) |*shadow| {
+            if (shadow.* != 0) {
+                shadow.* = actual_alpha;
+            }
         }
     }
 
@@ -691,7 +705,10 @@ pub const RenderSurface = struct {
         const new_char_map = try allocator.alloc(u21, width * height);
         errdefer allocator.free(new_char_map);
 
-        const new_rendered_str = try allocator.alloc(u8, width * height * 50);
+        const new_rendered_str = try allocator.alloc(
+            u8,
+            width * height * ansi_bytes_per_pixel,
+        );
         errdefer allocator.free(new_rendered_str);
 
         // Free old memory after successful allocs
@@ -783,7 +800,8 @@ pub const RenderSurface = struct {
                 y += 1;
                 if (y >= (self.h / 2) - 1) return 0; // Clip
                 y_pixel = y * 2;
-                if (char == '\n') continue; // only when not clipping, on '\n'
+                // Only when not clipping, on '\n'
+                if (char == '\n') continue;
             }
             idx = x + y_pixel * self.w;
             if (x < self.w and y_pixel + 1 < self.h) { // Bounds check
@@ -832,7 +850,8 @@ pub const RenderSurface = struct {
                 y += 1;
                 if (y >= (self.h / 2) - 1) return 0; // Clip
                 y_pixel = y * 2;
-                if (char == '\n') continue; // only when not clipping, on '\n'
+                // Only when not clipping, on '\n'
+                if (char == '\n') continue;
             }
             idx = x + y_pixel * self.w;
             if (x < self.w and y_pixel + 1 < self.h) { // Bounds check
@@ -980,7 +999,8 @@ pub const RenderSurface = struct {
     pub fn hasColorThrXY(self: *RenderSurface, x: i32, y: i32, thr: i32) bool {
         if (x < 0 or x >= @as(i32, @intCast(self.w)) or
             y < 0 or y >= @as(i32, @intCast(self.h))) return false;
-        const idx = self.w * @as(usize, @intCast(y)) + @as(usize, @intCast(x));
+        const idx = self.w * @as(usize, @intCast(y)) +
+            @as(usize, @intCast(x));
         if (self.shadow_map[idx] != 0) {
             const c = self.color_map[idx];
             return c.r > thr or c.g > thr or c.b > thr;

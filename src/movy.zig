@@ -1,17 +1,20 @@
-/// movy - Terminal rendering, animation and effects engine.
+//! movy - Terminal graphics rendering, animation, and effects engine.
+//!
+//! This library transforms terminals into graphical canvases using ANSI
+//! half-blocks for double vertical resolution. Supports sprite rendering,
+//! alpha blending, z-index layering, and programmable rendering pipelines.
+
 const std = @import("std");
 
 pub const movy = @This();
 
 pub const Version = "0.0.0";
 
-// moved to toplevel: graphic, RenderSurface
+// Top-level re-exports for convenience
 pub const Sprite = @import("graphic/Sprite.zig").Sprite;
 pub const SpritePool = @import("graphic/SpritePool.zig").SpritePool;
 pub const BlockLine = @import("graphic/BlockLine.zig").BlockLine;
 pub const RenderSurface = @import("core/RenderSurface.zig").RenderSurface;
-
-// -- original structure
 
 // Core submodules — foundational elements for movy
 pub const core = @import("core/core.zig");
@@ -36,6 +39,5 @@ pub const color = @import("core/colors.zig");
 pub const input = @import("input/input.zig");
 pub const terminal = @import("terminal/terminal.zig");
 
-// -- experimental ui
-
+// UI submodules (experimental)
 pub const ui = @import("ui/ui.zig");

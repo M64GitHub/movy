@@ -4,6 +4,8 @@ const Error = movy.render.RenderEffectError;
 const RenderEffect = movy.render.RenderEffect;
 const SurfaceExpand = movy.render.Effect.SurfaceExpand;
 
+/// Blur effect for softening surface edges.
+/// Note: Current implementation is a placeholder.
 pub const Blur = struct {
     surface_expand: ?SurfaceExpand = SurfaceExpand{
         .border_x = 0,
@@ -11,6 +13,7 @@ pub const Blur = struct {
     },
     radius: usize,
 
+    /// Applies blur effect to the input surface.
     pub fn run(
         self: *Blur,
         in_surface: *const movy.core.RenderSurface,
@@ -32,11 +35,12 @@ pub const Blur = struct {
         }
     }
 
+    /// Validates that blur radius is non-zero.
     pub fn validate(self: *Blur) !void {
         if (self.radius == 0) return Error.InvalidBlurRadius;
     }
 
-    /// Helper to wrap this effect into a RenderEffect.
+    /// Wraps this effect for use in rendering pipelines.
     pub fn asEffect(self: *Blur) RenderEffect {
         return RenderEffect.init(Blur, self, Blur.run, Blur.validate);
     }

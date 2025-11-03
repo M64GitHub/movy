@@ -5,16 +5,24 @@ const RenderEffect = movy.render.RenderEffect;
 const SurfaceExpand = movy.render.Effect.SurfaceExpand;
 pub const EffectDirection = movy.render.Effect.EffectDirection;
 
+/// Rotates pixels along the 1-pixel outline border of a shape.
+/// Shifts outline pixels clockwise or counter-clockwise by following
+/// the continuous path around the shape. Works best with rectangular
+/// shapes or shapes without diagonal lines.
 pub const OutlineRotator = struct {
     surface_expand: ?SurfaceExpand = null,
     start_x: i32 = 0,
     start_y: i32 = 0,
     direction: EffectDirection = .right,
 
+    /// Validates that start position is non-negative.
     pub fn validate(self: *OutlineRotator) !void {
         if (self.start_x < 0 or self.start_y < 0) return Error.InvalidPosition;
     }
 
+    /// Shifts outline pixels by following the border path.
+    /// Starting from start_x/start_y, follows the outline in the
+    /// specified direction, shifting pixel colors along the path.
     pub fn run(
         self: *OutlineRotator,
         in_surface: *const movy.core.RenderSurface,
@@ -150,7 +158,7 @@ pub const OutlineRotator = struct {
         }
     }
 
-    /// Helper to wrap this effect into a RenderEffect.
+    /// Wraps this effect for use in rendering pipelines.
     pub fn asEffect(self: *OutlineRotator) RenderEffect {
         return RenderEffect.init(
             OutlineRotator,

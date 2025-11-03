@@ -114,13 +114,13 @@ zig build test
 
 ## Documentation
 
-**movy** will provide comprehensive learning resources organized in three tiers:
+... is being under construction, and frequently updated and expanded. Please check:
 
 - **[Guides](./doc/README.md)** — In-depth documentation on core concepts like RenderSurface and RenderEngine, written for developers new to movy
 - **[Examples](./examples/)** — Focused code examples demonstrating specific features (alpha blending, PNG loading, layered scenes)
 - **[Demos](./demos/README.md)** — Complete working programs showcasing visual effects, animations, and interaction
 
-Start with [simple_game.zig](./demos/simple_game.zig) as a game starter template, and to learn framerate control and animation.  
+Start with [simple_game.zig](./demos/simple_game.zig) as a game starter template, or explore [sprite_fading.zig](./examples/sprite_fading.zig) to learn sprite alpha blending, framerate control and animation.  
 
 The sections are being updated frequently.
 

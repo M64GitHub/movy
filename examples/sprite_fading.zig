@@ -1,6 +1,18 @@
+/// Sprite Fading Example
+///
+/// Demonstrates sprite alpha (transparency) animation:
+/// - Loading sprites from PNG files
+/// - Splitting sprite sheets by frame width
+/// - Creating frame-based animations
+/// - Dynamically adjusting sprite alpha/opacity
+/// - Using renderWithAlpha() for proper transparency
+///
+/// This example shows how to fade a sprite in and out by modifying
+/// its alpha channel while the sprite animation plays.
+
 const std = @import("std");
 const movy = @import("movy");
-const Starfield = @import("Starfield.zig").Starfield;
+const Sprite = movy.graphic.Sprite;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -13,7 +25,6 @@ pub fn main() !void {
     defer movy.terminal.endRawMode();
     try movy.terminal.beginAlternateScreen();
     defer movy.terminal.endAlternateScreen();
-
     var screen = try movy.Screen.init(
         allocator,
         terminal_size.width,
@@ -22,32 +33,25 @@ pub fn main() !void {
 
     defer screen.deinit(allocator);
     screen.setScreenMode(movy.Screen.Mode.bgcolor);
-    screen.bg_color = movy.color.BLACK;
+    screen.bg_color = movy.color.DARKER_GRAY;
 
-    const starfield = try Starfield.init(allocator, &screen);
-    defer starfield.deinit(allocator);
-
-    const help_surface = try movy.RenderSurface.init(
+    var sprite1 = try Sprite.initFromPng(
         allocator,
-        terminal_size.width,
-        2, // 2 is 1 line!
-        movy.color.DARKER_BLUE,
+        "examples/assets/sprite16x16-16frames.png",
+        "sprite1",
     );
-    defer help_surface.deinit(allocator);
-    help_surface.y = @intCast((terminal_size.height - 1) * 2);
+    defer sprite1.deinit(allocator);
 
-    const help_text =
-        "<ESC>, q: Quit";
-
-    _ = help_surface.putStrXY(
-        help_text,
-        2,
-        0,
-        movy.color.WHITE,
-        movy.color.DARKER_BLUE,
+    try sprite1.splitByWidth(allocator, 16);
+    try sprite1.addAnimation(
+        allocator,
+        "flash",
+        Sprite.FrameAnimation.init(1, 16, .loopForward, 2),
     );
+    try sprite1.startAnimation("flash");
 
     var frame_counter: usize = 0;
+    var alpha: u8 = 0;
     const frame_delay_ns = 17 * std.time.ns_per_ms; // ~60 FPS
 
     while (true) {
@@ -66,23 +70,30 @@ pub fn main() !void {
                         else => {},
                     }
                 },
-                .mouse => {},
+                .mouse => {}, // Ignore mouse input
             }
         }
 
-        starfield.update();
-
         try screen.renderInit();
 
-        try screen.addRenderSurface(allocator, help_surface);
-        try screen.addRenderSurface(allocator, starfield.out_surface);
+        sprite1.stepActiveAnimation();
+        sprite1.setXY(5, 5);
 
-        screen.render();
+        // Apply fading effect by modifying alpha
+        try sprite1.setAlphaCurrentFrameSurface(alpha);
+        alpha = @addWithOverflow(alpha, 2)[0]; // Wraps 0→255→0
+
+        try screen.addRenderSurface(
+            allocator,
+            try sprite1.getCurrentFrameSurface(),
+        );
+
+        // Use renderWithAlpha() for proper alpha blending
+        screen.renderWithAlpha();
         try screen.output();
 
         frame_counter += 1;
 
-        // Frame timing
         const frame_end = std.time.nanoTimestamp();
         const frame_time = frame_end - frame_start;
         if (frame_time < frame_delay_ns) {

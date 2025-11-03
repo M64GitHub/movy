@@ -82,10 +82,10 @@ pub const InputEvent = union(enum) {
     mouse: Mouse,
 };
 
-// Global buffer shared by all functions
-// Tests showed: a buffer of 64 bytes is not enough, could be overflowed with
-// ultra fast mouse movements!
-var input_buffer: [512]u8 = undefined; // tested with ultrafast mouse movements
+// Global buffer shared by all functions.
+// 64 bytes is not enough - can be overflowed with ultra fast mouse
+// movements. Tested with 512 bytes.
+var input_buffer: [512]u8 = undefined;
 
 var input_len: usize = 0;
 var input_offset: usize = 0;
@@ -272,8 +272,8 @@ fn getKeyPosix() !?Key {
 
     // Skip suspicious mouse-like fragments if they're not handled
     if (remaining.len >= 5) {
-        // Look for any ';' and final char M or m — but NOT if it begins with [1;
-        // (for Ctrl-Arrow)
+        // Look for ';' and final M or m (but NOT if it begins with [1;
+        // for Ctrl-Arrow)
         var has_semicolon = false;
         var ends_with_m = false;
 

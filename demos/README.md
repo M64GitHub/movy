@@ -137,7 +137,7 @@ This demo focuses on the UI system, perfect for learning window-based layouts.
 ### blender_demo.zig - Alpha Blending Showcase
 
 **What it demonstrates:**
-- Alpha blending with `screen.renderAlpha()` - Porter-Duff compositor
+- Alpha blending with `screen.renderWithAlpha()` - Porter-Duff compositor
 - Multiple animated sprites with 2D wave motion (sine + cosine)
 - 16 sprites in rotating circle with Lissajous deformation
 - Per-sprite alpha animation with phase offsets

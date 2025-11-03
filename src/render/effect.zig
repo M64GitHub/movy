@@ -1,6 +1,11 @@
+//! Visual effect types and configuration for the rendering system.
+//!
+//! This module aggregates all available effects (Fade, Blur, Darker,
+//! Brighter, OutlineRotator, etc.) and provides effect-related types
+//! like SurfaceExpand, RenderEffectContext, and EffectDirection.
+
 const Effects = @import("RenderEffect.zig");
 
-/// Everything effect‑related lives here
 pub const Effect = struct {
     /// The tagged‑union of all effect parameter variants
     pub const SurfaceExpand = Effects.SurfaceExpand;

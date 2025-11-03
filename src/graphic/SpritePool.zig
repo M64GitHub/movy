@@ -24,7 +24,7 @@ pub const SpritePool = struct {
         for (self.entries.items) |entry| {
             entry.sprite.deinit(allocator);
         }
-        self.entries.deinit();
+        self.entries.deinit(allocator);
     }
 
     /// Adds a sprite to the pool. Must be heap allocated and ready to use.
