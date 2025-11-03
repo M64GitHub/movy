@@ -576,6 +576,13 @@ pub const Sprite = struct {
         try self.output_surface.copy(try self.getCurrentFrameSurface());
     }
 
+    /// Sets the alpha (opacity) for the current frame's surface.
+    /// Alpha values range from 0 (fully transparent) to 255 (fully opaque).
+    pub fn setAlphaCurrentFrameSurface(self: *Sprite, alpha: u8) !void {
+        const surface = try self.getCurrentFrameSurface();
+        surface.setAlpha(alpha);
+    }
+
     /// Renders the current frame's data_surface to an ANSI string
     pub fn toAnsi(self: *Sprite) ![]u8 {
         const current_frame =

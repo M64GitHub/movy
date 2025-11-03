@@ -5,6 +5,7 @@
 Welcome to the movy graphics engine! The `RenderSurface` is the **foundational building block** for all visual content in movy. Think of it as a canvas or drawing surface where you can:
 - Draw pixels with specific colors
 - Set transparency/alpha values
+- Change alpha value on the fly
 - Overlay text characters
 - Load images from PNG files
 - Render everything to your terminal
@@ -101,6 +102,148 @@ pub fn main() !void {
 - **RGB values:** Each pixel's color is stored in `color_map`
 - **Alpha channel:** Transparency values (0=fully transparent, 255=fully opaque) are stored in `shadow_map`
 - **Dimensions:** Width and height are automatically set to match the PNG
+
+---
+
+## Handling Transparency and Alpha Blending
+
+### Understanding the Shadow Map
+
+The `shadow_map` field controls pixel visibility and transparency:
+
+**Shadow Map Values:**
+- `0`: Pixel is **fully transparent** and not rendered at all
+- `1-255`: Pixel is **visible** with alpha/opacity value
+  - `1`: Nearly transparent (1/255 opacity)
+  - `128`: Semi-transparent (50% opacity)
+  - `255`: Fully opaque (100% opacity)
+
+When rendering, the behavior depends on which render function you use:
+- `Screen.render()`: Binary transparency (0 = skip, non-zero = draw fully opaque)
+- `Screen.renderWithAlpha()`: True alpha blending (0 = skip, 1-255 = blend based on value)
+
+### Setting Alpha with `setAlpha()`
+
+You can dynamically change the alpha of all visible pixels using `setAlpha()`:
+
+**Function signature:**
+```zig
+pub fn setAlpha(self: *RenderSurface, alpha: u8) void
+```
+
+**Important behavior:**
+- Only affects **non-transparent pixels** (shadow_map != 0)
+- Transparent pixels (shadow_map == 0) remain transparent
+- Alpha value `0` is automatically converted to `1` to maintain rendering logic
+
+**Example:**
+```zig
+const std = @import("std");
+const movy = @import("movy");
+
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    // Load a sprite with transparency (e.g., a circle on transparent background)
+    var surface = try movy.core.RenderSurface.createFromPng(
+        allocator,
+        "assets/circle.png",
+    );
+    defer surface.deinit(allocator);
+
+    // Original: circle is opaque (shadow_map = 255), background is transparent (shadow_map = 0)
+
+    // Make circle semi-transparent
+    surface.setAlpha(128);
+    // Result: circle pixels now have shadow_map = 128, background still 0
+
+    // Make circle nearly invisible
+    surface.setAlpha(10);
+    // Result: circle pixels now have shadow_map = 10, background still 0
+
+    // Make circle fully opaque again
+    surface.setAlpha(255);
+    // Result: circle pixels now have shadow_map = 255, background still 0
+
+    // Note: Calling setAlpha(0) actually sets alpha to 1 (negligible difference)
+    // This maintains the invariant: 0 = transparent, non-zero = visible
+}
+```
+
+**Key points:**
+- Use `setAlpha()` for fade-in/fade-out effects
+- Original transparency is preserved (pixels with shadow_map=0 stay at 0)
+- Works great for fading sprites, ghosts, or overlay effects
+- Must use `Screen.renderWithAlpha()` for proper alpha blending
+
+### Alpha Blending vs Binary Transparency
+
+**Binary Transparency (`Screen.render()`):**
+```zig
+screen.render();  // Fast: Either draw pixel or skip it
+```
+- Fast rendering
+- No semi-transparency
+- Good for pixel art with hard edges
+
+**Alpha Blending (`Screen.renderWithAlpha()`):**
+```zig
+screen.renderWithAlpha();  // Smooth: Blends based on alpha value
+```
+- Slower but smoother
+- Proper semi-transparency (0-255 range)
+- Good for fading effects, overlays, transparency
+- **Required** if you use `setAlpha()` to adjust transparency
+
+**Example: Fading effect with alpha blending**
+```zig
+const std = @import("std");
+const movy = @import("movy");
+
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    const terminal_size = try movy.terminal.getSize();
+
+    var screen = try movy.Screen.init(
+        allocator,
+        terminal_size.width,
+        terminal_size.height,
+    );
+    defer screen.deinit(allocator);
+    screen.setScreenMode(.bgcolor);
+    screen.bg_color = movy.color.BLACK;
+
+    var surface = try movy.core.RenderSurface.createFromPng(
+        allocator,
+        "assets/logo.png",
+    );
+    defer surface.deinit(allocator);
+    surface.x = 20;
+    surface.y = 10;
+
+    var alpha: u8 = 0;
+
+    while (true) {
+        try screen.renderInit();
+
+        // Apply fading effect
+        surface.setAlpha(alpha);
+        alpha = @addWithOverflow(alpha, 2)[0];  // Cycle 0->255->0
+
+        try screen.addRenderSurface(allocator, surface);
+
+        screen.renderWithAlpha();  // Use alpha blending, not binary
+        try screen.output();
+
+        std.Thread.sleep(16 * std.time.ns_per_ms);
+    }
+}
+```
 
 ---
 
@@ -556,6 +699,7 @@ pub fn main() !void {
 - Text must be on **even y coordinates** (0, 2, 4, 6, ...)
 - Height (`h`) is in **pixel rows**, not terminal lines (divide by 2 for lines)
 - Higher `z` values render on top
-- shadow_map: 0 = transparent, 255 = opaque
+- shadow_map: 0 = transparent (not rendered), 1-255 = alpha/opacity value
+- Use `setAlpha(alpha)` to change transparency; preserves original transparent pixels
 
 Happy rendering!

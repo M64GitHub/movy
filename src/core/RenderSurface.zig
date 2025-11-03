@@ -640,6 +640,20 @@ pub const RenderSurface = struct {
         @memset(self.char_map, 0);
     }
 
+    /// Sets the alpha (opacity) for all non-transparent pixels in the surface.
+    /// Alpha values range from 0 (fully transparent) to 255 (fully opaque).
+    /// Only affects pixels that are already visible (shadow_map != 0).
+    /// Note: Alpha value 0 is automatically converted to 1 to maintain the
+    /// shadow_map rendering logic (0 = skip pixel, non-zero = render pixel).
+    pub fn setAlpha(self: *RenderSurface, alpha: u8) void {
+        const actual_alpha = if (alpha == 0) 1 else alpha;
+        for (self.shadow_map) |*shadow| {
+            if (shadow.* != 0) {
+                shadow.* = actual_alpha;
+            }
+        }
+    }
+
     /// Copies the contents of another RenderSurface to this one, including
     /// all maps and dimensions.
     /// Returns an error if the input has invalid dimensions (width or height

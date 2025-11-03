@@ -4,8 +4,10 @@ This folder contains user guide documentation for the movy terminal graphics ren
 
 ## Available Documentation
 
-- **[RenderSurface.md](./RenderSurface.md)** - The foundational struct for all visual content: creating surfaces, loading PNGs, adding text, and rendering to the terminal
+- **[RenderSurface.md](./RenderSurface.md)** - The foundational struct for all visual content: creating surfaces, loading PNGs, adding text, transparency, and rendering to the terminal
+- **[Sprite.md](./Sprite.md)** - Animated sprites with frame management: loading sprite sheets, splitting frames, creating animations, and controlling transparency
 - **[RenderEngine.md](./RenderEngine.md)** - The compositor: combining multiple surfaces with z-ordering, clipping, and alpha blending
+- **[Screen.md](./Screen.md)** - The terminal rendering canvas: compositing layers, managing sprites and surfaces, and outputting to the terminal
 
 ## Code Examples
 
