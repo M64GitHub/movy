@@ -61,7 +61,7 @@ pub fn main() !void {
 
 ### Understanding Sprite Architecture
 
-A Sprite contains multiple layers:
+A Sprite contains of these structs:
 
 **SpriteFrame:**
 - Each frame has two RenderSurfaces:
