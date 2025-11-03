@@ -9,7 +9,7 @@ Welcome to the movy graphics engine! The `Sprite` is your **animated graphic ent
 - Control position, z-index, and alpha transparency
 - Integrate seamlessly with the Screen compositor
 
-Sprites are **essential building blocks** for games, demos, and animated visualizations. Every program or game that needs animated graphics will use Sprites extensively.
+Sprites therefor are the intended **building blocks** for games, demos, and animated visualizations.  
 
 **Location:** `src/graphic/Sprite.zig`
 
