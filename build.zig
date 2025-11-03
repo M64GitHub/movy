@@ -92,6 +92,7 @@ pub fn build(b: *std.Build) void {
         "png_loader",
         "sprite_alpha_rendering",
         "sprite_animation",
+        "sprite_fading",
         "sprite_pool",
     };
 

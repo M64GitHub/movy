@@ -169,10 +169,10 @@ pub fn init(
 ```
 
 **Loop Modes:**
-- `.loopForward`: 1→2→3→1→2→3... (continuous)
-- `.loopReverse`: 3→2→1→3→2→1... (continuous)
-- `.loopPingPong`: 1→2→3→2→1→2→3... (back and forth)
-- `.once`: 1→2→3 (stops, check with `finishedActiveAnimation()`)
+- `.loopForward`: 1->2->3->1->2->3... (continuous)
+- `.loopReverse`: 3->2->1->3->2->1... (continuous)
+- `.loopPingPong`: 1->2->3->2->1->2->3... (back and forth)
+- `.once`: 1->2->3 (stops, check with `finishedActiveAnimation()`)
 
 **Example with multiple animations:**
 ```zig
@@ -699,10 +699,10 @@ const frame3 = try sprite.getFrameSurface(3);  // Get frame 3's surface
 
 | Mode | Behavior |
 |------|----------|
-| `.loopForward` | 1→2→3→1→2→3... |
-| `.loopReverse` | 3→2→1→3→2→1... |
-| `.loopPingPong` | 1→2→3→2→1→2→3... |
-| `.once` | 1→2→3 (stops) |
+| `.loopForward` | 1->2->3->1->2->3... |
+| `.loopReverse` | 3->2->1->3->2->1... |
+| `.loopPingPong` | 1->2->3->2->1->2->3... |
+| `.once` | 1->2->3 (stops) |
 
 ### Sprite Fields
 

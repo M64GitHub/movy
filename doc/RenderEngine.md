@@ -44,8 +44,8 @@ The RenderEngine sorts surfaces from highest to lowest z-index before rendering 
 When a surface extends beyond the boundaries of the output surface, the RenderEngine automatically clips it:
 
 ```zig
-// Output surface is 80×40
-// Source surface is at position (70, 0) with size 20×10
+// Output surface is 80*40
+// Source surface is at position (70, 0) with size 20*10
 // Result: Only the left 10 columns of the source will be visible
 ```
 
@@ -145,7 +145,7 @@ pub fn renderWithAlphaToBg(
 
 **Alpha blending formula (simplified):**
 ```
-output_color = (foreground_color × alpha + background_color × (255 - alpha)) / 255
+output_color = (foreground_color * alpha + background_color * (255 - alpha)) / 255
 ```
 
 **When to use:** **This should be your default choice for alpha blending!**
@@ -459,7 +459,7 @@ All alpha-related functions use **u8 values (0-255)**:
 Remember that movy uses half-block rendering:
 - `y` coordinates are in **terminal lines** (not pixels)
 - Each line displays **2 pixel rows** stacked vertically
-- Height calculations: `pixel_height = line_height × 2`
+- Height calculations: `pixel_height = line_height * 2`
 
 ---
 
@@ -603,9 +603,9 @@ Simple and fast, but no in-between states.
 
 ### True Alpha Blending (renderWithAlphaToBg())
 ```
-output_red = (fg_red × alpha + bg_red × (255 - alpha)) / 255
-output_green = (fg_green × alpha + bg_green × (255 - alpha)) / 255
-output_blue = (fg_blue × alpha + bg_blue × (255 - alpha)) / 255
+output_red = (fg_red * alpha + bg_red * (255 - alpha)) / 255
+output_green = (fg_green * alpha + bg_green * (255 - alpha)) / 255
+output_blue = (fg_blue * alpha + bg_blue * (255 - alpha)) / 255
 ```
 
 **Example:**
@@ -615,9 +615,9 @@ output_blue = (fg_blue × alpha + bg_blue × (255 - alpha)) / 255
 
 **Calculation:**
 ```
-R = (255 × 128 + 0 × 127) / 255 = 32640 / 255 = 128
-G = (0 × 128 + 0 × 127) / 255 = 0
-B = (0 × 128 + 255 × 127) / 255 = 32385 / 255 ≈ 127
+R = (255 * 128 + 0 * 127) / 255 = 32640 / 255 = 128
+G = (0 * 128 + 0 * 127) / 255 = 0
+B = (0 * 128 + 255 * 127) / 255 = 32385 / 255 ~= 127
 ```
 
 ---
@@ -627,17 +627,17 @@ B = (0 × 128 + 255 × 127) / 255 = 32385 / 255 ≈ 127
 ### Decision Tree
 
 **Do you need semi-transparent surfaces?**
-- **No** → Use `render()` (fastest)
-- **Yes** → Continue...
+- **No** -> Use `render()` (fastest)
+- **Yes** -> Continue...
 
 **Are you rendering onto an opaque background?**
-- **Yes** → Use `renderWithAlphaToBg()` ⭐ **(RECOMMENDED)**
-- **No (both fg and bg can be semi-transparent)** → Use `renderWithAlpha()`
+- **Yes** -> Use `renderWithAlphaToBg()` **(RECOMMENDED)**
+- **No (both fg and bg can be semi-transparent)** -> Use `renderWithAlpha()`
 
 **Special cases:**
-- **Single surface only?** → Use `renderSurfaceOver()`
-- **All surfaces same size and aligned?** → Use `renderComposite()`
-- **Need to forcefully overwrite?** → Use `renderOver()`
+- **Single surface only?** -> Use `renderSurfaceOver()`
+- **All surfaces same size and aligned?** -> Use `renderComposite()`
+- **Need to forcefully overwrite?** -> Use `renderOver()`
 
 ---
 

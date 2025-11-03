@@ -499,9 +499,9 @@ Each terminal character cell displays **two pixels** stacked vertically:
   One cell = 2 pixels
 ```
 
-This means a 40×20 RenderSurface displays as:
+This means a 40*20 RenderSurface displays as:
 - 40 characters wide
-- 10 terminal lines tall (20 pixels ÷ 2)
+- 10 terminal lines tall (20 pixels / 2)
 
 ---
 
