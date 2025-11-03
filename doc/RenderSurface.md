@@ -316,7 +316,7 @@ The position of the surface in terminal coordinates. Uses `i32` to support **neg
 
 ```zig
 surface.x = 10;   // 10 characters from the left
-surface.y = 5;    // 5 lines from the top (in line coordinates, not pixels)
+surface.y = 5;    // 5 pixels from the top (in pixel coordinates, not lines)
 surface.x = -5;   // Partially off-screen to the left
 ```
 
