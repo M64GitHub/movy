@@ -91,6 +91,8 @@ pub fn build(b: *std.Build) void {
         "layered_scene",
         "png_loader",
         "sprite_alpha_rendering",
+        "sprite_animation",
+        "sprite_pool",
     };
 
     for (examples) |name| {

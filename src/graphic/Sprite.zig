@@ -3,6 +3,9 @@ const movy = @import("../movy.zig");
 
 const SpriteError = Sprite.SpriteError;
 
+/// A single frame of a sprite containing both source data and output buffers.
+/// Each frame has two RenderSurfaces: data_surface (immutable source pixels)
+/// and output_surface (working buffer for effects and rendering).
 pub const SpriteFrame = struct {
     x_rel: i32 = 0,
     y_rel: i32 = 0,
@@ -116,6 +119,9 @@ pub const SpriteFrame = struct {
     }
 };
 
+/// Collection of animation frames with a current frame index.
+/// Manages the lifecycle of multiple SpriteFrame instances and tracks
+/// which frame is currently active for display.
 pub const SpriteFrameSet = struct {
     frames: std.ArrayList(*SpriteFrame),
     frame_idx: usize = 0,
@@ -185,6 +191,9 @@ pub const SpriteFrameSet = struct {
     }
 };
 
+/// Animated sprite with frame management, named animations, and effect support.
+/// Combines multiple frames into a cohesive entity with position (x,y),
+/// z-index, and pluggable render effects via RenderEffectContext.
 pub const Sprite = struct {
     name: []u8 = &[_]u8{},
     w: usize = 0,
@@ -203,18 +212,23 @@ pub const Sprite = struct {
         // ...
     };
 
-    // Error set for frame surface functions
+    /// Error set for frame surface functions
     pub const FrameError = error{
         EmptyFrameSet, // No frames in the set
         InvalidFrameIndex, // Index out of bounds
     };
 
+    /// Named animation sequence with speed control and loop mode.
+    /// Wraps an IndexAnimator to control frame progression through
+    /// a sprite's frame set.
     pub const FrameAnimation = struct {
         animator: movy.animation.IndexAnimator,
         just_started: bool = true,
         speed: usize = 1,
         speed_ctr: usize = 0,
 
+        /// Creates a new FrameAnimation with the given frame range,
+        /// loop mode, and playback speed (frames to wait between updates).
         pub fn init(
             start: usize,
             end: usize,
@@ -248,6 +262,7 @@ pub const Sprite = struct {
             }
         }
 
+        /// Returns true if this animation has completed (only for .once mode).
         pub fn finished(self: *FrameAnimation) bool {
             return self.animator.once_finished;
         }
@@ -448,9 +463,8 @@ pub const Sprite = struct {
         }
     }
 
-    /// Resets the active animation to its initial frame index,
-    /// if any is active.
-    /// Useful when restarting an animation manually.
+    /// Returns true if the active animation has finished
+    /// (only meaningful for .once loop mode).
     pub fn finishedActiveAnimation(self: *Sprite) bool {
         if (self.active_animation) |name| {
             if (self.animations.getPtr(name)) |anim_ptr| {
@@ -557,6 +571,7 @@ pub const Sprite = struct {
         };
     }
 
+    /// Copies the current frame's data_surface to the sprite's output_surface.
     pub fn applyCurrentFrame(self: *Sprite) !void {
         try self.output_surface.copy(try self.getCurrentFrameSurface());
     }
@@ -641,8 +656,9 @@ pub const Sprite = struct {
         // _ = self.frame_set.frames.orderedRemove(0);
     }
 
-    /// Print the sprite without rendering in full blocks,
-    /// verifying correct import
+    /// Renders the sprite's first frame as full-block characters for debugging.
+    /// Displays transparent pixels in dark blue and opaque pixels in their
+    /// actual colors, useful for verifying sprite loading and pixel data.
     pub fn debugRender(self: *Sprite) !void {
         const stdout = std.io.getStdOut().writer();
         if (self.frame_set.frames.items.len == 0) return;

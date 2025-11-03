@@ -1,3 +1,8 @@
+//! Easing functions for smooth animation transitions.
+//!
+//! Provides quadratic easing curves (ease-in, ease-out, ease-in-out)
+//! and utility functions for applying easing to values over time.
+
 /// Ease-in function (slow start, fast end) for a value over time
 pub fn easeIn(t: f32) f32 {
     return t * t; // Quadratic ease-in

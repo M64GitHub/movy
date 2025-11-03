@@ -5,11 +5,10 @@
 /// - Applying custom alpha values (50% opacity)
 /// - Splitting sprite sheet into frames
 /// - Adding and stepping animation
-/// - Rendering with screen.renderAlpha()
+/// - Rendering with screen.renderWithAlpha()
 ///
 /// This is a single-shot example (no loop) showing the essential steps
 /// for alpha-blended sprite rendering with movy.
-
 const std = @import("std");
 const movy = @import("movy");
 
@@ -83,9 +82,9 @@ pub fn main() !void {
     );
 
     // Render with alpha blending (NEW METHOD)
-    // This uses the new renderAlpha() function that properly handles
+    // This uses the new renderWithAlpha() function that properly handles
     // the shadow_map (alpha channel) for semi-transparent rendering
-    screen.renderAlpha();
+    screen.renderWithAlpha();
 
     // Output to terminal
     try screen.output();

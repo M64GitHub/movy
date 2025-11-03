@@ -4,19 +4,15 @@ const movy = @import("movy");
 pub fn main() !void {
     const allocator = std.heap.page_allocator;
 
-    // Set raw mode, switch to alternate screen
     try movy.terminal.beginRawMode();
     defer movy.terminal.endRawMode();
     try movy.terminal.beginAlternateScreen();
     defer movy.terminal.endAlternateScreen();
 
-    // Initialize screen (height in line numbers)
     var screen = try movy.Screen.init(allocator, 120, 40);
     defer screen.deinit(allocator);
     screen.setScreenMode(movy.Screen.Mode.bgcolor);
 
-    // Load sprites
-    // alien
     var sprite_alien = try movy.graphic.Sprite.initFromPng(
         allocator,
         "demos/assets/alien.png",
@@ -24,7 +20,6 @@ pub fn main() !void {
     );
     defer sprite_alien.deinit(allocator);
 
-    // m64 logo
     var sprite_m64_logo = try movy.graphic.Sprite.initFromPng(
         allocator,
         "demos/assets/m64logo.png",
@@ -32,7 +27,6 @@ pub fn main() !void {
     );
     defer sprite_m64_logo.deinit(allocator);
 
-    // print some text onto our sprite
     var data_surface = try sprite_m64_logo.getCurrentFrameSurface();
     _ = data_surface.putStrXY(
         "UTF8!\nThis is TEXT on PNG data!",
@@ -50,10 +44,8 @@ pub fn main() !void {
         movy.color.DARK_GRAY,
     );
 
-    // apply frame- to output-surface
     try sprite_m64_logo.applyCurrentFrame();
 
-    // configure an outlineRotator effect
     var outline_rotator = movy.render.Effect.OutlineRotator{
         .start_x = 0,
         .start_y = 0,
@@ -63,7 +55,6 @@ pub fn main() !void {
 
     sprite_m64_logo.effect_ctx.input_surface = sprite_m64_logo.output_surface;
 
-    // movy logo
     var sprite_movy_logo = try movy.graphic.Sprite.initFromPng(
         allocator,
         "demos/assets/movy_100_transparent.png",
@@ -72,28 +63,20 @@ pub fn main() !void {
     defer sprite_movy_logo.deinit(allocator);
     data_surface = try sprite_movy_logo.getCurrentFrameSurface();
 
-    // set up sine movement
-    // 150 frames for a full cycle, amplitude 50
     var sine_wave = movy.animation.TrigWave.init(150, 50);
     var sine_wave2 = movy.animation.TrigWave.init(200, 40);
 
-    // position sprites
     sprite_m64_logo.setXY(34 + sine_wave.tickSine(), 54);
     sprite_movy_logo.setXY(10, 12);
 
-    // add a textwindow
-    // Create a manager—owns and tracks all UI elements.
     var manager = movy.ui.Manager.init(allocator, &screen);
     defer manager.deinit();
 
-    // Load default theme and style
     const theme = movy.ui.ColorTheme.initCatppuccinMocha();
-    // const theme = movy.ui.ColorTheme.initTokyoNightStorm();
     const style = movy.ui.Style.initNeoVim();
 
     screen.bg_color = movy.color.darker(theme.getColor(.BackgroundColor), 30);
 
-    // Calculate centered position—60x40 window in 120x80 screen.
     const window_w: usize = 60;
     const window_h: usize = 40;
 

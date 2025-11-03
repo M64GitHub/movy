@@ -6,16 +6,19 @@ pub const Rgb = struct {
     b: u8 = 0x00, // Blue component (0-255)
 };
 
+/// Represents dimensions (width and height) in pixels or characters.
 pub const Size = struct {
     w: usize,
     h: usize,
 };
 
+/// 2D coordinates with signed integer values.
 pub const Coords2D = struct {
     x: i32,
     y: i32,
 };
 
+/// 3D coordinates with signed integer values (includes z-index).
 pub const Coords3D = struct {
     x: i32,
     y: i32,

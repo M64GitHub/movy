@@ -1,3 +1,8 @@
+//! Trigonometric wave functions for cyclical animations.
+//!
+//! Provides sine and cosine functions that map frame numbers to
+//! wave values, useful for bobbing, oscillation, and periodic motion.
+
 const std = @import("std");
 
 /// Computes a sine movement value for a given frame, duration, and amplitude

@@ -9,16 +9,24 @@ This folder contains user guide documentation for the movy terminal graphics ren
 
 ## Code Examples
 
-Complete, runnable code examples demonstrating the concepts in this documentation can be found in the `../examples/` directory. These examples can be built and run using:
+Complete, runnable code examples demonstrating the concepts in this
+documentation can be found in the `../examples/` directory. These
+examples can be built and run using:
 
 ```bash
-zig build run-basic_surface        # RenderSurface basics: creating surfaces, adding text
-zig build run-alpha_blending       # Alpha blending with semi-transparent surfaces
-zig build run-layered_scene        # Multi-layer scene composition with z-ordering
-zig build run-png_loader           # Loading and displaying PNG images
+zig build run-basic_surface          # RenderSurface basics
+zig build run-alpha_blending         # Transparency and overlapping
+zig build run-layered_scene          # Z-index layering
+zig build run-png_loader             # Loading PNG images
+zig build run-sprite_animation       # Sprite frame animation
+zig build run-sprite_alpha_rendering # Sprites with transparency
+zig build run-sprite_pool            # Managing multiple sprites
+zig build run-framerate_template     # Frame-based game loop template
 ```
 
-Each example corresponds to code snippets and concepts shown in the documentation above.
+Each example corresponds to code snippets and concepts shown in the
+documentation above. See **[examples/README.md](../examples/README.md)**
+for more details.
 
 ## Demos
 

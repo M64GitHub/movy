@@ -4,12 +4,15 @@ const Error = movy.render.RenderEffectError;
 const RenderEffect = movy.render.RenderEffect;
 const SurfaceExpand = movy.render.Effect.SurfaceExpand;
 
+/// Fades a surface from one alpha level to another over a duration.
+/// Alpha values range from 0.0 (transparent) to 1.0 (opaque).
 pub const Fade = struct {
     surface_expand: ?SurfaceExpand = null,
     alpha_start: f32 = 1.0,
     alpha_end: f32 = 0.0,
     duration: usize = 60,
 
+    /// Validates duration and alpha range (0.0-1.0).
     pub fn validate(self: *Fade) !void {
         if (self.duration == 0) return Error.InvalidDuration;
         if (self.alpha_start < 0.0 or self.alpha_start > 1.0 or
@@ -19,6 +22,7 @@ pub const Fade = struct {
         }
     }
 
+    /// Applies fade effect by interpolating alpha over duration.
     pub fn run(
         self: *Fade,
         in_surface: *const movy.core.RenderSurface,
@@ -67,7 +71,7 @@ pub const Fade = struct {
         }
     }
 
-    /// Helper to wrap this effect into a RenderEffect.
+    /// Wraps this effect for use in rendering pipelines.
     pub fn asEffect(self: *Fade) RenderEffect {
         return RenderEffect.init(
             Fade,
