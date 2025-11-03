@@ -151,7 +151,8 @@ zig build perf-runner
 open perf-results/index.html  # Interactive retro-themed dashboard
 ```
 
-See [perf-tst/README.md](./perf-tst/README.md) for details.
+See [perf-tst/README.md](./perf-tst/README.md) for details.  
+See a generated report including charts and raw data [here](https://m64github.github.io/movy-performance-reports/) (click "view charts").
 
 ## Contributing
 
