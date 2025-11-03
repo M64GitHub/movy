@@ -98,7 +98,7 @@ pub fn splitByWidth(
 ) !void
 ```
 
-**CRITICAL**: After `splitByWidth()`:
+**NOTE**: After `splitByWidth()`:
 - **Frame[0]** remains the original full sprite sheet
 - **Frame[1], Frame[2], ... Frame[N]** are the individual animation frames
 - Animations should **start at index 1**, not 0!
