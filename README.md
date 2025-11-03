@@ -1,5 +1,5 @@
 ![License](https://img.shields.io/badge/License-MIT-85adf2?style=flat)
-![Version](https://img.shields.io/badge/Version-0.2.0-f26585?style=flat)
+![Version](https://img.shields.io/badge/Version-0.2.0-85adf2?style=flat)
 ![Zig](https://img.shields.io/badge/Zig-0.15.2-orange?style=flat)
 
 <img width="1925" height="600" alt="image" src="https://github.com/user-attachments/assets/9bb4787b-6032-4b59-8e6d-cdac22540909" />
@@ -26,6 +26,9 @@ The result is a **modular visual engine** — expressive, composable, and built 
 
 ![win_demo](https://github.com/user-attachments/assets/4ceae31d-bbb1-4a2c-95d9-8bd09e2a513b)
 (window demo)
+
+![Sequence_600](https://github.com/user-attachments/assets/a151f672-0bbf-4601-905f-1e1584be95fc)  
+(alpha blending demo - [blender_demo.zig](./demos/blender_demo.zig))
 
 ## Made with movy
 

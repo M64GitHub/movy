@@ -631,6 +631,7 @@ B = (0 * 128 + 255 * 127) / 255 = 32385 / 255 ~= 127
 - **Yes** -> Continue...
 
 **Are you rendering onto an opaque background?**
+
 - **Yes** -> Use `renderWithAlphaToBg()` **(RECOMMENDED)**
 - **No (both fg and bg can be semi-transparent)** -> Use `renderWithAlpha()`
 

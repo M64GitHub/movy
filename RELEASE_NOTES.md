@@ -2,9 +2,7 @@
 
 ## v0.2.0 - Alpha Blending
 
-# True Transparency - movy v0.2.0
-
-In v0.2.0, movy gains a critical rendering capability that was long overdue: **true alpha blending**. This release implements Porter-Duff alpha compositing, enabling semi-transparent surfaces, smooth fade effects, and layered visual compositions with real transparency. Alongside this core feature, the entire documentation structure has been overhauled to provide comprehensive learning resources for developers new to movy.
+In v0.2.0, movy adds a rendering capability that was long overdue: **true alpha blending**. This release implements Porter-Duff alpha compositing, enabling semi-transparent surfaces, smooth fade effects, and layered visual compositions with real transparency. Alongside this core feature, the entire documentation structure has been overhauled to provide comprehensive learning resources for developers new to movy.
 
 ## What's New
 
@@ -142,7 +140,7 @@ See `examples/alpha_blending.zig` for a complete working example.
 
 ---
 
-## Documentation Overhaul
+## Documentation
 
 The documentation has been completely restructured:
 
@@ -150,14 +148,14 @@ The documentation has been completely restructured:
 
 In-depth documentation on core concepts:
 
-- **[RenderSurface.md](./doc/RenderSurface.md)** (~520 lines)
+- **[RenderSurface.md](./doc/RenderSurface.md)**
   - Creating surfaces with `init()` and `createFromPng()`
   - Understanding color_map, shadow_map, char_map
   - Text rendering with `putStrXY()` and `putUtf8XY()`
   - **Critical detail:** Text must be on even y-coordinates
   - Integration with Screen
 
-- **[RenderEngine.md](./doc/RenderEngine.md)** (~580 lines)
+- **[RenderEngine.md](./doc/RenderEngine.md)**
   - All rendering functions explained
   - When to use each render mode
   - Alpha blending mathematics
@@ -175,7 +173,7 @@ Four focused code examples demonstrating specific features:
 | `layered_scene.zig` | Multi-layer composition with z-ordering | `zig build run-layered_scene` |
 | `png_loader.zig` | Loading PNG files with alpha channels | `zig build run-png_loader` |
 
-Each example is ~70-110 lines, commented, and runnable.
+Each example is commented, and runnable.
 
 ### 3. Demos (`demos/`)
 
@@ -295,35 +293,6 @@ zig build -Dvideo=true # Include movy_video (requires FFmpeg/SDL2)
 
 ---
 
-## Migration Guide
-
-### For New Projects
-
-Use `renderWithAlphaToBg()` for standard rendering:
-
-```zig
-var surfaces = [_]*movy.RenderSurface{ sprite1, sprite2 };
-movy.render.RenderEngine.renderWithAlphaToBg(&surfaces, output);
-```
-
-### For Existing Projects
-
-**No breaking changes** - existing code continues to work:
-
-- Legacy `render()` function unchanged
-- Binary transparency still available
-- `renderOver()` and other functions unaffected
-
-**To add alpha blending:**
-
-1. Switch from `render()` to `renderWithAlphaToBg()`
-2. Set `shadow_map` values for transparency:
-   ```zig
-   for (sprite.shadow_map) |*alpha| {
-       alpha.* = 128;  // 50% opacity
-   }
-   ```
-
 ### Example: Adding Fade Effect
 
 **Before (binary transparency):**
@@ -358,59 +327,6 @@ movy.render.RenderEngine.renderWithAlphaToBg(&surfaces, screen.output_surface);
 - `blendPixelGeneral()` - RGB pixel blend with variable background alpha
 - `blendChannelToBg()` - Optimized blend to opaque background
 - `blendPixelToBg()` - Optimized RGB blend to opaque background
-
-### Documentation Updates
-
-Added **58-line professional doc comment** to `RenderEngine` struct explaining:
-- Purpose of each render function
-- When to use which mode
-- Performance characteristics
-- Alpha blending behavior
-
----
-
-## File Changes Summary
-
-### New Files
-
-**Documentation:**
-- `doc/README.md` - Documentation index
-- `doc/RenderSurface.md` - RenderSurface guide (~520 lines)
-- `doc/RenderEngine.md` - RenderEngine guide (~580 lines)
-- `demos/README.md` - Demos catalog with descriptions
-
-**Examples:**
-- `examples/basic_surface.zig` - Surface basics
-- `examples/alpha_blending.zig` - Alpha compositing demo
-- `examples/layered_scene.zig` - Multi-layer z-ordering
-- `examples/png_loader.zig` - PNG loading workflow
-
-**Demos:**
-- `demos/stars.zig` - Starfield with 60 FPS control
-- `demos/StarField.zig` - Reusable starfield module
-
-### Modified Files
-
-**Core:**
-- `src/render/RenderEngine.zig` - Added alpha blending functions and tests
-- `src/core/RenderSurface.zig` - Fixed PNG alpha channel loading (createFromPng)
-
-**Build System:**
-- `build.zig` - Updated for new examples, tests, and video parameter
-- Added test infrastructure with `zig build test`
-
-**Documentation:**
-- `README.md` - Updated Docs section and RenderEngine description
-
-### Moved Files
-
-**Legacy Examples** → `examples/legacy/`:
-- All 9 previous examples preserved with new run commands
-- Run with: `zig build run-legacy-{name}`
-
-**Video Demo** → `demos/`:
-- `mplayer.zig` moved from examples/ to demos/
-- Run with: `zig build -Dvideo=true run-demo-mplayer`
 
 ---
 
