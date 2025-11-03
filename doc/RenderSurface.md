@@ -337,7 +337,7 @@ movy provides powerful text rendering capabilities that work seamlessly with the
 
 ### `putUtf8XY()` - Place Individual Characters
 
-Places a single UTF-8 character (codepoint) at the specified position.
+Places a single UTF-8 character (codepoint) at the specified X, and line position.
 
 **Function signature:**
 ```zig
@@ -357,7 +357,7 @@ pub fn putUtf8XY(
 surface.putUtf8XY(
     'A',
     5,  // X position
-    2,  // Y position (line 2 - must be even!)
+    2,  // Y position (line 2, pixel row 4!)
     movy.core.types.Rgb{ .r = 0, .g = 0, .b = 255 },  // Blue text
     movy.core.types.Rgb{ .r = 0, .g = 0, .b = 0 },    // Black background
 );
@@ -366,7 +366,7 @@ surface.putUtf8XY(
 surface.putUtf8XY(
     '★',  // Star symbol
     10,
-    4,   // Line 4 (even coordinate)
+    4,   // Line 4
     yellow_color,
     black_color,
 );
@@ -404,7 +404,7 @@ const black = movy.core.types.Rgb{ .r = 0, .g = 0, .b = 0 };
 _ = surface.putStrXY(
     "Hello, movy!",
     0,   // Start at left edge
-    0,   // Top line (even coordinate)
+    0,   // Top line
     green,
     black,
 );
@@ -413,7 +413,7 @@ _ = surface.putStrXY(
 _ = surface.putStrXY(
     "Line 1\nLine 2\nLine 3",
     0,
-    2,  // Starting at line 2 (even coordinate)
+    2,  // Starting at line 2 
     green,
     black,
 );
@@ -422,7 +422,7 @@ _ = surface.putStrXY(
 _ = surface.putStrXY(
     "This is a very long string that will automatically wrap to the next line when it exceeds the surface width.",
     0,
-    4,  // Line 4 (even coordinate)
+    4,  // Line 4 
     green,
     black,
 );
@@ -433,6 +433,8 @@ _ = surface.putStrXY(
 ## Text Y-Coordinate Rule
 
 **Text MUST be placed on EVEN y coordinates only!**
+
+This means when you have text on a surface: you must place that surface in steps of 2 on an even Y coordinate! Moving such surfaces verticall pixel by pixel, will result in artefacts on the odd coordinates. I currently have no good concept of how to improve this.  
 
 Due to movy's half-block rendering system, each terminal line displays **two pixel rows** stacked vertically. Text characters occupy a full line, which starts at an "upper block" position.
 
@@ -445,32 +447,6 @@ Terminal Line 0:  ▀  (upper half) ← y = 0 (even) ✓ CORRECT for text
 Terminal Line 1:  ▀  (upper half) ← y = 2 (even) ✓ CORRECT for text
                   ▄  (lower half) ← y = 3 (odd)  ✗ WRONG for text
 ```
-
-### Correct Usage
-
-```zig
-// ✓ CORRECT - Even y coordinates
-surface.putStrXY("Line 0", 0, 0, white, black);  // y = 0 ✓
-surface.putStrXY("Line 2", 0, 2, white, black);  // y = 2 ✓
-surface.putStrXY("Line 4", 0, 4, white, black);  // y = 4 ✓
-
-surface.putUtf8XY('A', 5, 0, white, black);  // y = 0 ✓
-surface.putUtf8XY('B', 5, 2, white, black);  // y = 2 ✓
-```
-
-### Incorrect Usage (Produces Artifacts!)
-
-```zig
-// ✗ WRONG - Odd y coordinates cause rendering artifacts
-surface.putStrXY("Bad Line", 0, 1, white, black);  // y = 1 ✗ WRONG!
-surface.putStrXY("Bad Line", 0, 3, white, black);  // y = 3 ✗ WRONG!
-
-surface.putUtf8XY('X', 5, 1, white, black);  // y = 1 ✗ WRONG!
-```
-
-**Rule of thumb:** When calculating text positions, use:
-- `y = line_number * 2` where line_number = 0, 1, 2, 3, ...
-- Or simply count by 2: 0, 2, 4, 6, 8, 10, ...
 
 ---
 
@@ -486,7 +462,7 @@ pub fn toAnsi(self: *RenderSurface) ![]u8
 ```
 
 **How it works:**
-- Converts pixel data to ANSI color codes
+- Converts pixel data to ANSI color coded pixels
 - Uses half-block characters (▀ ▄) for double vertical resolution
 - Overlays char_map characters on top of graphics
 - Returns a string ready to print
@@ -571,7 +547,7 @@ pub fn main() !void {
 
     // Position the surface
     my_surface.x = 10;  // 10 chars from left
-    my_surface.y = 5;   // 5 lines from top
+    my_surface.y = 5;   // 5 pixels from top
     my_surface.z = 1;   // Layer 1
 
     // -- ADD RENDERSURFACE TO SCREEN
@@ -666,7 +642,7 @@ pub fn main() !void {
     _ = background.putStrXY(
         "Welcome to movy!",
         2,   // X position
-        2,   // Y position (line 2 - even coordinate!)
+        2,   // Y position
         white,
         black,
     );
