@@ -46,7 +46,7 @@ pub fn main() !void {
         "assets/player.png",  // PNG file path
         "player",             // Sprite name
     );
-    defer sprite.deinit(allocator);  // IMPORTANT: Always clean up!
+    defer sprite.deinit(allocator);  // Always clean up!
 
     // Sprite is now ready to use
     // At this point it has 1 frame (the entire PNG image)
