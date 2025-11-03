@@ -111,7 +111,7 @@ zig build test
 
 ## Documentation
 
-**movy** will provide comprehensive learning resources organized in three tiers:
+... is being under construction, and frequently updated and expanded. Please check:
 
 - **[Guides](./doc/README.md)** — In-depth documentation on core concepts like RenderSurface and RenderEngine, written for developers new to movy
 - **[Examples](./examples/)** — Focused code examples demonstrating specific features (alpha blending, PNG loading, layered scenes)
