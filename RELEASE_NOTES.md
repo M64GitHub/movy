@@ -1,5 +1,215 @@
 # Release Notes
 
+# v 0.2.2 - New Sprite split functions, doc update, tests
+
+## Documentation
+
+### New Documentation
+
+Two new comprehensive documentation guides added:
+
+**`doc/Animation.md`**
+- IndexAnimator: frame cycling with loop modes (.once, .loopForward, .loopBackwards, .loopBounce)
+- TrigWave: stateful wave generators for motion, pulsing, and 2D movement
+- Trig functions: pure sine/cosine calculations
+- Easing: smooth transitions with ease-in/out curves
+- Includes code examples and references to `demos/blender_demo.zig`
+
+**`doc/Colors.md`**
+- Bootstrap-inspired color palette (11 color families, shades 100-900)
+- Color constants: `movy.color.BLUE`, `movy.color.RED`, etc.
+- Utility functions: `fromHtml()`, `brighter()`, `darker()`, and fast variants
+- Practical examples for themes, hover states, and dynamic color adjustment
+
+Both guides added to `doc/README.md` in "Available Documentation" section.
+
+---
+
+## Sprite Split Functions - Enhanced Sprite Sheet Support
+
+### New Functions
+
+Three new sprite splitting functions added to `Sprite` for handling different sprite sheet layouts:
+
+#### 1. `splitByHeight()` - Vertical Splitting
+
+Splits sprite sheets arranged vertically (top-to-bottom):
+
+```zig
+pub fn splitByHeight(
+    self: *Sprite,
+    allocator: std.mem.Allocator,
+    split_height: usize,
+) !void
+```
+
+**When to use:**
+- Vertically-stacked animation frames
+- Sprite sheets organized in columns
+- Similar to `splitByWidth()` but for vertical layouts
+
+**Example:**
+```zig
+var sprite = try movy.Sprite.initFromPng(allocator, "vertical_sheet.png", "sprite");
+try sprite.splitByHeight(allocator, 16);  // Split into 16-pixel tall frames
+```
+
+#### 2. `splitByWH()` - Grid-based Splitting
+
+Splits sprite sheets in a grid pattern (left-to-right, then top-to-bottom):
+
+```zig
+pub fn splitByWH(
+    self: *Sprite,
+    allocator: std.mem.Allocator,
+    split_width: usize,
+    split_height: usize,
+) !void
+```
+
+**When to use:**
+- Sprite sheets with multiple rows and columns
+- Character animation sheets with walk cycles, attacks, etc.
+- Any grid-organized sprite sheet
+
+**Example:**
+```zig
+// 64x48 sprite sheet containing 4 frames in a 2x2 grid
+var sprite = try movy.Sprite.initFromPng(allocator, "grid_sheet.png", "sprite");
+try sprite.splitByWH(allocator, 32, 24);  // Creates 4 frames of 32x24
+```
+
+#### 3. `splitByWHOffset()` - Grid Splitting with Border Offset
+
+Grid splitting that skips border/header areas before extracting frames:
+
+```zig
+pub fn splitByWHOffset(
+    self: *Sprite,
+    allocator: std.mem.Allocator,
+    split_width: usize,
+    split_height: usize,
+    left_offset: usize,
+    top_offset: usize,
+) !void
+```
+
+**When to use:**
+- Sprite sheets with text headers or metadata borders
+- Grid sprite sheets with padding/margins
+- Any sheet where frame data doesn't start at (0, 0)
+
+**Example:**
+```zig
+// Sprite sheet with 4-pixel border on all sides
+var sprite = try movy.Sprite.initFromPng(allocator, "bordered_sheet.png", "sprite");
+try sprite.splitByWHOffset(allocator, 16, 16, 4, 4);  // Skip 4px border
+```
+
+### Behavior
+
+All split functions follow the same pattern as the existing `splitByWidth()`:
+
+- **Frame[0]** remains the original full sprite sheet
+- **Frame[1..N]** are the extracted animation frames
+- Animations should start at index 1, not 0
+- All data is copied: `color_map`, `shadow_map`, and `char_map`
+- Sprite dimensions (`w`, `h`) are updated to frame size
+
+### Validation
+
+All functions validate input dimensions:
+- Zero-size dimensions return `error.InvalidDimensions`
+- Non-evenly-divisible dimensions return `error.InvalidDimensions`
+- Offset functions verify at least one frame fits after the offset
+
+### Testing
+
+Comprehensive test suite added with 7 test cases covering:
+- Vertical splitting with multiple frames
+- Edge pixel accuracy (off-by-one error detection)
+- Grid splitting in 2x2 and 2x2 configurations
+- Edge boundary correctness
+- Border offset handling
+- Invalid dimension validation
+- Character map (`char_map`) preservation
+
+**Run tests:**
+```bash
+zig build test
+```
+
+All tests verify pixel-perfect accuracy including edge cases, ensuring correct data extraction from sprite sheets.
+
+### Documentation
+
+Updated `doc/Sprite.md`:
+- Added note about additional split functions in "Splitting Sprite Sheets" section
+- Updated "Core Functions" quick reference table with new functions
+
+### API Summary
+
+| Function | Layout | Use Case |
+|----------|--------|----------|
+| `splitByWidth(w)` | Horizontal strip | Left-to-right frames |
+| `splitByHeight(h)` | Vertical strip | Top-to-bottom frames |
+| `splitByWH(w, h)` | Grid | Multi-row/column sprite sheet |
+| `splitByWHOffset(w, h, left, top)` | Grid with border | Sprite sheet with headers/padding |
+
+### Files Modified
+
+- `src/graphic/Sprite.zig` - Added 3 functions and 7 test cases
+- `doc/Sprite.md` - Updated documentation
+
+---
+
+## IndexAnimator Tests - Comprehensive Test Coverage
+
+### Testing Infrastructure
+
+Added comprehensive test suite for `IndexAnimator` to ensure correct stepping logic across all loop modes and edge cases.
+
+**Test Coverage (11 test cases):**
+
+1. **`.once` mode:**
+   - Advances from start to end and stops
+   - Sets `once_finished` flag correctly
+   - Works with reverse ranges (start > end)
+   - Handles single-frame case (start == end)
+
+2. **`.loopForward` mode:**
+   - Cycles from start to end, wraps to start
+   - Works with both forward and reverse ranges
+   - Continues cycling indefinitely
+
+3. **`.loopBackwards` mode:**
+   - Starts at start, cycles backward to end
+   - Wraps correctly
+   - Works with reverse ranges
+
+4. **`.loopBounce` mode:**
+   - Bounces between start and end
+   - Direction field toggles at boundaries
+   - Works with reverse ranges
+   - Handles single-frame edge case
+
+5. **Edge cases:**
+   - Multiple complete cycles
+   - Forward and reverse ranges
+   - Single-frame animations
+
+**Run tests:**
+```bash
+zig build test
+```
+
+All tests verify pixel-perfect stepping behavior ensuring animations work correctly in all scenarios.
+
+### Files Modified
+
+- `src/animation/IndexAnimator.zig` - Added 11 comprehensive test cases
+
+---
 
 ## v0.2.1 - memcpy() performance improvements, documentation
 
