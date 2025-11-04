@@ -142,7 +142,8 @@ Let the pixels glow — and the Terminal Revolution begin!
 Whether it's a game, a demo, an effect, or a tool — if it glows in the terminal, it belongs here.
 
 ## Performance Suite
-<img width="895" height="423" alt="image" src="https://github.com/user-attachments/assets/e233388d-b858-4c41-8c63-d2639f594f1e" />
+
+<img width="1432" height="423" alt="movy-perf-suite" src="https://github.com/user-attachments/assets/779f7fc7-0d04-4a4b-bacd-ed4e8081f154" />
 
 The integrated performance suite benchmarks ANSI conversion, sprite rendering, and the full pipeline across different sizes and configurations.
 
