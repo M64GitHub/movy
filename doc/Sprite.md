@@ -140,6 +140,16 @@ pub fn main() !void {
 - The sprite's `w` and `h` are updated to the frame size
 - Frame[0] is NOT removed (may be useful for debugging)
 
+**Additional split functions:**
+
+movy provides additional split functions for different sprite sheet layouts:
+
+- `splitByHeight(allocator, split_height)` - Splits vertically (top-to-bottom) for vertically-aligned sprite sheets
+- `splitByWH(allocator, width, height)` - Splits in a grid pattern (left-to-right, then top-to-bottom) for sprite sheets with multiple rows and columns
+- `splitByWHOffset(allocator, width, height, left_offset, top_offset)` - Grid splitting that skips a border/header area before starting
+
+All split functions follow the same pattern as `splitByWidth()`: frame[0] remains the original, and new frames start at index 1.
+
 ---
 
 ## Animation Control
@@ -677,7 +687,10 @@ const frame3 = try sprite.getFrameSurface(3);  // Get frame 3's surface
 |----------|---------|
 | `initFromPng(allocator, path, name)` | Load sprite from PNG file |
 | `deinit(allocator)` | Clean up sprite and all frames |
-| `splitByWidth(allocator, width)` | Split frame[0] into animation frames |
+| `splitByWidth(allocator, width)` | Split frame[0] horizontally |
+| `splitByHeight(allocator, height)` | Split frame[0] vertically |
+| `splitByWH(allocator, w, h)` | Split frame[0] in grid pattern |
+| `splitByWHOffset(allocator, w, h, left, top)` | Grid split with offset |
 | `addAnimation(allocator, name, anim)` | Define a named animation |
 | `startAnimation(name)` | Activate an animation by name |
 | `stepActiveAnimation()` | Advance animation to next frame |

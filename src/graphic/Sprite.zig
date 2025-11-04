@@ -663,6 +663,201 @@ pub const Sprite = struct {
         // _ = self.frame_set.frames.orderedRemove(0);
     }
 
+    /// Splits the first frame's data_surface vertically into equal-height
+    /// frames, copying each region manually by slicing the color_map,
+    /// shadow_map, and char_map.
+    pub fn splitByHeight(
+        self: *Sprite,
+        allocator: std.mem.Allocator,
+        split_height: usize,
+    ) !void {
+        const full_frame = self.frame_set.frames.items[0];
+        const src = full_frame.data_surface;
+        const h = src.h;
+        const w = src.w;
+
+        if (w == 0 or h == 0 or split_height == 0 or h % split_height != 0) {
+            return error.InvalidDimensions;
+        }
+
+        const num_frames = h / split_height;
+
+        for (0..num_frames) |i| {
+            const new_frame = try SpriteFrame.init(allocator, w, split_height);
+            try self.frame_set.frames.append(allocator, new_frame);
+            const dst = new_frame.data_surface;
+
+            for (0..split_height) |y| {
+                const src_row_start = (i * split_height + y) * w;
+                const dst_row_start = y * w;
+
+                // Copy RGB
+                @memcpy(
+                    dst.color_map[dst_row_start .. dst_row_start + w],
+                    src.color_map[src_row_start .. src_row_start + w],
+                );
+
+                // Copy shadow map
+                @memcpy(
+                    dst.shadow_map[dst_row_start .. dst_row_start + w],
+                    src.shadow_map[src_row_start .. src_row_start + w],
+                );
+
+                // Copy char map
+                @memcpy(
+                    dst.char_map[dst_row_start .. dst_row_start + w],
+                    src.char_map[src_row_start .. src_row_start + w],
+                );
+            }
+
+            // Copy to output surface for display
+            try new_frame.output_surface.copy(dst);
+        }
+
+        self.frame_set.frame_idx = 1;
+        self.h = split_height;
+    }
+
+    /// Splits the first frame's data_surface into a grid of equal-sized frames.
+    /// Splits left-to-right first, then top-to-bottom.
+    pub fn splitByWH(
+        self: *Sprite,
+        allocator: std.mem.Allocator,
+        split_width: usize,
+        split_height: usize,
+    ) !void {
+        const full_frame = self.frame_set.frames.items[0];
+        const src = full_frame.data_surface;
+        const h = src.h;
+        const w = src.w;
+
+        if (w == 0 or h == 0 or split_width == 0 or split_height == 0) {
+            return error.InvalidDimensions;
+        }
+        if (w % split_width != 0 or h % split_height != 0) {
+            return error.InvalidDimensions;
+        }
+
+        const num_cols = w / split_width;
+        const num_rows = h / split_height;
+
+        for (0..num_rows) |row| {
+            for (0..num_cols) |col| {
+                const new_frame =
+                    try SpriteFrame.init(allocator, split_width, split_height);
+                try self.frame_set.frames.append(allocator, new_frame);
+                const dst = new_frame.data_surface;
+
+                for (0..split_height) |y| {
+                    const src_row_start =
+                        (row * split_height + y) * w + (col * split_width);
+                    const dst_row_start = y * split_width;
+
+                    // Copy RGB
+                    @memcpy(
+                        dst.color_map[dst_row_start .. dst_row_start + split_width],
+                        src.color_map[src_row_start .. src_row_start + split_width],
+                    );
+
+                    // Copy shadow map
+                    @memcpy(
+                        dst.shadow_map[dst_row_start .. dst_row_start + split_width],
+                        src.shadow_map[src_row_start .. src_row_start + split_width],
+                    );
+
+                    // Copy char map
+                    @memcpy(
+                        dst.char_map[dst_row_start .. dst_row_start + split_width],
+                        src.char_map[src_row_start .. src_row_start + split_width],
+                    );
+                }
+
+                // Copy to output surface for display
+                try new_frame.output_surface.copy(dst);
+            }
+        }
+
+        self.frame_set.frame_idx = 1;
+        self.w = split_width;
+        self.h = split_height;
+    }
+
+    /// Splits the first frame's data_surface into a grid of equal-sized frames,
+    /// starting at an offset position (skipping a border/header).
+    /// Splits left-to-right first, then top-to-bottom.
+    pub fn splitByWHOffset(
+        self: *Sprite,
+        allocator: std.mem.Allocator,
+        split_width: usize,
+        split_height: usize,
+        left_offset: usize,
+        top_offset: usize,
+    ) !void {
+        const full_frame = self.frame_set.frames.items[0];
+        const src = full_frame.data_surface;
+        const h = src.h;
+        const w = src.w;
+
+        if (w == 0 or h == 0 or split_width == 0 or split_height == 0) {
+            return error.InvalidDimensions;
+        }
+
+        // Check if offset + at least one frame fits
+        if (left_offset + split_width > w or top_offset + split_height > h) {
+            return error.InvalidDimensions;
+        }
+
+        const usable_width = w - left_offset;
+        const usable_height = h - top_offset;
+
+        if (usable_width % split_width != 0 or usable_height % split_height != 0) {
+            return error.InvalidDimensions;
+        }
+
+        const num_cols = usable_width / split_width;
+        const num_rows = usable_height / split_height;
+
+        for (0..num_rows) |row| {
+            for (0..num_cols) |col| {
+                const new_frame =
+                    try SpriteFrame.init(allocator, split_width, split_height);
+                try self.frame_set.frames.append(allocator, new_frame);
+                const dst = new_frame.data_surface;
+
+                for (0..split_height) |y| {
+                    const src_row_start = (top_offset + row * split_height + y) * w +
+                        (left_offset + col * split_width);
+                    const dst_row_start = y * split_width;
+
+                    // Copy RGB
+                    @memcpy(
+                        dst.color_map[dst_row_start .. dst_row_start + split_width],
+                        src.color_map[src_row_start .. src_row_start + split_width],
+                    );
+
+                    // Copy shadow map
+                    @memcpy(
+                        dst.shadow_map[dst_row_start .. dst_row_start + split_width],
+                        src.shadow_map[src_row_start .. src_row_start + split_width],
+                    );
+
+                    // Copy char map
+                    @memcpy(
+                        dst.char_map[dst_row_start .. dst_row_start + split_width],
+                        src.char_map[src_row_start .. src_row_start + split_width],
+                    );
+                }
+
+                // Copy to output surface for display
+                try new_frame.output_surface.copy(dst);
+            }
+        }
+
+        self.frame_set.frame_idx = 1;
+        self.w = split_width;
+        self.h = split_height;
+    }
+
     /// Renders the sprite's first frame as full-block characters for debugging.
     /// Displays transparent pixels in dark blue and opaque pixels in their
     /// actual colors, useful for verifying sprite loading and pixel data.
@@ -693,3 +888,420 @@ pub const Sprite = struct {
         try stdout.writeAll("\x1b[m");
     }
 };
+
+// ============================================================================
+// Tests
+// ============================================================================
+
+test "Sprite.splitByHeight splits vertically into equal frames" {
+    const testing = std.testing;
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    // Create a 16x16 sprite that we'll split into 4 frames of 16x4
+    var sprite = try Sprite.init(allocator, 16, 16, "test_sprite");
+    defer sprite.deinit(allocator);
+
+    const frame0 = sprite.frame_set.frames.items[0];
+    const surface = frame0.data_surface;
+
+    // Paint each 16x4 region with a unique color
+    const colors = [_]movy.core.types.Rgb{
+        .{ .r = 255, .g = 0, .b = 0 }, // Red - top
+        .{ .r = 0, .g = 255, .b = 0 }, // Green
+        .{ .r = 0, .g = 0, .b = 255 }, // Blue
+        .{ .r = 255, .g = 255, .b = 0 }, // Yellow - bottom
+    };
+
+    for (0..4) |region| {
+        for (0..4) |y| {
+            for (0..16) |x| {
+                const idx = (region * 4 + y) * 16 + x;
+                surface.color_map[idx] = colors[region];
+                surface.shadow_map[idx] = 200 + @as(u8, @intCast(region)); // Unique alpha per region
+            }
+        }
+    }
+
+    // Split into 4 frames of height 4
+    try sprite.splitByHeight(allocator, 4);
+
+    // Verify we have 5 frames (original + 4 split)
+    try testing.expectEqual(@as(usize, 5), sprite.frame_set.frames.items.len);
+    try testing.expectEqual(@as(usize, 4), sprite.h);
+
+    // Verify each frame has correct color and alpha
+    for (1..5) |frame_idx| {
+        const frame = sprite.frame_set.frames.items[frame_idx];
+        const expected_color = colors[frame_idx - 1];
+        const expected_alpha = 200 + @as(u8, @intCast(frame_idx - 1));
+
+        // Check all pixels in the frame
+        for (0..4) |y| {
+            for (0..16) |x| {
+                const idx = y * 16 + x;
+                try testing.expectEqual(
+                    expected_color.r,
+                    frame.data_surface.color_map[idx].r,
+                );
+                try testing.expectEqual(
+                    expected_color.g,
+                    frame.data_surface.color_map[idx].g,
+                );
+                try testing.expectEqual(
+                    expected_color.b,
+                    frame.data_surface.color_map[idx].b,
+                );
+                try testing.expectEqual(
+                    expected_alpha,
+                    frame.data_surface.shadow_map[idx],
+                );
+            }
+        }
+
+        // Test edge pixels specifically (top-left, top-right, bottom-left, bottom-right)
+        const edges = [_]usize{ 0, 15, 16 * 3, 16 * 3 + 15 };
+        for (edges) |edge_idx| {
+            try testing.expectEqual(
+                expected_color.r,
+                frame.data_surface.color_map[edge_idx].r,
+            );
+            try testing.expectEqual(
+                expected_alpha,
+                frame.data_surface.shadow_map[edge_idx],
+            );
+        }
+    }
+}
+
+test "Sprite.splitByHeight handles edge pixels correctly" {
+    const testing = std.testing;
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    // Create 10x10 sprite, split into 5 frames of 10x2
+    var sprite = try Sprite.init(allocator, 10, 10, "edge_test");
+    defer sprite.deinit(allocator);
+
+    const surface = sprite.frame_set.frames.items[0].data_surface;
+
+    // Set unique color for EACH pixel
+    for (0..10) |y| {
+        for (0..10) |x| {
+            const idx = y * 10 + x;
+            surface.color_map[idx] = .{
+                .r = @intCast(y * 10 + x),
+                .g = @intCast(y),
+                .b = @intCast(x),
+            };
+        }
+    }
+
+    try sprite.splitByHeight(allocator, 2);
+
+    // Verify edge boundaries between frames
+    // Frame 1: rows 0-1, Frame 2: rows 2-3, etc.
+    for (1..6) |frame_idx| {
+        const frame = sprite.frame_set.frames.items[frame_idx];
+        const orig_y_start = (frame_idx - 1) * 2;
+
+        // Check first row (y=0 in frame)
+        for (0..10) |x| {
+            const frame_idx_pos = x;
+            const orig_idx = orig_y_start * 10 + x;
+            try testing.expectEqual(
+                surface.color_map[orig_idx].r,
+                frame.data_surface.color_map[frame_idx_pos].r,
+            );
+        }
+
+        // Check last row (y=1 in frame)
+        for (0..10) |x| {
+            const frame_idx_pos = 10 + x;
+            const orig_idx = (orig_y_start + 1) * 10 + x;
+            try testing.expectEqual(
+                surface.color_map[orig_idx].r,
+                frame.data_surface.color_map[frame_idx_pos].r,
+            );
+        }
+    }
+}
+
+test "Sprite.splitByWH splits 2x2 grid correctly" {
+    const testing = std.testing;
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    // Create 32x16 sprite, split into 2x2 grid (4 frames of 16x8)
+    var sprite = try Sprite.init(allocator, 32, 16, "grid_test");
+    defer sprite.deinit(allocator);
+
+    const surface = sprite.frame_set.frames.items[0].data_surface;
+
+    // Paint 4 quadrants with different colors
+    // Top-left: Red, Top-right: Green, Bottom-left: Blue, Bottom-right: Yellow
+    const colors = [_]movy.core.types.Rgb{
+        .{ .r = 255, .g = 0, .b = 0 }, // Top-left
+        .{ .r = 0, .g = 255, .b = 0 }, // Top-right
+        .{ .r = 0, .g = 0, .b = 255 }, // Bottom-left
+        .{ .r = 255, .g = 255, .b = 0 }, // Bottom-right
+    };
+
+    for (0..2) |row| {
+        for (0..2) |col| {
+            const color = colors[row * 2 + col];
+            for (0..8) |y| {
+                for (0..16) |x| {
+                    const idx = (row * 8 + y) * 32 + (col * 16 + x);
+                    surface.color_map[idx] = color;
+                    surface.shadow_map[idx] =
+                        100 + @as(u8, @intCast(row * 2 + col));
+                }
+            }
+        }
+    }
+
+    // Split into 16x8 frames
+    try sprite.splitByWH(allocator, 16, 8);
+
+    // Verify we have 5 frames (original + 4 split)
+    try testing.expectEqual(@as(usize, 5), sprite.frame_set.frames.items.len);
+    try testing.expectEqual(@as(usize, 16), sprite.w);
+    try testing.expectEqual(@as(usize, 8), sprite.h);
+
+    // Verify frame order: top-left, top-right, bottom-left, bottom-right
+    for (1..5) |frame_idx| {
+        const frame = sprite.frame_set.frames.items[frame_idx];
+        const expected_color = colors[frame_idx - 1];
+        const expected_alpha = 100 + @as(u8, @intCast(frame_idx - 1));
+
+        // Check all pixels
+        for (0..8) |y| {
+            for (0..16) |x| {
+                const idx = y * 16 + x;
+                try testing.expectEqual(
+                    expected_color.r,
+                    frame.data_surface.color_map[idx].r,
+                );
+                try testing.expectEqual(
+                    expected_color.g,
+                    frame.data_surface.color_map[idx].g,
+                );
+                try testing.expectEqual(
+                    expected_color.b,
+                    frame.data_surface.color_map[idx].b,
+                );
+                try testing.expectEqual(
+                    expected_alpha,
+                    frame.data_surface.shadow_map[idx],
+                );
+            }
+        }
+    }
+}
+
+test "Sprite.splitByWH handles edge boundaries correctly" {
+    const testing = std.testing;
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    // Create 20x10 sprite, split into 2x2 grid (4 frames of 10x5)
+    var sprite = try Sprite.init(allocator, 20, 10, "edge_grid_test");
+    defer sprite.deinit(allocator);
+
+    const surface = sprite.frame_set.frames.items[0].data_surface;
+
+    // Set unique value for each pixel
+    for (0..10) |y| {
+        for (0..20) |x| {
+            const idx = y * 20 + x;
+            surface.color_map[idx] = .{
+                .r = @intCast(x),
+                .g = @intCast(y),
+                .b = @intCast((y * 20 + x) % 256),
+            };
+        }
+    }
+
+    try sprite.splitByWH(allocator, 10, 5);
+
+    // Frame 1: rows 0-4, cols 0-9
+    // Frame 2: rows 0-4, cols 10-19
+    // Frame 3: rows 5-9, cols 0-9
+    // Frame 4: rows 5-9, cols 10-19
+
+    const frame_coords = [_][2]usize{
+        .{ 0, 0 }, // Frame 1: top-left
+        .{ 0, 10 }, // Frame 2: top-right
+        .{ 5, 0 }, // Frame 3: bottom-left
+        .{ 5, 10 }, // Frame 4: bottom-right
+    };
+
+    for (1..5) |frame_idx| {
+        const frame = sprite.frame_set.frames.items[frame_idx];
+        const base_y = frame_coords[frame_idx - 1][0];
+        const base_x = frame_coords[frame_idx - 1][1];
+
+        // Check corners
+        const corners = [_][2]usize{
+            .{ 0, 0 }, // top-left
+            .{ 0, 9 }, // top-right
+            .{ 4, 0 }, // bottom-left
+            .{ 4, 9 }, // bottom-right
+        };
+
+        for (corners) |corner| {
+            const frame_y = corner[0];
+            const frame_x = corner[1];
+            const orig_y = base_y + frame_y;
+            const orig_x = base_x + frame_x;
+
+            const frame_idx_pos = frame_y * 10 + frame_x;
+            const orig_idx = orig_y * 20 + orig_x;
+
+            try testing.expectEqual(
+                surface.color_map[orig_idx].r,
+                frame.data_surface.color_map[frame_idx_pos].r,
+            );
+            try testing.expectEqual(
+                surface.color_map[orig_idx].g,
+                frame.data_surface.color_map[frame_idx_pos].g,
+            );
+        }
+    }
+}
+
+test "Sprite.splitByWHOffset skips border correctly" {
+    const testing = std.testing;
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    // Create 40x20 sprite with 4-pixel border on all sides
+    // Usable area: 32x12, split into 2x2 grid of 16x6 frames
+    var sprite = try Sprite.init(allocator, 40, 20, "offset_test");
+    defer sprite.deinit(allocator);
+
+    const surface = sprite.frame_set.frames.items[0].data_surface;
+
+    // Fill border with black
+    for (0..20) |y| {
+        for (0..40) |x| {
+            const idx = y * 40 + x;
+            surface.color_map[idx] = .{ .r = 0, .g = 0, .b = 0 };
+            surface.shadow_map[idx] = 50; // Low alpha for border
+        }
+    }
+
+    // Fill 4 quadrants inside border with different colors
+    const colors = [_]movy.core.types.Rgb{
+        .{ .r = 255, .g = 0, .b = 0 }, // Top-left
+        .{ .r = 0, .g = 255, .b = 0 }, // Top-right
+        .{ .r = 0, .g = 0, .b = 255 }, // Bottom-left
+        .{ .r = 255, .g = 255, .b = 0 }, // Bottom-right
+    };
+
+    for (0..2) |row| {
+        for (0..2) |col| {
+            const color = colors[row * 2 + col];
+            for (0..6) |y| {
+                for (0..16) |x| {
+                    const idx = (4 + row * 6 + y) * 40 + (4 + col * 16 + x);
+                    surface.color_map[idx] = color;
+                    surface.shadow_map[idx] =
+                        200 + @as(u8, @intCast(row * 2 + col));
+                }
+            }
+        }
+    }
+
+    // Split with offset (4, 4)
+    try sprite.splitByWHOffset(allocator, 16, 6, 4, 4);
+
+    // Verify we have 5 frames
+    try testing.expectEqual(@as(usize, 5), sprite.frame_set.frames.items.len);
+
+    // Verify frames contain colored data, not border
+    for (1..5) |frame_idx| {
+        const frame = sprite.frame_set.frames.items[frame_idx];
+        const expected_color = colors[frame_idx - 1];
+        const expected_alpha = 200 + @as(u8, @intCast(frame_idx - 1));
+
+        // Check first and last pixel
+        try testing.expectEqual(
+            expected_color.r,
+            frame.data_surface.color_map[0].r,
+        );
+        try testing.expectEqual(
+            expected_alpha,
+            frame.data_surface.shadow_map[0],
+        );
+
+        const last_idx = 16 * 6 - 1;
+        try testing.expectEqual(
+            expected_color.r,
+            frame.data_surface.color_map[last_idx].r,
+        );
+        try testing.expectEqual(
+            expected_alpha,
+            frame.data_surface.shadow_map[last_idx],
+        );
+    }
+}
+
+test "Sprite.splitByWHOffset validates offset dimensions" {
+    const testing = std.testing;
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    var sprite = try Sprite.init(allocator, 32, 16, "offset_validation");
+    defer sprite.deinit(allocator);
+
+    // Should fail: offset too large (no room for frame)
+    const result1 = sprite.splitByWHOffset(allocator, 16, 8, 20, 10);
+    try testing.expectError(error.InvalidDimensions, result1);
+
+    // Should fail: usable area not evenly divisible
+    const result2 = sprite.splitByWHOffset(allocator, 15, 8, 2, 0);
+    try testing.expectError(error.InvalidDimensions, result2);
+}
+
+test "Sprite split functions preserve char_map" {
+    const testing = std.testing;
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    var sprite = try Sprite.init(allocator, 20, 10, "char_test");
+    defer sprite.deinit(allocator);
+
+    const surface = sprite.frame_set.frames.items[0].data_surface;
+
+    // Set unique char for each pixel
+    for (0..10) |y| {
+        for (0..20) |x| {
+            const idx = y * 20 + x;
+            surface.char_map[idx] = 'A' + @as(u21, @intCast(idx % 26));
+        }
+    }
+
+    try sprite.splitByWH(allocator, 10, 5);
+
+    // Verify char_map is preserved
+    const frame = sprite.frame_set.frames.items[1]; // Top-left frame
+    for (0..5) |y| {
+        for (0..10) |x| {
+            const frame_idx_pos = y * 10 + x;
+            const orig_idx = y * 20 + x;
+            try testing.expectEqual(
+                surface.char_map[orig_idx],
+                frame.data_surface.char_map[frame_idx_pos],
+            );
+        }
+    }
+}
