@@ -1,5 +1,14 @@
-//! an animated starfield
-//! see stars.zig on how to use it in a main loop
+// StarField - Animated starfield effect
+//
+// Features:
+// - 300 stars with depth-based perspective
+// - Smooth subpixel movement with accumulator
+// - Two star types: Normal and Flashy (animated)
+// - Depth-based color gradient (blue -> purple -> cyan)
+// - Character variety based on depth
+//
+// Usage: See stars.zig for main loop integration
+
 const std = @import("std");
 const movy = @import("movy");
 
@@ -23,15 +32,15 @@ pub const Starfield = struct {
     const Star = struct {
         x: i32,
         y: i32,
-        z: i32,
-        accumulator: i32, // Accumulator for smooth movement
-        adder_value: i32, // Step per frame
+        z: i32,  // Depth (0=close, 250=far)
+        accumulator: i32,  // Subpixel movement accumulator
+        adder_value: i32,  // Speed based on depth
         kind: StarType,
-        flashy_frame: usize = 0, // flashy star extension
-        flashy_interval: usize = FlashyInterval, // flash all X frames
-        flashy_ani_frame: usize = 0, // current frame in ani
-        flashy_speed: usize = 5, // update flashy ani each X frames
-        flashy_idx: usize = 0, // index into flashy ani
+        flashy_frame: usize = 0,  // Frame counter for flash timing
+        flashy_interval: usize = FlashyInterval,
+        flashy_ani_frame: usize = 0,
+        flashy_speed: usize = 5,
+        flashy_idx: usize = 0,
         flashy_char: u21 = 0x00B7,
         flashy_brightness: u8 = 0x40,
     };
@@ -94,7 +103,7 @@ pub const Starfield = struct {
         allocator.destroy(self);
     }
 
-    // Soft neon glow gradient: Dark Blue → Purple → Cyan → Bright Cyan
+    // Depth-based color gradient: Dark Blue -> Purple -> Cyan -> Bright Cyan
     fn getStarColor(z: i32) movy.core.types.Rgb {
         const color_val = @as(u8, @intCast(@min(250, z + 50)));
         const progress = @as(u16, color_val) -| 50; // 0 to 200
@@ -145,33 +154,34 @@ pub const Starfield = struct {
         const r = self.rng.random();
 
         for (&self.stars) |*star| {
+            // Subpixel movement: accumulate fractional movement
             star.accumulator += star.adder_value;
             if (star.accumulator >= self.threshold) {
                 star.y += 2;
                 star.accumulator -= self.threshold;
             }
 
-            // when off the screen
+            // Wrap stars that move off bottom
             if (star.y >= h) {
-                // reset the star
                 star.y = 0;
                 star.x = r.intRangeAtMost(i32, 0, @intCast(w - 1));
                 star.z = r.intRangeAtMost(i32, 0, self.depth);
-                star.adder_value = star.z + 50;
+                star.adder_value = star.z + 50;  // Speed based on depth
                 star.accumulator = 0;
             }
 
-            // index into RenderSurface maps
+            // Calculate pixel index
             const map_idx =
                 @as(usize, @intCast(star.y)) * w +
                 @as(usize, @intCast(star.x));
 
+            // Character size based on depth (closer = larger)
             const dot_char: u21 = switch (star.z) {
-                0...99 => 0x00B7, // ·
-                100...149 => 0x2022, // •
-                150...199 => 0x02022, // •
-                200...220 => '.', // ●
-                else => '●', // ● 0x25C9, // ◉
+                0...99 => 0x00B7,    // · (small)
+                100...149 => 0x2022, // • (medium)
+                150...199 => 0x02022,
+                200...220 => '.',
+                else => '●',         // ● (large, closest)
             };
 
             switch (star.kind) {

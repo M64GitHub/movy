@@ -1,3 +1,15 @@
+// Window Demo - UI Manager demonstration
+//
+// Features:
+// - UI Manager with automatic layout
+// - Multiple styled windows
+// - Bordered and title windows
+// - Styled text rendering
+// - Color themes
+//
+// Controls:
+// - esc, q: exit
+
 const std = @import("std");
 const movy = @import("movy");
 
