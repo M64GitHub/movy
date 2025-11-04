@@ -143,7 +143,7 @@ Whether it's a game, a demo, an effect, or a tool — if it glows in the termina
 
 ## Performance Suite
 
-<img width="600" height="177" alt="movy-perf-suite" src="https://github.com/user-attachments/assets/5af16b6c-d6c1-4bf0-a620-dbb067ea23e3" />
+<img alt="movy-perf-suite" src="https://github.com/user-attachments/assets/5af16b6c-d6c1-4bf0-a620-dbb067ea23e3" />
 
 The integrated performance suite benchmarks ANSI conversion, sprite rendering, and the full pipeline across different sizes and configurations.
 
