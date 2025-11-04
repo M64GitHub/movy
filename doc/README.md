@@ -1,7 +1,3 @@
-# movy Documentation
-
-This folder contains user guide documentation for the movy terminal graphics rendering engine. Each document provides comprehensive tutorials on core structs and how to use them, written for developers new to movy.
-
 ## Available Documentation
 
 - **[RenderSurface.md](./RenderSurface.md)** - The foundational struct for all visual content: creating surfaces, loading PNGs, adding text, transparency, and rendering to the terminal
