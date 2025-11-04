@@ -9,7 +9,6 @@
 ///
 /// This example shows how to build a complex scene with multiple layers,
 /// similar to a game with background, player sprites, and UI overlays.
-
 const std = @import("std");
 const movy = @import("movy");
 
@@ -42,10 +41,10 @@ pub fn main() !void {
         allocator,
         80,
         40,
-        movy.core.types.Rgb{ .r = 20, .g = 40, .b = 60 },  // Dark blue fallback
+        movy.core.types.Rgb{ .r = 20, .g = 40, .b = 60 }, // Dark blue fallback
     );
     defer background.deinit(allocator);
-    background.z = 0;  // Back layer
+    background.z = 0; // Back layer
 
     // Layer 10: Player sprite (also from PNG or fallback)
     var player = movy.RenderSurface.createFromPng(
@@ -55,28 +54,26 @@ pub fn main() !void {
         allocator,
         15,
         15,
-        movy.core.types.Rgb{ .r = 0, .g = 255, .b = 0 },  // Green fallback
+        movy.core.types.Rgb{ .r = 0, .g = 255, .b = 0 }, // Green fallback
     );
     defer player.deinit(allocator);
-    player.x = 20;  // Position in center-ish area
+    player.x = 20; // Position in center-ish area
     player.y = 10;
-    player.z = 10;  // Middle layer
+    player.z = 10; // Middle layer
 
     // Layer 100: UI overlay (semi-transparent)
     var ui_overlay = try movy.RenderSurface.init(
         allocator,
         80,
-        10,  // 5 lines tall
-        movy.core.types.Rgb{ .r = 0, .g = 0, .b = 100 },  // Dark blue
+        10, // 5 lines tall
+        movy.core.types.Rgb{ .r = 0, .g = 0, .b = 100 }, // Dark blue
     );
     defer ui_overlay.deinit(allocator);
 
     // Make UI semi-transparent (75% opacity)
-    for (ui_overlay.shadow_map) |*alpha| {
-        alpha.* = 192;  // 75% opaque, 25% transparent
-    }
+    ui_overlay.setAlpha(192); // 75% opaque, 25% transparent
 
-    ui_overlay.y = 0;   // Top of screen
+    ui_overlay.y = 0; // Top of screen
     ui_overlay.z = 100; // Top layer
 
     // Add some text to the UI
@@ -86,7 +83,7 @@ pub fn main() !void {
     _ = ui_overlay.putStrXY(
         "Layered Scene Demo - Multiple Z-Indices",
         2,
-        0,  // Even y coordinate
+        0, // Even y coordinate
         white,
         transparent,
     );
@@ -94,7 +91,7 @@ pub fn main() !void {
     _ = ui_overlay.putStrXY(
         "Background (z=0) | Player (z=10) | UI (z=100)",
         2,
-        2,  // Even y coordinate
+        2, // Even y coordinate
         white,
         transparent,
     );

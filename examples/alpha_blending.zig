@@ -2,7 +2,7 @@
 ///
 /// Demonstrates true alpha blending with semi-transparent surfaces:
 /// - Creating surfaces with custom alpha values
-/// - Using shadow_map for transparency (0-255)
+/// - Using setAlpha() for transparency (0-255)
 /// - renderWithAlphaToBg() for optimized alpha compositing
 /// - Visual demonstration of opacity levels
 ///
@@ -31,9 +31,7 @@ pub fn main() !void {
     defer output.deinit(allocator);
 
     // Ensure background is opaque (alpha = 255)
-    for (output.shadow_map) |*alpha| {
-        alpha.* = 255;
-    }
+    output.setAlpha(255);
 
     // Create a semi-transparent red sprite
     var sprite = try movy.RenderSurface.init(
@@ -46,9 +44,7 @@ pub fn main() !void {
 
     // Set sprite to 50% transparent (alpha = 128)
     // Alpha values: 0 = fully transparent, 255 = fully opaque
-    for (sprite.shadow_map) |*alpha| {
-        alpha.* = 128; // 50% opacity
-    }
+    sprite.setAlpha(128);
 
     sprite.x = 10; // Position at (10, 5)
     sprite.y = 5;
