@@ -193,21 +193,4 @@ zig build -Dvideo=true run-demo-mplayer path/to/video.mp4
 
 ---
 
-## Learning Path
-
-**Beginner:** Start with `stars.zig` to learn framerate control and animation basics.
-
-**Intermediate:** Try `simple_game.zig` to understand sprite animation and input handling.
-
-**Advanced:** Explore `blender_demo.zig` for alpha blending and complex visual effects, or dive into `mouse_demo.zig` and `win_demo.zig` for UI Manager and advanced interactions.
-
-**Experimental:** Check out `mplayer.zig` for FFmpeg integration (requires video build).
-
----
-
-## Additional Files
-
-- **StarField.zig** - Reusable starfield animation module used by stars.zig
-- **examples/framerate_template.zig** - Template for documentation purposes (not built)
-
 For more learning resources, see the main [documentation](../doc/README.md) and [examples](../examples/).
