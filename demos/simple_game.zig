@@ -22,7 +22,7 @@ const PLAYER_START_Y: i32 = 60;
 const PROJECTILE_SPEED: i32 = 4;
 const MAX_PROJECTILES: usize = 10;
 
-const OBSTACLE_SPEED: i32 = 60; // of 100
+const OBSTACLE_SPEED: i32 = 60;  // Subpixel speed: 60/100 pixels per frame
 
 const POINTS_PER_HIT: usize = 100;
 
@@ -309,48 +309,48 @@ const Game = struct {
     pub fn update(self: *Game) void {
         if (self.game_over) return;
 
-        // Update player
+        // Update game entities
         self.player.update();
 
-        // Update projectiles
         for (&self.projectiles) |*proj| {
             proj.update();
         }
 
-        // Update obstacle
         self.obstacle.update(self.random);
 
-        // Check collisions
+        // Check for hits and game over
         self.checkCollisions();
     }
 
     pub fn fireProjectile(self: *Game) void {
-        // Find inactive projectile
+        // Object pool pattern: find inactive projectile and reuse it
         for (&self.projectiles) |*proj| {
             if (!proj.active) {
-                const x = self.player.getCenterX() - 4; // center on player
+                const x = self.player.getCenterX() - 4;  // Center on player
                 const y = self.player.y;
                 proj.activate(x, y);
                 return;
             }
         }
+        // No available projectiles (all 10 are active)
     }
 
     fn checkCollisions(self: *Game) void {
-        // Check projectile-obstacle collisions
+        // Projectile hits obstacle
         for (&self.projectiles) |*proj| {
             if (!proj.active) continue;
 
+            // Circle collision: compare distance squared to radius squared
             const dx = proj.getCenterX() - self.obstacle.getCenterX();
             const dy = proj.getCenterY() - self.obstacle.getCenterY();
             const dist_sq = dx * dx + dy * dy;
 
             const screen_width: i32 = @intCast(self.screen.w);
 
-            // Collision if distance < 12 pixels (combined radii)
+            // dist_sq < 144 means distance < 12 pixels (combined radii)
             if (dist_sq < 144) {
                 proj.active = false;
-                // Respawn obstacle at top
+                // Respawn obstacle at random x position, top of screen
                 self.obstacle.x =
                     self.random.intRangeAtMost(i32, 0, screen_width - 16);
                 self.obstacle.y = -16;
@@ -359,28 +359,27 @@ const Game = struct {
             }
         }
 
-        // Check player-obstacle collision
+        // Player hits obstacle (game over)
         const dx = self.player.getCenterX() - self.obstacle.getCenterX();
         const dy = self.player.getCenterY() - self.obstacle.getCenterY();
         const dist_sq = dx * dx + dy * dy;
 
-        // Collision if distance < 16 pixels
+        // dist_sq < 256 means distance < 16 pixels
         if (dist_sq < 256) {
             self.game_over = true;
         }
     }
 
     pub fn render(self: *Game) !void {
-        // Clear screen's surfaces
+        // Clear screen buffer
         try self.screen.renderInit();
 
-        // Add player sprite
+        // Add all game entities to screen
         try self.screen.addRenderSurface(
             self.allocator,
             try self.player.sprite.getCurrentFrameSurface(),
         );
 
-        // Add active projectiles
         for (&self.projectiles) |*proj| {
             if (proj.active) {
                 try self.screen.addRenderSurface(
@@ -390,13 +389,12 @@ const Game = struct {
             }
         }
 
-        // Add obstacle
         try self.screen.addRenderSurface(
             self.allocator,
             try self.obstacle.sprite.getCurrentFrameSurface(),
         );
 
-        // render the graphics
+        // Composite all surfaces
         self.screen.render();
 
         // Add score text

@@ -1,6 +1,16 @@
-// this is a proof of concept version of a commandline video player
-// please note: it is completely unpolished, and was the foundation to
-// movy_video.VideoDecoder - see movycat as an example
+// Video Player - FFmpeg integration proof-of-concept
+//
+// Features:
+// - Raw FFmpeg video decoding (libavcodec)
+// - Software scaling to terminal resolution (libswscale)
+// - Frame-by-frame rendering to ANSI terminal
+// - Foundation for movy_video.VideoDecoder
+//
+// Requirements:
+// - FFmpeg libraries: libavformat, libavcodec, libswscale, libavutil
+//
+// Note: This is an unpolished proof-of-concept demonstrating FFmpeg integration.
+// See movycat for a cleaner example using movy_video.VideoDecoder.
 
 const std = @import("std");
 const movy = @import("movy");

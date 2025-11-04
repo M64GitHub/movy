@@ -13,6 +13,7 @@ const std = @import("std");
 const movy = @import("movy");
 
 pub fn main() !void {
+    // Setup allocator
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
@@ -22,17 +23,18 @@ pub fn main() !void {
     const screen_width = terminal_size.width;
     const screen_height = terminal_size.height;
 
-    // Initialize screen
+    // Setup screen
     var screen = try movy.Screen.init(
         allocator,
         screen_width,
         screen_height,
     );
     defer screen.deinit(allocator);
+
     screen.setScreenMode(movy.Screen.Mode.bgcolor);
     screen.bg_color = movy.color.BLACK;
 
-    // Clear screen surfaces
+    // Init screen rendering
     try screen.renderInit();
 
     // Load sprite from PNG
@@ -43,53 +45,54 @@ pub fn main() !void {
     );
     defer sprite.deinit(allocator);
 
-    // CRITICAL: Apply 50% transparency BEFORE splitting
-    // This demonstrates how to set custom alpha values on sprites
+    // Apply custom alpha value (50% transparency)
+    // Set alpha BEFORE splitting frames, to apply to all frames
+    // The shadow_map stores alpha/opacity: 0 = transparent, 255 = opaque
     const current_frame = try sprite.getCurrentFrameSurface();
     for (current_frame.shadow_map) |*alpha| {
-        alpha.* = 128; // 50% opacity (0 = transparent, 255 = opaque)
+        alpha.* = 128; // 50% opacity
     }
 
-    // Split sprite sheet by width (16px per frame)
-    // This creates 16 individual frames from the sprite sheet
+    // Split sprite sheet into frames
+    // Creates 16 individual frames (16 pixels wide each)
     try sprite.splitByWidth(allocator, 16);
 
-    // Add animation definition
+    // Create frame animation
     // Frames 1-16, loop forward, speed 4
     const frame_anim = movy.graphic.Sprite.FrameAnimation.init(
         1, // start frame
         16, // end frame
         .loopForward,
-        4, // speed
+        4, // speed (frames to wait between updates)
     );
     try sprite.addAnimation(allocator, "default", frame_anim);
 
-    // Start the animation
+    // Start and advance animation
     try sprite.startAnimation("default");
+    sprite.stepActiveAnimation(); // Advance to next frame
 
-    // Step animation once (advances to next frame)
-    sprite.stepActiveAnimation();
-
-    // Position sprite in center of screen
+    // Position sprite in center
     const sprite_x = @divTrunc(@as(i32, @intCast(screen_width)), 2);
     const sprite_y = @divTrunc(@as(i32, @intCast(screen_height * 2)), 2);
     sprite.setXY(sprite_x, sprite_y);
 
-    // Add sprite to screen
+    // Add sprite surface to screen
     try screen.addRenderSurface(
         allocator,
         try sprite.getCurrentFrameSurface(),
     );
 
-    // Render with alpha blending (NEW METHOD)
-    // This uses the new renderWithAlpha() function that properly handles
-    // the shadow_map (alpha channel) for semi-transparent rendering
+    // Render with alpha blending
+    // IMPORTANT: Use renderWithAlpha() instead of render()
+    // - render() treats alpha as binary (opaque or transparent)
+    // - renderWithAlpha() performs proper alpha blending
+    // This enables semi-transparent rendering with smooth blending
     screen.renderWithAlpha();
 
     // Output to terminal
     try screen.output();
 
-    // Wait 2 seconds so user can see the result
+    // Wait so user can see the result
     std.Thread.sleep(2 * std.time.ns_per_s);
 
     // Cleanup happens automatically via defer
