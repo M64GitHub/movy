@@ -29,8 +29,6 @@ See **[examples/README.md](../examples/README.md)** for more details.
 
 Beyond the examples above, the `../demos/` directory shows working programs with animation, input handling, and visual effects.
 
-For instance, `stars.zig` demonstrates steady 60 FPS framerate control with an animated starfield effect, showing how to build smooth animations with precise timing. Other demos include interactive mouse/keyboard handling, UI windows, a complete game starter template, and video playback:
-
 **Run demos with:**
 ```bash
 zig build run-stars          # Animated starfield with 60 FPS control
