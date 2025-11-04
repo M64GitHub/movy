@@ -1,14 +1,14 @@
 // Mouse Demo - Interactive UI demonstration
 //
 // Features:
-// - Mouse click and drag interaction
+// - Mouse move interaction
 // - UI Manager with multiple windows
 // - Styled text buffers and borders
 // - Window dragging and focus management
 // - Real-time mouse position display
 //
 // Controls:
-// - mouse: click and drag windows
+// - mouse: click and scroll events
 // - esc: exit
 
 const std = @import("std");
