@@ -11,7 +11,7 @@
 **movy** began with a simple vision — to bring real rendering power to the terminal.
 It features layered drawing, alpha blending, z-index ordering, and a programmable pipeline that adds motion and color to text mode.
 
-Using ANSI half-blocks for higher vertical resolution, movy supports transparent sprites, per-frame visual effects, and real-time composition. Visuals flow through effect chains — reusable transformations that enable transitions, layering, and post-processing.
+Using ANSI half-blocks for higher vertical resolution, movy supports transparent sprites, per-frame visual effects, and real-time composition. Visuals optionally flow through effect chains — reusable transformations that enable transitions, layering, and post-processing.
 
 **movy** drives animation through IndexAnimators (looping, bouncing, or one-shot), waveforms, and easing functions — creating smooth motion across frames, positions, and colors.
 
