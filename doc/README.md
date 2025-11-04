@@ -9,8 +9,7 @@
 
 ## Code Examples
 
-Complete, runnable code examples demonstrating the concepts in this
-documentation can be found in the `../examples/` directory. These
+Runnable code examples demonstrating various concepts can be found in the `../examples/` directory. These
 examples can be built and run using:
 
 ```bash
@@ -24,13 +23,11 @@ zig build run-sprite_pool            # Managing multiple sprites
 zig build run-framerate_template     # Frame-based game loop template
 ```
 
-Each example corresponds to code snippets and concepts shown in the
-documentation above. See **[examples/README.md](../examples/README.md)**
-for more details.
+See **[examples/README.md](../examples/README.md)** for more details.
 
 ## Demos
 
-Beyond the focused examples above, movy includes full **demonstration programs** in the `../demos/` directory that show real visual applications where all concepts come together. These demos can be a good headstart for learning movy, as they showcase complete, working programs with animation, input handling, and visual effects.
+Beyond the examples above, the `../demos/` directory shows working programs with animation, input handling, and visual effects.
 
 For instance, `stars.zig` demonstrates steady 60 FPS framerate control with an animated starfield effect, showing how to build smooth animations with precise timing. Other demos include interactive mouse/keyboard handling, UI windows, a complete game starter template, and video playback:
 
