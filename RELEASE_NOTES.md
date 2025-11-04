@@ -1,5 +1,26 @@
 # Release Notes
 
+
+## v0.2.1 - memcpy() performance improvements, documentation
+
+- replaced hot copy loops with memcpy
+
+Alpha/Transparency Control Functions
+- Added RenderSurface.setAlpha(alpha: u8) - Sets opacity for all non-transparent pixels in a surface
+- Added Sprite.setAlphaCurrentFrameSurface(alpha: u8) - Convenience function to set alpha on current sprite frame
+
+New Examples
+- sprite fading
+- sprite animation
+- sprite pool
+
+New Documentation
+- Screen
+- Sprite
+
+Performance Suite now covers render method comparisons
+
+
 ## v0.2.0 - Alpha Blending
 
 In v0.2.0, movy adds a rendering capability that was long overdue: **true alpha blending**. This release implements Porter-Duff alpha compositing, enabling semi-transparent surfaces, smooth fade effects, and layered visual compositions with real transparency. Alongside this core feature, the entire documentation structure has been overhauled to provide comprehensive learning resources for developers new to movy.

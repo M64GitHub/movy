@@ -1,5 +1,5 @@
 ![License](https://img.shields.io/badge/License-MIT-85adf2?style=flat)
-![Version](https://img.shields.io/badge/Version-0.2.0-85adf2?style=flat)
+![Version](https://img.shields.io/badge/Version-0.2.1-85adf2?style=flat)
 ![Zig](https://img.shields.io/badge/Zig-0.15.2-orange?style=flat)
 
 <img width="1925" height="600" alt="image" src="https://github.com/user-attachments/assets/9bb4787b-6032-4b59-8e6d-cdac22540909" />
