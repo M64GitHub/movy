@@ -49,9 +49,7 @@ pub fn main() !void {
     // Set alpha BEFORE splitting frames, to apply to all frames
     // The shadow_map stores alpha/opacity: 0 = transparent, 255 = opaque
     const current_frame = try sprite.getCurrentFrameSurface();
-    for (current_frame.shadow_map) |*alpha| {
-        alpha.* = 128; // 50% opacity
-    }
+    sprite.setAlphaCurrentFrameSurface(128); // 50% transparency
 
     // Split sprite sheet into frames
     // Creates 16 individual frames (16 pixels wide each)
