@@ -1,8 +1,6 @@
 # Release Notes
 
-# v 0.2.2 - New Sprite split functions, doc update, tests
-
-## Documentation
+## v0.2.2 - New Sprite split functions, doc update, tests
 
 ### New Documentation
 
