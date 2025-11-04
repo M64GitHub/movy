@@ -125,3 +125,160 @@ pub const IndexAnimator = struct {
         return self.current;
     }
 };
+
+// ============================================================================
+// Tests
+// ============================================================================
+
+const std = @import("std");
+const testing = std.testing;
+
+test "IndexAnimator.once mode advances and stops" {
+    var animator = IndexAnimator.init(0, 4, .once);
+
+    // Initial state
+    try testing.expectEqual(@as(usize, 0), animator.current);
+    try testing.expectEqual(false, animator.once_finished);
+
+    // Step through 0->1->2->3->4
+    try testing.expectEqual(@as(usize, 1), animator.step());
+    try testing.expectEqual(false, animator.once_finished);
+
+    try testing.expectEqual(@as(usize, 2), animator.step());
+    try testing.expectEqual(@as(usize, 3), animator.step());
+    try testing.expectEqual(@as(usize, 4), animator.step());
+    try testing.expectEqual(true, animator.once_finished);
+
+    // Should stay at 4
+    try testing.expectEqual(@as(usize, 4), animator.step());
+    try testing.expectEqual(true, animator.once_finished);
+}
+
+test "IndexAnimator.once mode reverse range" {
+    var animator = IndexAnimator.init(5, 2, .once);
+
+    try testing.expectEqual(@as(usize, 5), animator.current);
+
+    // Step through 5->4->3->2
+    try testing.expectEqual(@as(usize, 4), animator.step());
+    try testing.expectEqual(@as(usize, 3), animator.step());
+    try testing.expectEqual(@as(usize, 2), animator.step());
+    try testing.expectEqual(true, animator.once_finished);
+
+    // Should stay at 2
+    try testing.expectEqual(@as(usize, 2), animator.step());
+}
+
+test "IndexAnimator.once mode single frame" {
+    var animator = IndexAnimator.init(3, 3, .once);
+
+    try testing.expectEqual(@as(usize, 3), animator.current);
+
+    // Already at end, should finish immediately
+    try testing.expectEqual(@as(usize, 3), animator.step());
+    try testing.expectEqual(true, animator.once_finished);
+}
+
+test "IndexAnimator.loopForward cycles correctly" {
+    var animator = IndexAnimator.init(0, 3, .loopForward);
+
+    // First cycle: 0->1->2->3->0
+    try testing.expectEqual(@as(usize, 1), animator.step());
+    try testing.expectEqual(@as(usize, 2), animator.step());
+    try testing.expectEqual(@as(usize, 3), animator.step());
+    try testing.expectEqual(@as(usize, 0), animator.step()); // Wrap
+
+    // Second cycle
+    try testing.expectEqual(@as(usize, 1), animator.step());
+    try testing.expectEqual(@as(usize, 2), animator.step());
+}
+
+test "IndexAnimator.loopForward reverse range" {
+    var animator = IndexAnimator.init(5, 2, .loopForward);
+
+    // 5->4->3->2->5
+    try testing.expectEqual(@as(usize, 4), animator.step());
+    try testing.expectEqual(@as(usize, 3), animator.step());
+    try testing.expectEqual(@as(usize, 2), animator.step());
+    try testing.expectEqual(@as(usize, 5), animator.step()); // Wrap
+}
+
+test "IndexAnimator.loopBackwards cycles correctly" {
+    var animator = IndexAnimator.init(0, 3, .loopBackwards);
+
+    // Starts at 0, goes backwards to 3, wraps
+    try testing.expectEqual(@as(usize, 3), animator.step()); // Jump to end
+    try testing.expectEqual(@as(usize, 2), animator.step());
+    try testing.expectEqual(@as(usize, 1), animator.step());
+    try testing.expectEqual(@as(usize, 0), animator.step()); // Wrap to start
+    try testing.expectEqual(@as(usize, 3), animator.step());
+}
+
+test "IndexAnimator.loopBackwards reverse range" {
+    var animator = IndexAnimator.init(5, 2, .loopBackwards);
+
+    // Starts at 5, goes forward toward 2 (since end < start)
+    try testing.expectEqual(@as(usize, 2), animator.step()); // Jump to end
+    try testing.expectEqual(@as(usize, 3), animator.step());
+    try testing.expectEqual(@as(usize, 4), animator.step());
+    try testing.expectEqual(@as(usize, 5), animator.step()); // Wrap
+}
+
+test "IndexAnimator.loopBounce bounces correctly" {
+    var animator = IndexAnimator.init(0, 3, .loopBounce);
+
+    // Forward: 0->1->2->3
+    try testing.expectEqual(@as(usize, 1), animator.step());
+    try testing.expectEqual(@as(i8, 1), animator.direction);
+
+    try testing.expectEqual(@as(usize, 2), animator.step());
+    try testing.expectEqual(@as(usize, 3), animator.step());
+    try testing.expectEqual(@as(i8, -1), animator.direction); // Should reverse
+
+    // Backward: 3->2->1->0
+    try testing.expectEqual(@as(usize, 2), animator.step());
+    try testing.expectEqual(@as(i8, -1), animator.direction);
+
+    try testing.expectEqual(@as(usize, 1), animator.step());
+    try testing.expectEqual(@as(usize, 0), animator.step());
+    try testing.expectEqual(@as(i8, 1), animator.direction); // Should reverse
+
+    // Forward again
+    try testing.expectEqual(@as(usize, 1), animator.step());
+}
+
+test "IndexAnimator.loopBounce reverse range" {
+    var animator = IndexAnimator.init(5, 2, .loopBounce);
+
+    // Start at 5, bounce toward 2
+    try testing.expectEqual(@as(usize, 4), animator.step());
+    try testing.expectEqual(@as(usize, 3), animator.step());
+    try testing.expectEqual(@as(usize, 2), animator.step());
+    try testing.expectEqual(@as(i8, -1), animator.direction); // Hit end, reverse
+
+    // Bounce back
+    try testing.expectEqual(@as(usize, 3), animator.step());
+    try testing.expectEqual(@as(usize, 4), animator.step());
+    try testing.expectEqual(@as(usize, 5), animator.step());
+    try testing.expectEqual(@as(i8, 1), animator.direction); // Hit start, reverse
+}
+
+test "IndexAnimator.loopBounce single frame" {
+    var animator = IndexAnimator.init(3, 3, .loopBounce);
+
+    // With only one frame, should just bounce in place
+    try testing.expectEqual(@as(usize, 3), animator.current);
+    try testing.expectEqual(@as(usize, 3), animator.step());
+    try testing.expectEqual(@as(usize, 3), animator.step());
+}
+
+test "IndexAnimator multiple complete cycles" {
+    var animator = IndexAnimator.init(1, 3, .loopForward);
+
+    // Run 10 complete cycles
+    for (0..10) |_| {
+        try testing.expectEqual(@as(usize, 2), animator.step());
+        try testing.expectEqual(@as(usize, 3), animator.step());
+        try testing.expectEqual(@as(usize, 1), animator.step()); // Wrap
+    }
+}
