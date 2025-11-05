@@ -3,14 +3,45 @@
 ## Introduction
 
 Welcome to the movy graphics engine! The `Screen` is your **terminal rendering canvas** that brings everything together. Think of it as the director of your visual content:
-- Manages multiple RenderSurfaces and sprites
+- Manages multiple RenderSurfaces
 - Composites layers with z-index sorting
 - Handles alpha blending and transparency
 - Outputs the final image to your terminal
 
-The Screen is typically the **top-level component** in any movy application. You add your surfaces and sprites to it, call `render()` to composite everything, then `output()` to display it in the terminal.
+The Screen is typically the **top-level component** in any movy application. You add RenderSurfaces to it (which can come from sprites, effect chains, or plain surfaces), call `render()` to composite everything, then `output()` to display it in the terminal.
 
 **Location:** `src/screen/Screen.zig`
+
+---
+
+## Working with Screen: The Core Workflow
+
+The Screen API follows a simple, consistent pattern for every frame:
+
+1. **`renderInit()`** - Clears the temporary list of surfaces from the previous frame
+2. **`addRenderSurface(allocator, surface)`** - Adds surfaces to render. These can be:
+   - From sprites: `sprite.getCurrentFrameSurface()`
+   - From effect chains: `effect_context.output_surface`
+   - Plain surfaces: any `RenderSurface` object
+3. **`render()` or `renderWithAlpha()`** - Composites all added surfaces together
+4. **`output()`** - Prints the final composited image to the terminal
+
+**Key principle:** The Screen only manages `RenderSurface` pointers, not sprites or other entities. Everything must be converted to a RenderSurface before being added.
+
+**Example:**
+```zig
+while (rendering) {
+    try screen.renderInit();  // Clear the list
+
+    // Add surfaces from various sources
+    try screen.addRenderSurface(allocator, background_surface);
+    try screen.addRenderSurface(allocator, try sprite.getCurrentFrameSurface());
+    try screen.addRenderSurface(allocator, effect_chain.output_surface);
+
+    screen.render();  // Composite them
+    try screen.output();  // Display to terminal
+}
+```
 
 ---
 
