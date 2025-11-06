@@ -11,6 +11,7 @@ This directory contains working demonstration programs that showcase movy's capa
 | **mouse_demo** | Interactive mouse/keyboard input with UI Manager | `zig build run-mouse_demo` |
 | **win_demo** | Multiple TextWindows with themes and styles | `zig build run-win_demo` |
 | **blender_demo** | Alpha blending showcase with morphing visual effects | `zig build run-blender_demo` |
+| **rotoscale** | Combined rotation, scaling, and alpha pulsing effects | `zig build run-rotoscale` |
 | **mplayer** | Video playback with FFmpeg (requires `-Dvideo=true`) | `zig build -Dvideo=true run-demo-mplayer <file>` |
 
 

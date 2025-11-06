@@ -41,6 +41,7 @@ Beyond the examples above, the `../demos/` directory shows working programs with
 zig build run-stars          # Animated starfield with 60 FPS control
 zig build run-simple_game    # Game template with shooting and collision
 zig build run-blender_demo   # Alpha blending showcase with morphing effects
+zig build run-rotoscale      # Combined rotation, scaling, and alpha effects
 zig build run-mouse_demo     # Interactive input with UI Manager
 zig build run-win_demo       # Multiple windows with themes
 ```
