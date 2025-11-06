@@ -41,3 +41,11 @@ pub const terminal = @import("terminal/terminal.zig");
 
 // UI submodules (experimental)
 pub const ui = @import("ui/ui.zig");
+
+// Test references - pull in tests from individual modules
+test {
+    _ = @import("core/RenderSurface.zig");
+    _ = @import("graphic/Sprite.zig");
+    _ = @import("animation/IndexAnimator.zig");
+    _ = @import("render/RenderEngine.zig");
+}

@@ -993,8 +993,8 @@ test "RenderEngine: alpha blending skips fully transparent pixels" {
     // Check that semi-transparent pixels did blend
     const blended_pixel = output.color_map[10 * 20 + 10]; // Last pixel (semi-transparent)
     try testing.expect(blended_pixel.r > 100); // Should be between 100 and 177
-    try testing.expectEqual(@as(u8, 100), blended_pixel.g); // Should remain unchanged
-    try testing.expectEqual(@as(u8, 100), blended_pixel.b); // Should remain unchanged
+    try testing.expectEqual(@as(u8, 49), blended_pixel.g); // Green blended: (0*128 + 100*127)/255 = 49
+    try testing.expectEqual(@as(u8, 49), blended_pixel.b); // Blue blended: (0*128 + 100*127)/255 = 49
 }
 
 test "RenderEngine: blendPixelToBg fast paths work correctly" {

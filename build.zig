@@ -46,44 +46,6 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_lib_unit_tests.step);
 
-    // -- Legacy Examples (moved to examples/legacy/)
-    const legacy_examples = [_][]const u8{
-        "sprite_frame_animation",
-        "index_animator_print_idx",
-        "keyboard",
-        "mouse",
-        "keyboard_mouse",
-        "sprite_fade",
-        "sprite_fade_chain",
-        "sprite_fade_chain_pipeline",
-        "render_effect_chain",
-    };
-
-    for (legacy_examples) |name| {
-        // Create module for legacy example
-        const example_mod = b.addModule(b.fmt("legacy_example_{s}", .{name}), .{
-            .root_source_file = b.path(b.fmt("examples/legacy/{s}.zig", .{name})),
-            .target = target,
-            .optimize = optimize,
-        });
-        example_mod.addImport("movy", movy_mod);
-
-        const example_exe = b.addExecutable(.{
-            .name = name,
-            .root_module = example_mod,
-        });
-        b.installArtifact(example_exe);
-
-        // Add run step
-        const run_example = b.addRunArtifact(example_exe);
-        run_example.step.dependOn(b.getInstallStep());
-        if (b.args) |args| run_example.addArgs(args);
-        b.step(
-            b.fmt("run-legacy-{s}", .{name}),
-            b.fmt("Run legacy example: {s}", .{name}),
-        ).dependOn(&run_example.step);
-    }
-
     // -- Examples
     const examples = [_][]const u8{
         "basic_surface",
@@ -94,6 +56,9 @@ pub fn build(b: *std.Build) void {
         "sprite_animation",
         "sprite_fading",
         "sprite_pool",
+        "scale_updown",
+        "scale_algorithms",
+        "scale_animation",
     };
 
     for (examples) |name| {

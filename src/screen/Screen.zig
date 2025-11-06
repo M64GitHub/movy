@@ -2,8 +2,8 @@ const std = @import("std");
 const movy = @import("../movy.zig");
 
 /// Terminal rendering canvas for compositing and displaying visual content.
-/// Manages sprites and render surfaces, composites them, and outputs to
-/// terminal using ANSI codes.
+/// Manages render surfaces, composites them, and outputs to terminal using
+/// ANSI codes.
 pub const Screen = struct {
     w: usize = 0,
     h: usize = 0,
@@ -11,8 +11,6 @@ pub const Screen = struct {
     y: i32 = 0,
     bg_color: movy.core.types.Rgb = .{ .r = 0x20, .g = 0x20, .b = 0x20 },
     output_surface: *movy.core.RenderSurface = undefined,
-    sprites: std.ArrayList(*movy.graphic.Sprite),
-    sub_screens: std.ArrayList(*Screen),
     output_surfaces: std.ArrayList(*movy.core.RenderSurface),
     rendered_ansi: ?[]u8 = null,
     screen_mode: Mode = .transparent,
@@ -29,14 +27,10 @@ pub const Screen = struct {
         var screen = Screen{
             .w = w,
             .h = h * 2,
-            .sprites = std.ArrayList(*movy.graphic.Sprite){},
-            .sub_screens = std.ArrayList(*Screen){},
             .output_surfaces = std.ArrayList(
                 *movy.core.RenderSurface,
             ){},
         };
-        try screen.sprites.ensureTotalCapacity(allocator, 8);
-        try screen.sub_screens.ensureTotalCapacity(allocator, 2);
         try screen.output_surfaces.ensureTotalCapacity(allocator, 8);
         screen.output_surface = try movy.core.RenderSurface.init(
             allocator,
@@ -53,16 +47,9 @@ pub const Screen = struct {
     /// Frees all resources and restores terminal cursor visibility.
     pub fn deinit(self: *Screen, allocator: std.mem.Allocator) void {
         if (self.clr_line) |cl| allocator.free(cl);
-        self.sprites.deinit(allocator);
-        self.sub_screens.deinit(allocator);
         self.output_surfaces.deinit(allocator);
         self.output_surface.deinit(allocator);
         movy.terminal.cursorOn();
-    }
-
-    /// Adds a sprite to be rendered (use with renderWithSprites).
-    pub fn addSprite(self: *Screen, allocator: std.mem.Allocator, spr: *movy.graphic.Sprite) !void {
-        try self.sprites.append(allocator, spr);
     }
 
     /// Adds a render surface for compositing in the next render call.
@@ -147,29 +134,6 @@ pub const Screen = struct {
     /// Clears the list of surfaces to render (call before adding surfaces).
     pub fn renderInit(self: *Screen) !void {
         self.output_surfaces.clearRetainingCapacity();
-    }
-
-    /// Renders all added sprites and surfaces together.
-    pub fn renderWithSprites(self: *Screen, allocator: std.mem.Allocator) !void {
-        for (self.sprites.items) |sprite| {
-            if (sprite.active_animation) |_| {
-                const rs =
-                    try sprite.getCurrentFrameSurface();
-                try self.addRenderSurface(allocator, rs);
-            } else try self.addRenderSurface(allocator, sprite.output_surface);
-        }
-        if (self.output_surfaces.items.len == 0) return;
-
-        if (self.screen_mode == .transparent) {
-            self.output_surface.clearTransparent();
-        } else {
-            self.output_surface.clearColored(self.bg_color);
-        }
-
-        movy.render.RenderEngine.render(
-            self.output_surfaces.items,
-            self.output_surface,
-        );
     }
 
     /// Renders surfaces on top of existing output without clearing.

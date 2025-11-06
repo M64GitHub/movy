@@ -7,8 +7,7 @@
 /// - Visual demonstration of opacity levels
 ///
 /// This example shows a key feature of movy: true Porter-Duff alpha blending.
-/// A semi-transparent red square is blended over a black background, demonstrating
-/// how different opacity levels create different color intensities.
+/// A semi-transparent red square is blended over a black background
 const std = @import("std");
 const movy = @import("movy");
 

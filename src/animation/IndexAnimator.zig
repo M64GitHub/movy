@@ -77,6 +77,11 @@ pub const IndexAnimator = struct {
                     @min(self.current + 1, self.end)
                 else
                     @max(self.current - 1, self.end);
+
+                // Check if we just reached the end
+                if (self.current == self.end) {
+                    self.once_finished = true;
+                }
             },
             .loopForward => {
                 if (forward) {
@@ -97,11 +102,25 @@ pub const IndexAnimator = struct {
                 }
             },
             .loopBounce => {
-                if (self.direction > 0) {
-                    self.current += 1;
+                // For normal range (start < end): direction +1 means increment,
+                //                                           -1 means decrement
+                // For reverse range (start > end): direction +1 means decrement,
+                //                                            -1 means increment
+                if (forward) {
+                    if (self.direction > 0) {
+                        self.current += 1;
+                    } else {
+                        self.current -= 1;
+                    }
                 } else {
-                    self.current -= 1;
+                    // Reverse range: flip direction meaning
+                    if (self.direction > 0) {
+                        self.current -= 1;
+                    } else {
+                        self.current += 1;
+                    }
                 }
+
                 if (forward) {
                     if (self.current >= self.end) {
                         self.current = self.end;
