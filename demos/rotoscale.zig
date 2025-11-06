@@ -4,7 +4,6 @@
 // - Huge asteroid with synchronized rotation, scaling, and alpha pulsing
 // - Rotation continuously spins the asteroid 360 degrees
 // - Scaling pulses from 10% to 120% and back
-// - Alpha transparency pulses with sine wave
 // - Scrolling text banner with vertical bobbing and alpha pulsing
 // - Smooth 60 FPS rendering
 //
@@ -24,8 +23,7 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    const terminal_width: usize = 120;
-    const terminal_height: usize = 80;
+    const terminal_size = try movy.terminal.getSize();
 
     // Setup terminal for raw input and alternate screen buffer
     try movy.terminal.beginRawMode();
@@ -36,7 +34,11 @@ pub fn main() !void {
     movy.terminal.cursorOff();
     defer movy.terminal.cursorOn();
 
-    var screen = try movy.Screen.init(allocator, terminal_width, terminal_height);
+    var screen = try movy.Screen.init(
+        allocator,
+        terminal_size.width,
+        terminal_size.height,
+    );
     defer screen.deinit(allocator);
     screen.setScreenMode(movy.Screen.Mode.bgcolor);
     screen.bg_color = movy.color.BLACK;
@@ -71,8 +73,8 @@ pub fn main() !void {
     const scroller_height = @as(i32, @intCast(scroller_surface.h));
 
     // Start scroller off-screen to the right
-    var scroller_x = @as(i32, @intCast(terminal_width)) + 30;
-    const scroller_y = @divTrunc(@as(i32, @intCast(terminal_height)), 2) + 20;
+    var scroller_x = @as(i32, @intCast(terminal_size.width)) + 30;
+    const scroller_y = @divTrunc(@as(i32, @intCast(terminal_size.height)), 2) + 20;
     scroller.setXY(scroller_x, scroller_y);
 
     // Sine waves for scroller alpha pulsing and vertical bobbing
@@ -109,10 +111,7 @@ pub fn main() !void {
     var growing: bool = true;
     const scale_step: f32 = 1.0; // 1% per frame
     const min_scale: f32 = 10.0;
-    const max_scale: f32 = 120.0;
-
-    // Animation state - alpha pulsing
-    var alpha_sine = movy.animation.TrigWave.init(420, 127); // Range: 128 +/- 127 = 1 to 255
+    const max_scale: f32 = 175.0;
 
     // Main loop
     const frame_delay_ns = 17 * std.time.ns_per_ms; // ~60 FPS
@@ -187,20 +186,10 @@ pub fn main() !void {
             .bicubic,
         );
 
-        // Third: apply alpha pulsing
-        const alpha_offset = alpha_sine.tickSine();
-        const asteroid_alpha = @as(u8, @intCast(128 + alpha_offset));
-
-        for (asteroid_working.shadow_map) |*alpha| {
-            if (alpha.* != 0) {
-                alpha.* = asteroid_alpha;
-            }
-        }
-
         // Center the transformed asteroid on screen
-        const center_x = @as(i32, @intCast(terminal_width / 2)) -
+        const center_x = @as(i32, @intCast(terminal_size.width / 2)) -
             @as(i32, @intCast(asteroid_working.w / 2));
-        const center_y = @as(i32, @intCast(terminal_height / 2)) -
+        const center_y = @as(i32, @intCast(terminal_size.height)) -
             @as(i32, @intCast(asteroid_working.h / 2));
         asteroid_working.x = center_x;
         asteroid_working.y = center_y;
@@ -209,7 +198,7 @@ pub fn main() !void {
         if (frame % 2 == 0) {
             scroller_x -= 2;
             if (scroller_x <= -(scroller_width + 30)) {
-                scroller_x = @as(i32, @intCast(terminal_width)) + 30;
+                scroller_x = @as(i32, @intCast(terminal_size.width)) + 30;
             }
         }
 
@@ -231,8 +220,8 @@ pub fn main() !void {
         // Update info display
         const info_text = try std.fmt.bufPrint(
             &info_buf,
-            "Rotation: {d: >6.1} deg | Scale: {d:.0}% | Alpha: {d}",
-            .{ angle_degrees, scale_percent, asteroid_alpha },
+            "Rotation: {d: >6.1} deg | Scale: {d:.0}% ",
+            .{ angle_degrees, scale_percent },
         );
         _ = info.putStrXY(info_text, 2, 0, movy.color.YELLOW, movy.color.BLACK);
 
