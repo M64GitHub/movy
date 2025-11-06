@@ -11,6 +11,20 @@ const cimp = @cImport({
 /// = ~50 bytes conservatively, 45 typically sufficient
 const ansi_bytes_per_pixel = 45;
 
+/// Controls behavior when scaleInPlace target dimensions exceed buffer size
+pub const ScaleMode = enum {
+    clip, // Clip scaled content to fit within buffer bounds
+    autoenlarge, // Automatically resize surface to accommodate target dimensions
+};
+
+/// Scaling algorithm quality/performance trade-off
+pub const ScaleAlgorithm = enum {
+    none, // Direct pixel mapping, no interpolation (fastest, blockiest)
+    nearest_neighbor, // Pick closest source pixel (fast, blocky)
+    bilinear, // Weighted average of 2x2 pixels (smooth, moderate speed)
+    bicubic, // Weighted average of 4x4 pixels (smoothest, slowest)
+};
+
 /// Defines a 2D grid for rendering pixels and text
 /// supports half-block rendering and Unicode text overlays.
 pub const RenderSurface = struct {
@@ -1028,6 +1042,211 @@ pub const RenderSurface = struct {
         return false;
     }
 
+    // Internal scaling algorithm implementations
+
+    /// Direct pixel mapping without interpolation
+    /// Maps destination pixels to source pixels using simple ratio
+    fn scaleNone(
+        src_colors: []const movy.core.types.Rgb,
+        src_shadow: []const u8,
+        src_w: usize,
+        src_h: usize,
+        dst_colors: []movy.core.types.Rgb,
+        dst_shadow: []u8,
+        dst_w: usize,
+        dst_h: usize,
+    ) void {
+        const x_ratio = @as(f32, @floatFromInt(src_w)) / @as(f32, @floatFromInt(dst_w));
+        const y_ratio = @as(f32, @floatFromInt(src_h)) / @as(f32, @floatFromInt(dst_h));
+
+        for (0..dst_h) |dy| {
+            const sy = @min(@as(usize, @intFromFloat(@as(f32, @floatFromInt(dy)) * y_ratio)), src_h - 1);
+            for (0..dst_w) |dx| {
+                const sx = @min(@as(usize, @intFromFloat(@as(f32, @floatFromInt(dx)) * x_ratio)), src_w - 1);
+                const src_idx = sy * src_w + sx;
+                const dst_idx = dy * dst_w + dx;
+                dst_colors[dst_idx] = src_colors[src_idx];
+                dst_shadow[dst_idx] = src_shadow[src_idx];
+            }
+        }
+    }
+
+    /// Nearest neighbor interpolation
+    /// Picks the closest source pixel for each destination pixel
+    fn scaleNearestNeighbor(
+        src_colors: []const movy.core.types.Rgb,
+        src_shadow: []const u8,
+        src_w: usize,
+        src_h: usize,
+        dst_colors: []movy.core.types.Rgb,
+        dst_shadow: []u8,
+        dst_w: usize,
+        dst_h: usize,
+    ) void {
+        for (0..dst_h) |dy| {
+            for (0..dst_w) |dx| {
+                const sx = @min(
+                    (dx * src_w + src_w / 2) / dst_w,
+                    src_w - 1,
+                );
+                const sy = @min(
+                    (dy * src_h + src_h / 2) / dst_h,
+                    src_h - 1,
+                );
+                const src_idx = sy * src_w + sx;
+                const dst_idx = dy * dst_w + dx;
+                dst_colors[dst_idx] = src_colors[src_idx];
+                dst_shadow[dst_idx] = src_shadow[src_idx];
+            }
+        }
+    }
+
+    /// Bilinear interpolation
+    /// Weighted average of 2x2 pixel neighborhood
+    fn scaleBilinear(
+        src_colors: []const movy.core.types.Rgb,
+        src_shadow: []const u8,
+        src_w: usize,
+        src_h: usize,
+        dst_colors: []movy.core.types.Rgb,
+        dst_shadow: []u8,
+        dst_w: usize,
+        dst_h: usize,
+    ) void {
+        const x_ratio = @as(f32, @floatFromInt(src_w - 1)) / @as(f32, @floatFromInt(dst_w));
+        const y_ratio = @as(f32, @floatFromInt(src_h - 1)) / @as(f32, @floatFromInt(dst_h));
+
+        for (0..dst_h) |dy| {
+            const y_src = @as(f32, @floatFromInt(dy)) * y_ratio;
+            const y_int = @as(usize, @intFromFloat(y_src));
+            const y_frac = y_src - @as(f32, @floatFromInt(y_int));
+            const y1 = @min(y_int + 1, src_h - 1);
+
+            for (0..dst_w) |dx| {
+                const x_src = @as(f32, @floatFromInt(dx)) * x_ratio;
+                const x_int = @as(usize, @intFromFloat(x_src));
+                const x_frac = x_src - @as(f32, @floatFromInt(x_int));
+                const x1 = @min(x_int + 1, src_w - 1);
+
+                // Get 2x2 neighborhood indices
+                const idx_tl = y_int * src_w + x_int; // top-left
+                const idx_tr = y_int * src_w + x1; // top-right
+                const idx_bl = y1 * src_w + x_int; // bottom-left
+                const idx_br = y1 * src_w + x1; // bottom-right
+
+                // Bilinear weights
+                const w_tl = (1.0 - x_frac) * (1.0 - y_frac);
+                const w_tr = x_frac * (1.0 - y_frac);
+                const w_bl = (1.0 - x_frac) * y_frac;
+                const w_br = x_frac * y_frac;
+
+                // Interpolate colors
+                const r = @as(u8, @intFromFloat(
+                    @as(f32, @floatFromInt(src_colors[idx_tl].r)) * w_tl +
+                        @as(f32, @floatFromInt(src_colors[idx_tr].r)) * w_tr +
+                        @as(f32, @floatFromInt(src_colors[idx_bl].r)) * w_bl +
+                        @as(f32, @floatFromInt(src_colors[idx_br].r)) * w_br,
+                ));
+                const g = @as(u8, @intFromFloat(
+                    @as(f32, @floatFromInt(src_colors[idx_tl].g)) * w_tl +
+                        @as(f32, @floatFromInt(src_colors[idx_tr].g)) * w_tr +
+                        @as(f32, @floatFromInt(src_colors[idx_bl].g)) * w_bl +
+                        @as(f32, @floatFromInt(src_colors[idx_br].g)) * w_br,
+                ));
+                const b = @as(u8, @intFromFloat(
+                    @as(f32, @floatFromInt(src_colors[idx_tl].b)) * w_tl +
+                        @as(f32, @floatFromInt(src_colors[idx_tr].b)) * w_tr +
+                        @as(f32, @floatFromInt(src_colors[idx_bl].b)) * w_bl +
+                        @as(f32, @floatFromInt(src_colors[idx_br].b)) * w_br,
+                ));
+
+                // Interpolate alpha
+                const alpha = @as(u8, @intFromFloat(
+                    @as(f32, @floatFromInt(src_shadow[idx_tl])) * w_tl +
+                        @as(f32, @floatFromInt(src_shadow[idx_tr])) * w_tr +
+                        @as(f32, @floatFromInt(src_shadow[idx_bl])) * w_bl +
+                        @as(f32, @floatFromInt(src_shadow[idx_br])) * w_br,
+                ));
+
+                const dst_idx = dy * dst_w + dx;
+                dst_colors[dst_idx] = .{ .r = r, .g = g, .b = b };
+                dst_shadow[dst_idx] = alpha;
+            }
+        }
+    }
+
+    /// Cubic interpolation helper (Catmull-Rom)
+    inline fn cubicInterpolate(p: [4]f32, x: f32) f32 {
+        return p[1] + 0.5 * x * (p[2] - p[0] + x * (2.0 * p[0] - 5.0 * p[1] + 4.0 * p[2] - p[3] + x * (3.0 * (p[1] - p[2]) + p[3] - p[0])));
+    }
+
+    /// Bicubic interpolation
+    /// Weighted average of 4x4 pixel neighborhood using cubic kernels
+    fn scaleBicubic(
+        src_colors: []const movy.core.types.Rgb,
+        src_shadow: []const u8,
+        src_w: usize,
+        src_h: usize,
+        dst_colors: []movy.core.types.Rgb,
+        dst_shadow: []u8,
+        dst_w: usize,
+        dst_h: usize,
+    ) void {
+        const x_ratio = @as(f32, @floatFromInt(src_w - 1)) / @as(f32, @floatFromInt(dst_w));
+        const y_ratio = @as(f32, @floatFromInt(src_h - 1)) / @as(f32, @floatFromInt(dst_h));
+
+        for (0..dst_h) |dy| {
+            const y_src = @as(f32, @floatFromInt(dy)) * y_ratio;
+            const y_int = @as(isize, @intFromFloat(y_src));
+            const y_frac = y_src - @as(f32, @floatFromInt(y_int));
+
+            for (0..dst_w) |dx| {
+                const x_src = @as(f32, @floatFromInt(dx)) * x_ratio;
+                const x_int = @as(isize, @intFromFloat(x_src));
+                const x_frac = x_src - @as(f32, @floatFromInt(x_int));
+
+                var r_arr: [4]f32 = undefined;
+                var g_arr: [4]f32 = undefined;
+                var b_arr: [4]f32 = undefined;
+                var a_arr: [4]f32 = undefined;
+
+                // Sample 4x4 neighborhood
+                for (0..4) |jj| {
+                    const j = @as(isize, @intCast(jj));
+                    const y_samp = std.math.clamp(y_int - 1 + j, 0, @as(isize, @intCast(src_h - 1)));
+                    var r_row: [4]f32 = undefined;
+                    var g_row: [4]f32 = undefined;
+                    var b_row: [4]f32 = undefined;
+                    var a_row: [4]f32 = undefined;
+
+                    for (0..4) |ii| {
+                        const i = @as(isize, @intCast(ii));
+                        const x_samp = std.math.clamp(x_int - 1 + i, 0, @as(isize, @intCast(src_w - 1)));
+                        const idx = @as(usize, @intCast(y_samp)) * src_w + @as(usize, @intCast(x_samp));
+                        r_row[ii] = @floatFromInt(src_colors[idx].r);
+                        g_row[ii] = @floatFromInt(src_colors[idx].g);
+                        b_row[ii] = @floatFromInt(src_colors[idx].b);
+                        a_row[ii] = @floatFromInt(src_shadow[idx]);
+                    }
+
+                    r_arr[jj] = cubicInterpolate(r_row, x_frac);
+                    g_arr[jj] = cubicInterpolate(g_row, x_frac);
+                    b_arr[jj] = cubicInterpolate(b_row, x_frac);
+                    a_arr[jj] = cubicInterpolate(a_row, x_frac);
+                }
+
+                const r = @as(u8, @intFromFloat(std.math.clamp(cubicInterpolate(r_arr, y_frac), 0.0, 255.0)));
+                const g = @as(u8, @intFromFloat(std.math.clamp(cubicInterpolate(g_arr, y_frac), 0.0, 255.0)));
+                const b = @as(u8, @intFromFloat(std.math.clamp(cubicInterpolate(b_arr, y_frac), 0.0, 255.0)));
+                const alpha = @as(u8, @intFromFloat(std.math.clamp(cubicInterpolate(a_arr, y_frac), 0.0, 255.0)));
+
+                const dst_idx = dy * dst_w + dx;
+                dst_colors[dst_idx] = .{ .r = r, .g = g, .b = b };
+                dst_shadow[dst_idx] = alpha;
+            }
+        }
+    }
+
     fn isDoubleWidth(ch: u21) bool {
         return (ch >= 0x1100 and ch <= 0x115F) or
             (ch >= 0x2E80 and ch <= 0xA4CF) or
@@ -1049,4 +1268,528 @@ pub const RenderSurface = struct {
         const str = try self.toAnsi();
         try stdout.print("{s}\n", .{str});
     }
+
+    /// Scales the RenderSurface to new dimensions, reallocating all buffers
+    /// Resizes the surface and updates w, h to the new dimensions
+    /// Text overlay (char_map) is cleared as text cannot be meaningfully scaled
+    ///
+    /// **When to use:**
+    /// - Permanently resize a surface to new dimensions
+    /// - Load large images and scale them down for display
+    /// - Prepare assets at specific sizes for rendering
+    pub fn scale(
+        self: *RenderSurface,
+        allocator: std.mem.Allocator,
+        target_w: usize,
+        target_h: usize,
+        algorithm: ScaleAlgorithm,
+    ) !void {
+        // Early return if dimensions unchanged
+        if (target_w == self.w and target_h == self.h) return;
+
+        if (target_w == 0 or target_h == 0) return error.InvalidDimensions;
+
+        // Allocate temporary buffers for scaled content
+        const new_color_map = try allocator.alloc(movy.core.types.Rgb, target_w * target_h);
+        errdefer allocator.free(new_color_map);
+
+        const new_shadow_map = try allocator.alloc(u8, target_w * target_h);
+        errdefer allocator.free(new_shadow_map);
+
+        // Apply scaling algorithm
+        switch (algorithm) {
+            .none => scaleNone(
+                self.color_map,
+                self.shadow_map,
+                self.w,
+                self.h,
+                new_color_map,
+                new_shadow_map,
+                target_w,
+                target_h,
+            ),
+            .nearest_neighbor => scaleNearestNeighbor(
+                self.color_map,
+                self.shadow_map,
+                self.w,
+                self.h,
+                new_color_map,
+                new_shadow_map,
+                target_w,
+                target_h,
+            ),
+            .bilinear => scaleBilinear(
+                self.color_map,
+                self.shadow_map,
+                self.w,
+                self.h,
+                new_color_map,
+                new_shadow_map,
+                target_w,
+                target_h,
+            ),
+            .bicubic => scaleBicubic(
+                self.color_map,
+                self.shadow_map,
+                self.w,
+                self.h,
+                new_color_map,
+                new_shadow_map,
+                target_w,
+                target_h,
+            ),
+        }
+
+        // Allocate new char_map (cleared)
+        const new_char_map = try allocator.alloc(u21, target_w * target_h);
+        errdefer allocator.free(new_char_map);
+        @memset(new_char_map, 0);
+
+        // Reallocate rendered_str if needed
+        const new_rendered_str_size = target_w * target_h * ansi_bytes_per_pixel;
+        var new_rendered_str = self.rendered_str;
+        if (self.rendered_str.len < new_rendered_str_size) {
+            new_rendered_str = try allocator.alloc(u8, new_rendered_str_size);
+            errdefer allocator.free(new_rendered_str);
+            allocator.free(self.rendered_str);
+        }
+
+        // Free old buffers
+        allocator.free(self.color_map);
+        allocator.free(self.shadow_map);
+        allocator.free(self.char_map);
+
+        // Swap in new buffers
+        self.color_map = new_color_map;
+        self.shadow_map = new_shadow_map;
+        self.char_map = new_char_map;
+        self.rendered_str = new_rendered_str;
+
+        // Update dimensions
+        self.w = target_w;
+        self.h = target_h;
+    }
+
+    /// Scales content in-place without resizing the surface itself
+    /// Scales current content to target dimensions and positions it centered at
+    /// (center_x, center_y). Areas outside scaled region become transparent.
+    /// Text overlay (char_map) is cleared.
+    ///
+    /// **When to use:**
+    /// - Zoom animations where surface position/size is fixed
+    /// - Real-time scaling effects in games
+    /// - Scale sprites within a fixed canvas
+    pub fn scaleInPlace(
+        self: *RenderSurface,
+        allocator: std.mem.Allocator,
+        w: usize,
+        h: usize,
+        center_x: usize,
+        center_y: usize,
+        mode: ScaleMode,
+        algorithm: ScaleAlgorithm,
+    ) !void {
+        // Early return if dimensions unchanged
+        if (w == self.w and h == self.h) return;
+
+        if (w == 0 or h == 0) return error.InvalidDimensions;
+
+        // Handle autoenlarge mode if needed
+        if (mode == .autoenlarge and (w > self.w or h > self.h)) {
+            const new_w = @max(w, self.w);
+            const new_h = @max(h, self.h);
+            try self.resize(allocator, new_w, new_h);
+        }
+
+        // Calculate actual dimensions (may be clipped)
+        const actual_w = @min(w, self.w);
+        const actual_h = @min(h, self.h);
+
+        // Allocate temporary buffers for scaled content
+        const temp_color_map = try allocator.alloc(movy.core.types.Rgb, actual_w * actual_h);
+        defer allocator.free(temp_color_map);
+
+        const temp_shadow_map = try allocator.alloc(u8, actual_w * actual_h);
+        defer allocator.free(temp_shadow_map);
+
+        // Apply scaling algorithm
+        switch (algorithm) {
+            .none => scaleNone(
+                self.color_map,
+                self.shadow_map,
+                self.w,
+                self.h,
+                temp_color_map,
+                temp_shadow_map,
+                actual_w,
+                actual_h,
+            ),
+            .nearest_neighbor => scaleNearestNeighbor(
+                self.color_map,
+                self.shadow_map,
+                self.w,
+                self.h,
+                temp_color_map,
+                temp_shadow_map,
+                actual_w,
+                actual_h,
+            ),
+            .bilinear => scaleBilinear(
+                self.color_map,
+                self.shadow_map,
+                self.w,
+                self.h,
+                temp_color_map,
+                temp_shadow_map,
+                actual_w,
+                actual_h,
+            ),
+            .bicubic => scaleBicubic(
+                self.color_map,
+                self.shadow_map,
+                self.w,
+                self.h,
+                temp_color_map,
+                temp_shadow_map,
+                actual_w,
+                actual_h,
+            ),
+        }
+
+        // Clear surface to transparent
+        self.clearTransparent();
+
+        // Calculate top-left position to center the scaled content
+        const half_w = actual_w / 2;
+        const half_h = actual_h / 2;
+        const start_x = if (center_x >= half_w) center_x - half_w else 0;
+        const start_y = if (center_y >= half_h) center_y - half_h else 0;
+
+        // Blit scaled content to surface at centered position
+        for (0..actual_h) |y| {
+            const dst_y = start_y + y;
+            if (dst_y >= self.h) break;
+
+            for (0..actual_w) |x| {
+                const dst_x = start_x + x;
+                if (dst_x >= self.w) break;
+
+                const src_idx = y * actual_w + x;
+                const dst_idx = dst_y * self.w + dst_x;
+
+                self.color_map[dst_idx] = temp_color_map[src_idx];
+                self.shadow_map[dst_idx] = temp_shadow_map[src_idx];
+            }
+        }
+
+        // Reallocate rendered_str if surface was enlarged
+        const needed_size = self.w * self.h * ansi_bytes_per_pixel;
+        if (self.rendered_str.len < needed_size) {
+            const new_rendered_str = try allocator.alloc(u8, needed_size);
+            allocator.free(self.rendered_str);
+            self.rendered_str = new_rendered_str;
+        }
+    }
+
+    /// Convenience wrapper for scaleInPlace that centers at (w/2, h/2)
+    ///
+    /// **When to use:**
+    /// - Scale content and center it in the surface automatically
+    /// - Common case where you don't need custom center positioning
+    pub fn scaleInPlaceCentered(
+        self: *RenderSurface,
+        allocator: std.mem.Allocator,
+        w: usize,
+        h: usize,
+        mode: ScaleMode,
+        algorithm: ScaleAlgorithm,
+    ) !void {
+        try self.scaleInPlace(
+            allocator,
+            w,
+            h,
+            self.w / 2,
+            self.h / 2,
+            mode,
+            algorithm,
+        );
+    }
+
+    /// Loads a PNG file and scales it to target dimensions in one operation
+    ///
+    /// **When to use:**
+    /// - Load and scale images in a single call
+    /// - Prepare assets at specific sizes during initialization
+    pub fn createFromPngScaled(
+        allocator: std.mem.Allocator,
+        file_path: []const u8,
+        target_w: usize,
+        target_h: usize,
+        algorithm: ScaleAlgorithm,
+    ) !*RenderSurface {
+        const surface = try createFromPng(allocator, file_path);
+        errdefer surface.deinit(allocator);
+        try surface.scale(allocator, target_w, target_h, algorithm);
+        return surface;
+    }
+
+    /// Scales surface by a factor, preserving aspect ratio
+    /// Factor of 1.0 = original size, 2.0 = double size, 0.5 = half size
+    ///
+    /// **When to use:**
+    /// - Proportional scaling where you want to maintain aspect ratio
+    /// - Zoom effects specified as percentages or multiples
+    pub fn scaleByFactor(
+        self: *RenderSurface,
+        allocator: std.mem.Allocator,
+        factor: f32,
+        algorithm: ScaleAlgorithm,
+    ) !void {
+        const new_w = @as(usize, @intFromFloat(@as(f32, @floatFromInt(self.w)) * factor));
+        const new_h = @as(usize, @intFromFloat(@as(f32, @floatFromInt(self.h)) * factor));
+        try self.scale(allocator, new_w, new_h, algorithm);
+    }
+
+    /// Scales surface in-place by a factor with custom center positioning
+    ///
+    /// **When to use:**
+    /// - Proportional zoom animations with custom center point
+    /// - Scale around a specific focal point
+    pub fn scaleInPlaceByFactor(
+        self: *RenderSurface,
+        allocator: std.mem.Allocator,
+        factor: f32,
+        center_x: usize,
+        center_y: usize,
+        mode: ScaleMode,
+        algorithm: ScaleAlgorithm,
+    ) !void {
+        const new_w = @as(usize, @intFromFloat(@as(f32, @floatFromInt(self.w)) * factor));
+        const new_h = @as(usize, @intFromFloat(@as(f32, @floatFromInt(self.h)) * factor));
+        try self.scaleInPlace(allocator, new_w, new_h, center_x, center_y, mode, algorithm);
+    }
+
+    /// Scales surface in-place by a factor, automatically centered
+    ///
+    /// **When to use:**
+    /// - Proportional zoom animations centered in the surface
+    /// - Pulse/breathing effects on sprites
+    pub fn scaleInPlaceByFactorCentered(
+        self: *RenderSurface,
+        allocator: std.mem.Allocator,
+        factor: f32,
+        mode: ScaleMode,
+        algorithm: ScaleAlgorithm,
+    ) !void {
+        const new_w = @as(usize, @intFromFloat(@as(f32, @floatFromInt(self.w)) * factor));
+        const new_h = @as(usize, @intFromFloat(@as(f32, @floatFromInt(self.h)) * factor));
+        try self.scaleInPlaceCentered(allocator, new_w, new_h, mode, algorithm);
+    }
 };
+
+// Tests
+
+test "RenderSurface.scale - basic upscaling" {
+    const allocator = std.testing.allocator;
+
+    var surface = try RenderSurface.init(allocator, 10, 10, .{ .r = 255, .g = 0, .b = 0 });
+    defer surface.deinit(allocator);
+
+    try surface.scale(allocator, 20, 20, .nearest_neighbor);
+    try std.testing.expectEqual(@as(usize, 20), surface.w);
+    try std.testing.expectEqual(@as(usize, 20), surface.h);
+}
+
+test "RenderSurface.scale - basic downscaling" {
+    const allocator = std.testing.allocator;
+
+    var surface = try RenderSurface.init(allocator, 20, 20, .{ .r = 0, .g = 255, .b = 0 });
+    defer surface.deinit(allocator);
+
+    try surface.scale(allocator, 10, 10, .bilinear);
+    try std.testing.expectEqual(@as(usize, 10), surface.w);
+    try std.testing.expectEqual(@as(usize, 10), surface.h);
+}
+
+test "RenderSurface.scale - no-op when dimensions unchanged" {
+    const allocator = std.testing.allocator;
+
+    var surface = try RenderSurface.init(allocator, 10, 10, .{ .r = 100, .g = 100, .b = 100 });
+    defer surface.deinit(allocator);
+
+    const original_ptr = surface.color_map.ptr;
+    try surface.scale(allocator, 10, 10, .nearest_neighbor);
+
+    // Should early return without reallocating
+    try std.testing.expectEqual(original_ptr, surface.color_map.ptr);
+    try std.testing.expectEqual(@as(usize, 10), surface.w);
+    try std.testing.expectEqual(@as(usize, 10), surface.h);
+}
+
+test "RenderSurface.scale - all algorithms execute" {
+    const allocator = std.testing.allocator;
+
+    const algorithms = [_]ScaleAlgorithm{ .none, .nearest_neighbor, .bilinear, .bicubic };
+
+    for (algorithms) |algo| {
+        var surface = try RenderSurface.init(allocator, 10, 10, .{ .r = 200, .g = 150, .b = 100 });
+        defer surface.deinit(allocator);
+
+        try surface.scale(allocator, 5, 5, algo);
+        try std.testing.expectEqual(@as(usize, 5), surface.w);
+        try std.testing.expectEqual(@as(usize, 5), surface.h);
+    }
+}
+
+test "RenderSurface.scale - char_map cleared after scaling" {
+    const allocator = std.testing.allocator;
+
+    var surface = try RenderSurface.init(allocator, 10, 10, .{ .r = 255, .g = 255, .b = 255 });
+    defer surface.deinit(allocator);
+
+    // Add some characters
+    surface.char_map[0] = 'A';
+    surface.char_map[5] = 'B';
+
+    try surface.scale(allocator, 20, 20, .nearest_neighbor);
+
+    // Check all chars are cleared
+    for (surface.char_map) |ch| {
+        try std.testing.expectEqual(@as(u21, 0), ch);
+    }
+}
+
+test "RenderSurface.scaleInPlace - basic operation" {
+    const allocator = std.testing.allocator;
+
+    var surface = try RenderSurface.init(allocator, 100, 100, .{ .r = 255, .g = 0, .b = 0 });
+    defer surface.deinit(allocator);
+
+    try surface.scaleInPlace(allocator, 50, 50, 50, 50, .clip, .nearest_neighbor);
+
+    // Surface dimensions should not change
+    try std.testing.expectEqual(@as(usize, 0), surface.w); // was 100!
+    try std.testing.expectEqual(@as(usize, 100), surface.h);
+}
+
+test "RenderSurface.scaleInPlace - autoenlarge mode" {
+    const allocator = std.testing.allocator;
+
+    var surface = try RenderSurface.init(allocator, 50, 50, .{ .r = 0, .g = 255, .b = 0 });
+    defer surface.deinit(allocator);
+
+    try surface.scaleInPlace(allocator, 80, 80, 40, 40, .autoenlarge, .nearest_neighbor);
+
+    // Surface should have been enlarged
+    try std.testing.expectEqual(@as(usize, 80), surface.w);
+    try std.testing.expectEqual(@as(usize, 80), surface.h);
+}
+
+test "RenderSurface.scaleInPlace - clip mode" {
+    const allocator = std.testing.allocator;
+
+    var surface = try RenderSurface.init(allocator, 50, 50, .{ .r = 0, .g = 0, .b = 255 });
+    defer surface.deinit(allocator);
+
+    // Try to scale larger than surface, should clip
+    try surface.scaleInPlace(allocator, 80, 80, 25, 25, .clip, .nearest_neighbor);
+
+    // Surface dimensions should not change
+    try std.testing.expectEqual(@as(usize, 50), surface.w);
+    try std.testing.expectEqual(@as(usize, 50), surface.h);
+}
+
+test "RenderSurface.scaleInPlaceCentered - convenience wrapper" {
+    const allocator = std.testing.allocator;
+
+    var surface = try RenderSurface.init(allocator, 100, 100, .{ .r = 128, .g = 128, .b = 128 });
+    defer surface.deinit(allocator);
+
+    try surface.scaleInPlaceCentered(allocator, 50, 50, .clip, .bilinear);
+
+    try std.testing.expectEqual(@as(usize, 100), surface.w);
+    try std.testing.expectEqual(@as(usize, 100), surface.h);
+}
+
+test "RenderSurface.scaleByFactor - double size" {
+    const allocator = std.testing.allocator;
+
+    var surface = try RenderSurface.init(allocator, 10, 10, .{ .r = 255, .g = 255, .b = 255 });
+    defer surface.deinit(allocator);
+
+    try surface.scaleByFactor(allocator, 2.0, .nearest_neighbor);
+
+    try std.testing.expectEqual(@as(usize, 20), surface.w);
+    try std.testing.expectEqual(@as(usize, 20), surface.h);
+}
+
+test "RenderSurface.scaleByFactor - half size" {
+    const allocator = std.testing.allocator;
+
+    var surface = try RenderSurface.init(allocator, 20, 20, .{ .r = 100, .g = 100, .b = 100 });
+    defer surface.deinit(allocator);
+
+    try surface.scaleByFactor(allocator, 0.5, .bilinear);
+
+    try std.testing.expectEqual(@as(usize, 10), surface.w);
+    try std.testing.expectEqual(@as(usize, 10), surface.h);
+}
+
+test "RenderSurface.scaleByFactor - no change at 1.0" {
+    const allocator = std.testing.allocator;
+
+    var surface = try RenderSurface.init(allocator, 10, 10, .{ .r = 50, .g = 50, .b = 50 });
+    defer surface.deinit(allocator);
+
+    const original_ptr = surface.color_map.ptr;
+    try surface.scaleByFactor(allocator, 1.0, .nearest_neighbor);
+
+    // Early return should preserve pointer
+    try std.testing.expectEqual(original_ptr, surface.color_map.ptr);
+    try std.testing.expectEqual(@as(usize, 10), surface.w);
+    try std.testing.expectEqual(@as(usize, 10), surface.h);
+}
+
+test "RenderSurface.scaleInPlaceByFactor - basic operation" {
+    const allocator = std.testing.allocator;
+
+    var surface = try RenderSurface.init(allocator, 100, 100, .{ .r = 200, .g = 100, .b = 50 });
+    defer surface.deinit(allocator);
+
+    try surface.scaleInPlaceByFactor(allocator, 0.5, 50, 50, .clip, .nearest_neighbor);
+
+    // Surface size unchanged
+    try std.testing.expectEqual(@as(usize, 100), surface.w);
+    try std.testing.expectEqual(@as(usize, 100), surface.h);
+}
+
+test "RenderSurface.scaleInPlaceByFactorCentered - basic operation" {
+    const allocator = std.testing.allocator;
+
+    var surface = try RenderSurface.init(allocator, 100, 100, .{ .r = 150, .g = 200, .b = 250 });
+    defer surface.deinit(allocator);
+
+    try surface.scaleInPlaceByFactorCentered(allocator, 0.75, .clip, .bilinear);
+
+    try std.testing.expectEqual(@as(usize, 100), surface.w);
+    try std.testing.expectEqual(@as(usize, 100), surface.h);
+}
+
+test "RenderSurface.scale - invalid dimensions error" {
+    const allocator = std.testing.allocator;
+
+    var surface = try RenderSurface.init(allocator, 10, 10, .{ .r = 255, .g = 255, .b = 255 });
+    defer surface.deinit(allocator);
+
+    try std.testing.expectError(error.InvalidDimensions, surface.scale(allocator, 0, 10, .nearest_neighbor));
+    try std.testing.expectError(error.InvalidDimensions, surface.scale(allocator, 10, 0, .nearest_neighbor));
+}
+
+test "RenderSurface.scaleInPlace - invalid dimensions error" {
+    const allocator = std.testing.allocator;
+
+    var surface = try RenderSurface.init(allocator, 10, 10, .{ .r = 255, .g = 255, .b = 255 });
+    defer surface.deinit(allocator);
+
+    try std.testing.expectError(error.InvalidDimensions, surface.scaleInPlace(allocator, 0, 10, 5, 5, .clip, .nearest_neighbor));
+}

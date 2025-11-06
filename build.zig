@@ -56,6 +56,9 @@ pub fn build(b: *std.Build) void {
         "sprite_animation",
         "sprite_fading",
         "sprite_pool",
+        "scale_updown",
+        "scale_algorithms",
+        "scale_animation",
     };
 
     for (examples) |name| {
