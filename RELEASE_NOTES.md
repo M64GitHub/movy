@@ -1,5 +1,94 @@
 # Release Notes
 
+## v0.2.3 - Scaling and Rotation
+
+## RenderSurface Scaling
+
+### New Features
+
+**Image scaling with multiple algorithms:**
+- `scale(allocator, new_w, new_h, algorithm)` - Scale to new dimensions, returns new surface
+- `scaleInPlace(allocator, new_w, new_h, algorithm)` - Scale and replace current surface
+- Four algorithms: none (truncate), nearest_neighbor, bilinear, bicubic
+- Two modes: clip (stay within bounds) or autoenlarge (resize to fit)
+
+**New examples:**
+- `scale_algorithms.zig` - Compare all 4 algorithms side-by-side
+- `scale_updown.zig` - Interactive upscaling demonstration
+- `scale_animation.zig` - Pulsing asteroid animation (10% to 120%)
+
+### API Additions
+
+- `ScaleMode` enum: clip, autoenlarge
+- `ScaleAlgorithm` enum: none, nearest_neighbor, bilinear, bicubic
+- Both enums accessible via `movy.core.ScaleMode` and `movy.core.ScaleAlgorithm`
+
+## RenderSurface Rotation
+
+### New Features
+
+**Image rotation with multiple algorithms:**
+- `rotate(allocator, angle_radians, algorithm)` - Rotate to new angle, expands surface to fit
+- `rotateInPlace(allocator, angle_radians, center_x, center_y, mode, algorithm)` - Rotate around custom center
+- `rotateInPlaceCentered(allocator, angle_radians, mode, algorithm)` - Convenience wrapper for centered rotation
+- `createFromPngRotated(allocator, path, angle_radians, algorithm)` - Load and rotate PNG in one call
+- Two algorithms: nearest_neighbor (fast, with 90-degree optimizations), bilinear (smooth)
+- Two modes: clip (stay within bounds) or autoenlarge (resize to fit rotated bounds)
+- Helper functions: `degreesToRadians()` and `radiansToDegrees()`
+
+**New examples:**
+- `rotate_animation.zig` - Continuous 360-degree spinning asteroid
+- `rotate_angles.zig` - Compare rotation at 6 angles (0, 45, 90, 135, 180, 270) with both algorithms
+- `rotate_interactive.zig` - User-controlled rotation with arrow keys, algorithm/mode toggling
+
+### API Additions
+
+- `RotateMode` enum: clip, autoenlarge
+- `RotateAlgorithm` enum: nearest_neighbor, bilinear
+- Both enums accessible via `movy.core.RotateMode` and `movy.core.RotateAlgorithm`
+- Angle conversion helpers: `RenderSurface.degreesToRadians()` and `RenderSurface.radiansToDegrees()`
+
+### Performance Features
+
+- Optimized fast paths for 90-degree multiples (0, 90, 180, 270) using direct pixel copying
+- Nearest neighbor algorithm preserves pixel art aesthetics and hard edges
+- Bilinear algorithm provides smooth interpolation with 2x2 neighborhood sampling
+
+### Documentation
+
+- **doc/RenderSurface.md** - Added comprehensive "Rotation" chapter with examples and performance guidance
+
+## Screen API Cleanup
+
+### Breaking Changes (No Code Impact)
+
+**Removed deprecated Screen functionality:**
+- Removed `sprites` and `sub_screens` fields from Screen struct
+- Removed `addSprite()` function
+- Removed `renderWithSprites()` function
+
+### Streamlined Workflow
+
+The Screen API now follows a single, consistent pattern:
+
+1. `renderInit()` - Clear the surface list
+2. `addRenderSurface(allocator, surface)` - Add surfaces to render
+3. `render()` or `renderWithAlpha()` - Composite all surfaces
+4. `output()` - Print to terminal
+
+Surfaces can come from:
+- Sprites: `sprite.getCurrentFrameSurface()`
+- Effect chains: `effect_context.output_surface`
+- Plain surfaces: any `RenderSurface` object
+
+### Documentation Updates
+
+- **doc/Screen.md** - Added "Working with Screen: The Core Workflow" section clarifying the rendering pattern
+
+## Build System
+
+- Removed legacy examples build configuration from build.zig
+
 ## v0.2.2 - New Sprite split functions, doc update, tests
 
 ### New Documentation
