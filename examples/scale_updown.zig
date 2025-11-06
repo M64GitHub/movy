@@ -7,9 +7,6 @@
 /// - Compare visual quality at different sizes
 /// - Use nearest_neighbor algorithm for pixel art preservation
 ///
-/// This example shows how to scale sprites from small to large sizes
-/// for game sprites and UI elements.
-///
 /// Controls:
 /// - SPACE: Cycle through scale factors (1x, 2x, 3x, 4x)
 /// - Q/ESC: Quit
@@ -53,7 +50,12 @@ pub fn main() !void {
     var scale_index: usize = 0;
     var last_scale_index: usize = 999; // Force initial scaling
     const scale_factors = [_]f32{ 1.0, 2.0, 3.0, 4.0 };
-    const scale_labels = [_][]const u8{ "1x (16x16)", "2x (32x32)", "3x (48x48)", "4x (64x64)" };
+    const scale_labels = [_][]const u8{
+        "1x (16x16)",
+        "2x (32x32)",
+        "3x (48x48)",
+        "4x (64x64)",
+    };
 
     const frame_delay_ns = 17 * std.time.ns_per_ms; // ~60 FPS
 
@@ -77,10 +79,21 @@ pub fn main() !void {
     label1.x = 5;
     label1.y = 8;
     label1.z = 100;
-    _ = label1.putStrXY("Original (16x16):", 0, 0, movy.color.YELLOW, movy.color.BLACK);
+    _ = label1.putStrXY(
+        "Original (16x16):",
+        0,
+        0,
+        movy.color.YELLOW,
+        movy.color.BLACK,
+    );
 
     // Display original
-    var original_display = try movy.RenderSurface.init(allocator, original.w, original.h, movy.color.BLACK);
+    var original_display = try movy.RenderSurface.init(
+        allocator,
+        original.w,
+        original.h,
+        movy.color.BLACK,
+    );
     defer original_display.deinit(allocator);
     try original_display.copy(original);
     original_display.x = 10;
@@ -96,7 +109,12 @@ pub fn main() !void {
     var buf: [64]u8 = undefined;
 
     // Pre-allocate scaled surface
-    var scaled = try movy.RenderSurface.init(allocator, original.w, original.h, movy.color.BLACK);
+    var scaled = try movy.RenderSurface.init(
+        allocator,
+        original.w,
+        original.h,
+        movy.color.BLACK,
+    );
     defer scaled.deinit(allocator);
     scaled.x = 50;
     scaled.y = 12;
@@ -129,7 +147,8 @@ pub fn main() !void {
                                 const ch = key.sequence[0];
                                 if (ch == 'q' or ch == 'Q') break;
                                 if (ch == ' ') {
-                                    scale_index = (scale_index + 1) % scale_factors.len;
+                                    scale_index = (scale_index + 1) %
+                                        scale_factors.len;
                                 }
                             }
                         },
@@ -143,8 +162,18 @@ pub fn main() !void {
         // Re-scale surface only when scale factor changes
         if (scale_index != last_scale_index) {
             const current_scale = scale_factors[scale_index];
-            const scaled_w = @as(usize, @intFromFloat(@as(f32, @floatFromInt(original.w)) * current_scale));
-            const scaled_h = @as(usize, @intFromFloat(@as(f32, @floatFromInt(original.h)) * current_scale));
+            const scaled_w = @as(
+                usize,
+                @intFromFloat(
+                    @as(f32, @floatFromInt(original.w)) * current_scale,
+                ),
+            );
+            const scaled_h = @as(
+                usize,
+                @intFromFloat(
+                    @as(f32, @floatFromInt(original.h)) * current_scale,
+                ),
+            );
 
             try scaled.resize(allocator, original.w, original.h);
             try scaled.copy(original);
@@ -160,8 +189,18 @@ pub fn main() !void {
         try screen.renderInit();
 
         // Update scaled label text
-        const scaled_label = try std.fmt.bufPrint(&buf, "Scaled {s}:", .{scale_labels[scale_index]});
-        _ = label2.putStrXY(scaled_label, 0, 0, movy.color.CYAN, movy.color.BLACK);
+        const scaled_label = try std.fmt.bufPrint(
+            &buf,
+            "Scaled {s}:",
+            .{scale_labels[scale_index]},
+        );
+        _ = label2.putStrXY(
+            scaled_label,
+            0,
+            0,
+            movy.color.CYAN,
+            movy.color.BLACK,
+        );
 
         // Add all pre-allocated surfaces
         try screen.addRenderSurface(allocator, title);

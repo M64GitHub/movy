@@ -1181,17 +1181,17 @@ test "Sprite.splitByWHOffset skips border correctly" {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    // Create 40x20 sprite with 4-pixel border on all sides
+    // Create 36x16 sprite with 4-pixel border on left/top sides
     // Usable area: 32x12, split into 2x2 grid of 16x6 frames
-    var sprite = try Sprite.init(allocator, 40, 20, "offset_test");
+    var sprite = try Sprite.init(allocator, 36, 16, "offset_test");
     defer sprite.deinit(allocator);
 
     const surface = sprite.frame_set.frames.items[0].data_surface;
 
     // Fill border with black
-    for (0..20) |y| {
-        for (0..40) |x| {
-            const idx = y * 40 + x;
+    for (0..16) |y| {
+        for (0..36) |x| {
+            const idx = y * 36 + x;
             surface.color_map[idx] = .{ .r = 0, .g = 0, .b = 0 };
             surface.shadow_map[idx] = 50; // Low alpha for border
         }
@@ -1210,7 +1210,7 @@ test "Sprite.splitByWHOffset skips border correctly" {
             const color = colors[row * 2 + col];
             for (0..6) |y| {
                 for (0..16) |x| {
-                    const idx = (4 + row * 6 + y) * 40 + (4 + col * 16 + x);
+                    const idx = (4 + row * 6 + y) * 36 + (4 + col * 16 + x);
                     surface.color_map[idx] = color;
                     surface.shadow_map[idx] =
                         200 + @as(u8, @intCast(row * 2 + col));
@@ -1267,7 +1267,7 @@ test "Sprite.splitByWHOffset validates offset dimensions" {
     try testing.expectError(error.InvalidDimensions, result1);
 
     // Should fail: usable area not evenly divisible
-    const result2 = sprite.splitByWHOffset(allocator, 15, 8, 2, 0);
+    const result2 = sprite.splitByWHOffset(allocator, 13, 7, 2, 0);
     try testing.expectError(error.InvalidDimensions, result2);
 }
 

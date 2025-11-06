@@ -6,12 +6,8 @@
 /// - Keeps sprite centered on screen
 /// - Shows smooth size transitions using nearest_neighbor algorithm
 ///
-/// This example demonstrates real-time scaling effects for
-/// breathing/pulsing animations in games.
-///
 /// Controls:
 /// - Q/ESC: Quit
-
 const std = @import("std");
 const movy = @import("movy");
 
@@ -49,7 +45,12 @@ pub fn main() !void {
     defer original.deinit(allocator);
 
     // Pre-allocate animated surface
-    var animated = try movy.RenderSurface.init(allocator, original.w, original.h, movy.color.BLACK);
+    var animated = try movy.RenderSurface.init(
+        allocator,
+        original.w,
+        original.h,
+        movy.color.BLACK,
+    );
     defer animated.deinit(allocator);
     animated.z = 1;
 
@@ -129,8 +130,10 @@ pub fn main() !void {
         try animated.scale(allocator, target_w, target_h, .nearest_neighbor);
 
         // Center the scaled surface on screen
-        const center_x = @as(i32, @intCast(terminal_width / 2)) - @as(i32, @intCast(target_w / 2));
-        const center_y = @as(i32, @intCast(terminal_height / 2)) - @as(i32, @intCast(target_h / 2));
+        const center_x = @as(i32, @intCast(terminal_width / 2)) -
+            @as(i32, @intCast(target_w / 2));
+        const center_y = @as(i32, @intCast(terminal_height / 2)) -
+            @as(i32, @intCast(target_h / 2));
         animated.x = center_x;
         animated.y = center_y;
         animated.z = 1;

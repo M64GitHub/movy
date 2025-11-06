@@ -53,7 +53,11 @@ pub fn main() !void {
     var scale_index: usize = 0;
     var last_scale_index: usize = 999; // Force initial scaling
     const scale_factors = [_]f32{ 0.5, 0.33, 0.25 };
-    const scale_labels = [_][]const u8{ "0.5x (24x24)", "0.33x (16x16)", "0.25x (12x12)" };
+    const scale_labels = [_][]const u8{
+        "0.5x (24x24)",
+        "0.33x (16x16)",
+        "0.25x (12x12)",
+    };
 
     const frame_delay_ns = 17 * std.time.ns_per_ms; // ~60 FPS
 
@@ -64,7 +68,12 @@ pub fn main() !void {
         .bilinear,
         .bicubic,
     };
-    const labels = [_][]const u8{ "None", "Nearest Neighbor", "Bilinear", "Bicubic" };
+    const labels = [_][]const u8{
+        "None",
+        "Nearest Neighbor",
+        "Bilinear",
+        "Bicubic",
+    };
     const descriptions = [_][]const u8{
         "Direct mapping",
         "Pick closest pixel",
@@ -87,7 +96,8 @@ pub fn main() !void {
     );
 
     // Current scale info
-    var info_surf = try movy.RenderSurface.init(allocator, 80, 2, movy.color.BLACK);
+    var info_surf =
+        try movy.RenderSurface.init(allocator, 80, 2, movy.color.BLACK);
     defer info_surf.deinit(allocator);
     info_surf.y = 4;
     info_surf.z = 100;
@@ -96,29 +106,52 @@ pub fn main() !void {
     // Algorithm labels (4 surfaces)
     var label_surfaces: [4]*movy.RenderSurface = undefined;
     for (0..4) |i| {
-        label_surfaces[i] = try movy.RenderSurface.init(allocator, 30, 2, movy.color.BLACK);
+        label_surfaces[i] =
+            try movy.RenderSurface.init(allocator, 30, 2, movy.color.BLACK);
         label_surfaces[i].x = x_positions[i];
         label_surfaces[i].y = 12;
         label_surfaces[i].z = 100;
-        _ = label_surfaces[i].putStrXY(labels[i], 0, 0, movy.color.CYAN, movy.color.BLACK);
+        _ = label_surfaces[i].putStrXY(
+            labels[i],
+            0,
+            0,
+            movy.color.CYAN,
+            movy.color.BLACK,
+        );
     }
     defer for (0..4) |i| label_surfaces[i].deinit(allocator);
 
     // Algorithm descriptions (4 surfaces)
     var desc_surfaces: [4]*movy.RenderSurface = undefined;
     for (0..4) |i| {
-        desc_surfaces[i] = try movy.RenderSurface.init(allocator, 30, 2, movy.color.BLACK);
+        desc_surfaces[i] = try movy.RenderSurface.init(
+            allocator,
+            30,
+            2,
+            movy.color.BLACK,
+        );
         desc_surfaces[i].x = x_positions[i];
         desc_surfaces[i].y = 16;
         desc_surfaces[i].z = 100;
-        _ = desc_surfaces[i].putStrXY(descriptions[i], 0, 0, movy.color.GRAY, movy.color.BLACK);
+        _ = desc_surfaces[i].putStrXY(
+            descriptions[i],
+            0,
+            0,
+            movy.color.GRAY,
+            movy.color.BLACK,
+        );
     }
     defer for (0..4) |i| desc_surfaces[i].deinit(allocator);
 
     // Scaled surfaces (4 surfaces, one per algorithm)
     var scaled_surfaces: [4]*movy.RenderSurface = undefined;
     for (0..4) |i| {
-        scaled_surfaces[i] = try movy.RenderSurface.init(allocator, original.w, original.h, movy.color.BLACK);
+        scaled_surfaces[i] = try movy.RenderSurface.init(
+            allocator,
+            original.w,
+            original.h,
+            movy.color.BLACK,
+        );
         scaled_surfaces[i].x = x_positions[i];
         scaled_surfaces[i].y = 20;
         scaled_surfaces[i].z = 1;
@@ -126,7 +159,12 @@ pub fn main() !void {
     defer for (0..4) |i| scaled_surfaces[i].deinit(allocator);
 
     // Performance notes (2 surfaces)
-    var note1 = try movy.RenderSurface.init(allocator, 120, 2, movy.color.BLACK);
+    var note1 = try movy.RenderSurface.init(
+        allocator,
+        120,
+        2,
+        movy.color.BLACK,
+    );
     defer note1.deinit(allocator);
     note1.y = 70;
     note1.z = 100;
@@ -164,7 +202,8 @@ pub fn main() !void {
                                 const ch = key.sequence[0];
                                 if (ch == 'q' or ch == 'Q') break;
                                 if (ch == ' ') {
-                                    scale_index = (scale_index + 1) % scale_factors.len;
+                                    scale_index = (scale_index + 1) %
+                                        scale_factors.len;
                                 }
                             }
                         },
@@ -182,9 +221,18 @@ pub fn main() !void {
             const target_h = @as(usize, @intFromFloat(48.0 * current_scale));
 
             for (algorithms, 0..4) |algo, i| {
-                try scaled_surfaces[i].resize(allocator, original.w, original.h);
+                try scaled_surfaces[i].resize(
+                    allocator,
+                    original.w,
+                    original.h,
+                );
                 try scaled_surfaces[i].copy(original);
-                try scaled_surfaces[i].scale(allocator, target_w, target_h, algo);
+                try scaled_surfaces[i].scale(
+                    allocator,
+                    target_w,
+                    target_h,
+                    algo,
+                );
                 // Restore position after copy (copy overwrites x, y, z)
                 scaled_surfaces[i].x = x_positions[i];
                 scaled_surfaces[i].y = 20;
@@ -202,7 +250,13 @@ pub fn main() !void {
             "Downscaling from 48x48 to {s}",
             .{scale_labels[scale_index]},
         );
-        _ = info_surf.putStrXY(info_text, 2, 0, movy.color.YELLOW, movy.color.BLACK);
+        _ = info_surf.putStrXY(
+            info_text,
+            2,
+            0,
+            movy.color.YELLOW,
+            movy.color.BLACK,
+        );
 
         // Add all pre-allocated surfaces to screen
         try screen.addRenderSurface(allocator, title);

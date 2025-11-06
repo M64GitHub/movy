@@ -1056,13 +1056,25 @@ pub const RenderSurface = struct {
         dst_w: usize,
         dst_h: usize,
     ) void {
-        const x_ratio = @as(f32, @floatFromInt(src_w)) / @as(f32, @floatFromInt(dst_w));
-        const y_ratio = @as(f32, @floatFromInt(src_h)) / @as(f32, @floatFromInt(dst_h));
+        const x_ratio = @as(f32, @floatFromInt(src_w)) /
+            @as(f32, @floatFromInt(dst_w));
+        const y_ratio = @as(f32, @floatFromInt(src_h)) /
+            @as(f32, @floatFromInt(dst_h));
 
         for (0..dst_h) |dy| {
-            const sy = @min(@as(usize, @intFromFloat(@as(f32, @floatFromInt(dy)) * y_ratio)), src_h - 1);
+            const sy = @min(
+                @as(usize, @intFromFloat(@as(f32, @floatFromInt(dy)) * y_ratio)),
+                src_h - 1,
+            );
+
             for (0..dst_w) |dx| {
-                const sx = @min(@as(usize, @intFromFloat(@as(f32, @floatFromInt(dx)) * x_ratio)), src_w - 1);
+                const sx = @min(
+                    @as(
+                        usize,
+                        @intFromFloat(@as(f32, @floatFromInt(dx)) * x_ratio),
+                    ),
+                    src_w - 1,
+                );
                 const src_idx = sy * src_w + sx;
                 const dst_idx = dy * dst_w + dx;
                 dst_colors[dst_idx] = src_colors[src_idx];
@@ -1113,8 +1125,10 @@ pub const RenderSurface = struct {
         dst_w: usize,
         dst_h: usize,
     ) void {
-        const x_ratio = @as(f32, @floatFromInt(src_w - 1)) / @as(f32, @floatFromInt(dst_w));
-        const y_ratio = @as(f32, @floatFromInt(src_h - 1)) / @as(f32, @floatFromInt(dst_h));
+        const x_ratio = @as(f32, @floatFromInt(src_w - 1)) /
+            @as(f32, @floatFromInt(dst_w));
+        const y_ratio = @as(f32, @floatFromInt(src_h - 1)) /
+            @as(f32, @floatFromInt(dst_h));
 
         for (0..dst_h) |dy| {
             const y_src = @as(f32, @floatFromInt(dy)) * y_ratio;
@@ -1177,7 +1191,8 @@ pub const RenderSurface = struct {
 
     /// Cubic interpolation helper (Catmull-Rom)
     inline fn cubicInterpolate(p: [4]f32, x: f32) f32 {
-        return p[1] + 0.5 * x * (p[2] - p[0] + x * (2.0 * p[0] - 5.0 * p[1] + 4.0 * p[2] - p[3] + x * (3.0 * (p[1] - p[2]) + p[3] - p[0])));
+        return p[1] + 0.5 * x * (p[2] - p[0] + x * (2.0 * p[0] - 5.0 * p[1] +
+            4.0 * p[2] - p[3] + x * (3.0 * (p[1] - p[2]) + p[3] - p[0])));
     }
 
     /// Bicubic interpolation
@@ -1192,8 +1207,10 @@ pub const RenderSurface = struct {
         dst_w: usize,
         dst_h: usize,
     ) void {
-        const x_ratio = @as(f32, @floatFromInt(src_w - 1)) / @as(f32, @floatFromInt(dst_w));
-        const y_ratio = @as(f32, @floatFromInt(src_h - 1)) / @as(f32, @floatFromInt(dst_h));
+        const x_ratio = @as(f32, @floatFromInt(src_w - 1)) /
+            @as(f32, @floatFromInt(dst_w));
+        const y_ratio = @as(f32, @floatFromInt(src_h - 1)) /
+            @as(f32, @floatFromInt(dst_h));
 
         for (0..dst_h) |dy| {
             const y_src = @as(f32, @floatFromInt(dy)) * y_ratio;
@@ -1213,7 +1230,11 @@ pub const RenderSurface = struct {
                 // Sample 4x4 neighborhood
                 for (0..4) |jj| {
                     const j = @as(isize, @intCast(jj));
-                    const y_samp = std.math.clamp(y_int - 1 + j, 0, @as(isize, @intCast(src_h - 1)));
+                    const y_samp = std.math.clamp(
+                        y_int - 1 + j,
+                        0,
+                        @as(isize, @intCast(src_h - 1)),
+                    );
                     var r_row: [4]f32 = undefined;
                     var g_row: [4]f32 = undefined;
                     var b_row: [4]f32 = undefined;
@@ -1221,8 +1242,15 @@ pub const RenderSurface = struct {
 
                     for (0..4) |ii| {
                         const i = @as(isize, @intCast(ii));
-                        const x_samp = std.math.clamp(x_int - 1 + i, 0, @as(isize, @intCast(src_w - 1)));
-                        const idx = @as(usize, @intCast(y_samp)) * src_w + @as(usize, @intCast(x_samp));
+                        const x_samp = std.math.clamp(
+                            x_int - 1 + i,
+                            0,
+                            @as(isize, @intCast(src_w - 1)),
+                        );
+                        const idx = @as(usize, @intCast(y_samp)) * src_w + @as(
+                            usize,
+                            @intCast(x_samp),
+                        );
                         r_row[ii] = @floatFromInt(src_colors[idx].r);
                         g_row[ii] = @floatFromInt(src_colors[idx].g);
                         b_row[ii] = @floatFromInt(src_colors[idx].b);
@@ -1235,10 +1263,26 @@ pub const RenderSurface = struct {
                     a_arr[jj] = cubicInterpolate(a_row, x_frac);
                 }
 
-                const r = @as(u8, @intFromFloat(std.math.clamp(cubicInterpolate(r_arr, y_frac), 0.0, 255.0)));
-                const g = @as(u8, @intFromFloat(std.math.clamp(cubicInterpolate(g_arr, y_frac), 0.0, 255.0)));
-                const b = @as(u8, @intFromFloat(std.math.clamp(cubicInterpolate(b_arr, y_frac), 0.0, 255.0)));
-                const alpha = @as(u8, @intFromFloat(std.math.clamp(cubicInterpolate(a_arr, y_frac), 0.0, 255.0)));
+                const r = @as(u8, @intFromFloat(std.math.clamp(
+                    cubicInterpolate(r_arr, y_frac),
+                    0.0,
+                    255.0,
+                )));
+                const g = @as(u8, @intFromFloat(std.math.clamp(
+                    cubicInterpolate(g_arr, y_frac),
+                    0.0,
+                    255.0,
+                )));
+                const b = @as(u8, @intFromFloat(std.math.clamp(
+                    cubicInterpolate(b_arr, y_frac),
+                    0.0,
+                    255.0,
+                )));
+                const alpha = @as(u8, @intFromFloat(std.math.clamp(
+                    cubicInterpolate(a_arr, y_frac),
+                    0.0,
+                    255.0,
+                )));
 
                 const dst_idx = dy * dst_w + dx;
                 dst_colors[dst_idx] = .{ .r = r, .g = g, .b = b };
@@ -1290,7 +1334,8 @@ pub const RenderSurface = struct {
         if (target_w == 0 or target_h == 0) return error.InvalidDimensions;
 
         // Allocate temporary buffers for scaled content
-        const new_color_map = try allocator.alloc(movy.core.types.Rgb, target_w * target_h);
+        const new_color_map =
+            try allocator.alloc(movy.core.types.Rgb, target_w * target_h);
         errdefer allocator.free(new_color_map);
 
         const new_shadow_map = try allocator.alloc(u8, target_w * target_h);
@@ -1406,7 +1451,10 @@ pub const RenderSurface = struct {
         const actual_h = @min(h, self.h);
 
         // Allocate temporary buffers for scaled content
-        const temp_color_map = try allocator.alloc(movy.core.types.Rgb, actual_w * actual_h);
+        const temp_color_map = try allocator.alloc(
+            movy.core.types.Rgb,
+            actual_w * actual_h,
+        );
         defer allocator.free(temp_color_map);
 
         const temp_shadow_map = try allocator.alloc(u8, actual_w * actual_h);
@@ -1545,8 +1593,10 @@ pub const RenderSurface = struct {
         factor: f32,
         algorithm: ScaleAlgorithm,
     ) !void {
-        const new_w = @as(usize, @intFromFloat(@as(f32, @floatFromInt(self.w)) * factor));
-        const new_h = @as(usize, @intFromFloat(@as(f32, @floatFromInt(self.h)) * factor));
+        const new_w =
+            @as(usize, @intFromFloat(@as(f32, @floatFromInt(self.w)) * factor));
+        const new_h =
+            @as(usize, @intFromFloat(@as(f32, @floatFromInt(self.h)) * factor));
         try self.scale(allocator, new_w, new_h, algorithm);
     }
 
@@ -1564,9 +1614,19 @@ pub const RenderSurface = struct {
         mode: ScaleMode,
         algorithm: ScaleAlgorithm,
     ) !void {
-        const new_w = @as(usize, @intFromFloat(@as(f32, @floatFromInt(self.w)) * factor));
-        const new_h = @as(usize, @intFromFloat(@as(f32, @floatFromInt(self.h)) * factor));
-        try self.scaleInPlace(allocator, new_w, new_h, center_x, center_y, mode, algorithm);
+        const new_w =
+            @as(usize, @intFromFloat(@as(f32, @floatFromInt(self.w)) * factor));
+        const new_h =
+            @as(usize, @intFromFloat(@as(f32, @floatFromInt(self.h)) * factor));
+        try self.scaleInPlace(
+            allocator,
+            new_w,
+            new_h,
+            center_x,
+            center_y,
+            mode,
+            algorithm,
+        );
     }
 
     /// Scales surface in-place by a factor, automatically centered
@@ -1581,8 +1641,10 @@ pub const RenderSurface = struct {
         mode: ScaleMode,
         algorithm: ScaleAlgorithm,
     ) !void {
-        const new_w = @as(usize, @intFromFloat(@as(f32, @floatFromInt(self.w)) * factor));
-        const new_h = @as(usize, @intFromFloat(@as(f32, @floatFromInt(self.h)) * factor));
+        const new_w =
+            @as(usize, @intFromFloat(@as(f32, @floatFromInt(self.w)) * factor));
+        const new_h =
+            @as(usize, @intFromFloat(@as(f32, @floatFromInt(self.h)) * factor));
         try self.scaleInPlaceCentered(allocator, new_w, new_h, mode, algorithm);
     }
 };
@@ -1592,7 +1654,8 @@ pub const RenderSurface = struct {
 test "RenderSurface.scale - basic upscaling" {
     const allocator = std.testing.allocator;
 
-    var surface = try RenderSurface.init(allocator, 10, 10, .{ .r = 255, .g = 0, .b = 0 });
+    var surface =
+        try RenderSurface.init(allocator, 10, 10, .{ .r = 255, .g = 0, .b = 0 });
     defer surface.deinit(allocator);
 
     try surface.scale(allocator, 20, 20, .nearest_neighbor);
@@ -1603,7 +1666,8 @@ test "RenderSurface.scale - basic upscaling" {
 test "RenderSurface.scale - basic downscaling" {
     const allocator = std.testing.allocator;
 
-    var surface = try RenderSurface.init(allocator, 20, 20, .{ .r = 0, .g = 255, .b = 0 });
+    var surface =
+        try RenderSurface.init(allocator, 20, 20, .{ .r = 0, .g = 255, .b = 0 });
     defer surface.deinit(allocator);
 
     try surface.scale(allocator, 10, 10, .bilinear);
@@ -1614,7 +1678,8 @@ test "RenderSurface.scale - basic downscaling" {
 test "RenderSurface.scale - no-op when dimensions unchanged" {
     const allocator = std.testing.allocator;
 
-    var surface = try RenderSurface.init(allocator, 10, 10, .{ .r = 100, .g = 100, .b = 100 });
+    var surface =
+        try RenderSurface.init(allocator, 10, 10, .{ .r = 100, .g = 100, .b = 100 });
     defer surface.deinit(allocator);
 
     const original_ptr = surface.color_map.ptr;
@@ -1629,10 +1694,19 @@ test "RenderSurface.scale - no-op when dimensions unchanged" {
 test "RenderSurface.scale - all algorithms execute" {
     const allocator = std.testing.allocator;
 
-    const algorithms = [_]ScaleAlgorithm{ .none, .nearest_neighbor, .bilinear, .bicubic };
+    const algorithms = [_]ScaleAlgorithm{
+        .none,
+        .nearest_neighbor,
+        .bilinear,
+        .bicubic,
+    };
 
     for (algorithms) |algo| {
-        var surface = try RenderSurface.init(allocator, 10, 10, .{ .r = 200, .g = 150, .b = 100 });
+        var surface = try RenderSurface.init(allocator, 10, 10, .{
+            .r = 200,
+            .g = 150,
+            .b = 100,
+        });
         defer surface.deinit(allocator);
 
         try surface.scale(allocator, 5, 5, algo);
@@ -1644,7 +1718,11 @@ test "RenderSurface.scale - all algorithms execute" {
 test "RenderSurface.scale - char_map cleared after scaling" {
     const allocator = std.testing.allocator;
 
-    var surface = try RenderSurface.init(allocator, 10, 10, .{ .r = 255, .g = 255, .b = 255 });
+    var surface = try RenderSurface.init(allocator, 10, 10, .{
+        .r = 255,
+        .g = 255,
+        .b = 255,
+    });
     defer surface.deinit(allocator);
 
     // Add some characters
@@ -1662,23 +1740,47 @@ test "RenderSurface.scale - char_map cleared after scaling" {
 test "RenderSurface.scaleInPlace - basic operation" {
     const allocator = std.testing.allocator;
 
-    var surface = try RenderSurface.init(allocator, 100, 100, .{ .r = 255, .g = 0, .b = 0 });
+    var surface = try RenderSurface.init(allocator, 100, 100, .{
+        .r = 255,
+        .g = 0,
+        .b = 0,
+    });
     defer surface.deinit(allocator);
 
-    try surface.scaleInPlace(allocator, 50, 50, 50, 50, .clip, .nearest_neighbor);
+    try surface.scaleInPlace(
+        allocator,
+        50,
+        50,
+        50,
+        50,
+        .clip,
+        .nearest_neighbor,
+    );
 
     // Surface dimensions should not change
-    try std.testing.expectEqual(@as(usize, 0), surface.w); // was 100!
+    try std.testing.expectEqual(@as(usize, 100), surface.w);
     try std.testing.expectEqual(@as(usize, 100), surface.h);
 }
 
 test "RenderSurface.scaleInPlace - autoenlarge mode" {
     const allocator = std.testing.allocator;
 
-    var surface = try RenderSurface.init(allocator, 50, 50, .{ .r = 0, .g = 255, .b = 0 });
+    var surface = try RenderSurface.init(allocator, 50, 50, .{
+        .r = 0,
+        .g = 255,
+        .b = 0,
+    });
     defer surface.deinit(allocator);
 
-    try surface.scaleInPlace(allocator, 80, 80, 40, 40, .autoenlarge, .nearest_neighbor);
+    try surface.scaleInPlace(
+        allocator,
+        80,
+        80,
+        40,
+        40,
+        .autoenlarge,
+        .nearest_neighbor,
+    );
 
     // Surface should have been enlarged
     try std.testing.expectEqual(@as(usize, 80), surface.w);
@@ -1688,11 +1790,23 @@ test "RenderSurface.scaleInPlace - autoenlarge mode" {
 test "RenderSurface.scaleInPlace - clip mode" {
     const allocator = std.testing.allocator;
 
-    var surface = try RenderSurface.init(allocator, 50, 50, .{ .r = 0, .g = 0, .b = 255 });
+    var surface = try RenderSurface.init(allocator, 50, 50, .{
+        .r = 0,
+        .g = 0,
+        .b = 255,
+    });
     defer surface.deinit(allocator);
 
     // Try to scale larger than surface, should clip
-    try surface.scaleInPlace(allocator, 80, 80, 25, 25, .clip, .nearest_neighbor);
+    try surface.scaleInPlace(
+        allocator,
+        80,
+        80,
+        25,
+        25,
+        .clip,
+        .nearest_neighbor,
+    );
 
     // Surface dimensions should not change
     try std.testing.expectEqual(@as(usize, 50), surface.w);
@@ -1702,7 +1816,11 @@ test "RenderSurface.scaleInPlace - clip mode" {
 test "RenderSurface.scaleInPlaceCentered - convenience wrapper" {
     const allocator = std.testing.allocator;
 
-    var surface = try RenderSurface.init(allocator, 100, 100, .{ .r = 128, .g = 128, .b = 128 });
+    var surface = try RenderSurface.init(allocator, 100, 100, .{
+        .r = 128,
+        .g = 128,
+        .b = 128,
+    });
     defer surface.deinit(allocator);
 
     try surface.scaleInPlaceCentered(allocator, 50, 50, .clip, .bilinear);
@@ -1714,7 +1832,11 @@ test "RenderSurface.scaleInPlaceCentered - convenience wrapper" {
 test "RenderSurface.scaleByFactor - double size" {
     const allocator = std.testing.allocator;
 
-    var surface = try RenderSurface.init(allocator, 10, 10, .{ .r = 255, .g = 255, .b = 255 });
+    var surface = try RenderSurface.init(allocator, 10, 10, .{
+        .r = 255,
+        .g = 255,
+        .b = 255,
+    });
     defer surface.deinit(allocator);
 
     try surface.scaleByFactor(allocator, 2.0, .nearest_neighbor);
@@ -1726,7 +1848,11 @@ test "RenderSurface.scaleByFactor - double size" {
 test "RenderSurface.scaleByFactor - half size" {
     const allocator = std.testing.allocator;
 
-    var surface = try RenderSurface.init(allocator, 20, 20, .{ .r = 100, .g = 100, .b = 100 });
+    var surface = try RenderSurface.init(allocator, 20, 20, .{
+        .r = 100,
+        .g = 100,
+        .b = 100,
+    });
     defer surface.deinit(allocator);
 
     try surface.scaleByFactor(allocator, 0.5, .bilinear);
@@ -1738,7 +1864,11 @@ test "RenderSurface.scaleByFactor - half size" {
 test "RenderSurface.scaleByFactor - no change at 1.0" {
     const allocator = std.testing.allocator;
 
-    var surface = try RenderSurface.init(allocator, 10, 10, .{ .r = 50, .g = 50, .b = 50 });
+    var surface = try RenderSurface.init(allocator, 10, 10, .{
+        .r = 50,
+        .g = 50,
+        .b = 50,
+    });
     defer surface.deinit(allocator);
 
     const original_ptr = surface.color_map.ptr;
@@ -1753,7 +1883,11 @@ test "RenderSurface.scaleByFactor - no change at 1.0" {
 test "RenderSurface.scaleInPlaceByFactor - basic operation" {
     const allocator = std.testing.allocator;
 
-    var surface = try RenderSurface.init(allocator, 100, 100, .{ .r = 200, .g = 100, .b = 50 });
+    var surface = try RenderSurface.init(allocator, 100, 100, .{
+        .r = 200,
+        .g = 100,
+        .b = 50,
+    });
     defer surface.deinit(allocator);
 
     try surface.scaleInPlaceByFactor(allocator, 0.5, 50, 50, .clip, .nearest_neighbor);
@@ -1766,7 +1900,11 @@ test "RenderSurface.scaleInPlaceByFactor - basic operation" {
 test "RenderSurface.scaleInPlaceByFactorCentered - basic operation" {
     const allocator = std.testing.allocator;
 
-    var surface = try RenderSurface.init(allocator, 100, 100, .{ .r = 150, .g = 200, .b = 250 });
+    var surface = try RenderSurface.init(allocator, 100, 100, .{
+        .r = 150,
+        .g = 200,
+        .b = 250,
+    });
     defer surface.deinit(allocator);
 
     try surface.scaleInPlaceByFactorCentered(allocator, 0.75, .clip, .bilinear);
@@ -1778,18 +1916,44 @@ test "RenderSurface.scaleInPlaceByFactorCentered - basic operation" {
 test "RenderSurface.scale - invalid dimensions error" {
     const allocator = std.testing.allocator;
 
-    var surface = try RenderSurface.init(allocator, 10, 10, .{ .r = 255, .g = 255, .b = 255 });
+    var surface = try RenderSurface.init(allocator, 10, 10, .{
+        .r = 255,
+        .g = 255,
+        .b = 255,
+    });
     defer surface.deinit(allocator);
 
-    try std.testing.expectError(error.InvalidDimensions, surface.scale(allocator, 0, 10, .nearest_neighbor));
-    try std.testing.expectError(error.InvalidDimensions, surface.scale(allocator, 10, 0, .nearest_neighbor));
+    try std.testing.expectError(error.InvalidDimensions, surface.scale(
+        allocator,
+        0,
+        10,
+        .nearest_neighbor,
+    ));
+    try std.testing.expectError(error.InvalidDimensions, surface.scale(
+        allocator,
+        10,
+        0,
+        .nearest_neighbor,
+    ));
 }
 
 test "RenderSurface.scaleInPlace - invalid dimensions error" {
     const allocator = std.testing.allocator;
 
-    var surface = try RenderSurface.init(allocator, 10, 10, .{ .r = 255, .g = 255, .b = 255 });
+    var surface = try RenderSurface.init(allocator, 10, 10, .{
+        .r = 255,
+        .g = 255,
+        .b = 255,
+    });
     defer surface.deinit(allocator);
 
-    try std.testing.expectError(error.InvalidDimensions, surface.scaleInPlace(allocator, 0, 10, 5, 5, .clip, .nearest_neighbor));
+    try std.testing.expectError(error.InvalidDimensions, surface.scaleInPlace(
+        allocator,
+        0,
+        10,
+        5,
+        5,
+        .clip,
+        .nearest_neighbor,
+    ));
 }
