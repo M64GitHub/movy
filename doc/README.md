@@ -23,6 +23,9 @@ zig build run-sprite_pool            # Managing multiple sprites
 zig build run-scale_algorithms       # Compare scaling algorithms
 zig build run-scale_updown           # Interactive upscaling
 zig build run-scale_animation        # Animated scaling effect
+zig build run-rotate_animation       # Continuous 360-degree rotation
+zig build run-rotate_angles          # Compare rotation at different angles
+zig build run-rotate_interactive     # User-controlled rotation with keys
 zig build run-framerate_template     # Frame-based game loop template
 ```
 

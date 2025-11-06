@@ -59,6 +59,9 @@ pub fn build(b: *std.Build) void {
         "scale_updown",
         "scale_algorithms",
         "scale_animation",
+        "rotate_animation",
+        "rotate_angles",
+        "rotate_interactive",
     };
 
     for (examples) |name| {

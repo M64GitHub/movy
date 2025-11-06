@@ -8,3 +8,5 @@ pub const types = @import("types.zig");
 pub const RenderSurface = @import("RenderSurface.zig").RenderSurface;
 pub const ScaleMode = @import("RenderSurface.zig").ScaleMode;
 pub const ScaleAlgorithm = @import("RenderSurface.zig").ScaleAlgorithm;
+pub const RotateMode = @import("RenderSurface.zig").RotateMode;
+pub const RotateAlgorithm = @import("RenderSurface.zig").RotateAlgorithm;

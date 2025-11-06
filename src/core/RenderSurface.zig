@@ -25,6 +25,18 @@ pub const ScaleAlgorithm = enum {
     bicubic, // Weighted average of 4x4 pixels (smoothest, slowest)
 };
 
+/// Controls behavior when rotateInPlace dimensions exceed buffer size
+pub const RotateMode = enum {
+    clip, // Clip rotated content to fit within buffer bounds
+    autoenlarge, // Automatically resize surface to accommodate rotated image
+};
+
+/// Rotation interpolation algorithm
+pub const RotateAlgorithm = enum {
+    nearest_neighbor, // Pick closest source pixel (fast, preserves pixel art)
+    bilinear, // Weighted average of 2x2 pixels (smooth)
+};
+
 /// Defines a 2D grid for rendering pixels and text
 /// supports half-block rendering and Unicode text overlays.
 pub const RenderSurface = struct {
@@ -1297,6 +1309,291 @@ pub const RenderSurface = struct {
             (ch >= 0x1F300 and ch <= 0x1F64F); // Emoji & CJK
     }
 
+    // -- Rotation Helper Functions
+
+    /// Converts degrees to radians
+    pub inline fn degreesToRadians(degrees: f32) f32 {
+        return degrees * std.math.pi / 180.0;
+    }
+
+    /// Converts radians to degrees
+    pub inline fn radiansToDegrees(radians: f32) f32 {
+        return radians * 180.0 / std.math.pi;
+    }
+
+    /// Calculates the bounding box dimensions needed to contain a rotated image
+    fn calculateRotatedBounds(
+        w: usize,
+        h: usize,
+        angle_radians: f32,
+    ) struct { w: usize, h: usize } {
+        const cos_a = @abs(std.math.cos(angle_radians));
+        const sin_a = @abs(std.math.sin(angle_radians));
+        const w_f = @as(f32, @floatFromInt(w));
+        const h_f = @as(f32, @floatFromInt(h));
+
+        const new_w = @as(usize, @intFromFloat(w_f * cos_a + h_f * sin_a + 0.5));
+        const new_h = @as(usize, @intFromFloat(w_f * sin_a + h_f * cos_a + 0.5));
+
+        return .{ .w = new_w, .h = new_h };
+    }
+
+    // -- Rotation Algorithm Implementations
+
+    /// Nearest neighbor rotation with optimized fast paths for 90-degree multiples
+    fn rotateNearestNeighbor(
+        src_colors: []const movy.core.types.Rgb,
+        src_shadow: []const u8,
+        src_w: usize,
+        src_h: usize,
+        dst_colors: []movy.core.types.Rgb,
+        dst_shadow: []u8,
+        dst_w: usize,
+        dst_h: usize,
+        angle_radians: f32,
+        src_cx: f32,
+        src_cy: f32,
+    ) void {
+        // Normalize angle to 0-2π
+        const two_pi = 2.0 * std.math.pi;
+        var norm_angle = @mod(angle_radians, two_pi);
+        if (norm_angle < 0) norm_angle += two_pi;
+
+        const epsilon = 0.01;
+
+        // Fast path: 0 degrees (copy)
+        if (@abs(norm_angle) < epsilon or @abs(norm_angle - two_pi) < epsilon) {
+            for (0..dst_h) |y| {
+                for (0..dst_w) |x| {
+                    if (y < src_h and x < src_w) {
+                        const idx = y * dst_w + x;
+                        const src_idx = y * src_w + x;
+                        dst_colors[idx] = src_colors[src_idx];
+                        dst_shadow[idx] = src_shadow[src_idx];
+                    }
+                }
+            }
+            return;
+        }
+
+        // Fast path: 90 degrees
+        if (@abs(norm_angle - std.math.pi / 2.0) < epsilon) {
+            for (0..dst_h) |y| {
+                for (0..dst_w) |x| {
+                    const src_x = y;
+                    const src_y = src_h - 1 - x;
+                    if (src_y < src_h and src_x < src_w) {
+                        const idx = y * dst_w + x;
+                        const src_idx = src_y * src_w + src_x;
+                        dst_colors[idx] = src_colors[src_idx];
+                        dst_shadow[idx] = src_shadow[src_idx];
+                    }
+                }
+            }
+            return;
+        }
+
+        // Fast path: 180 degrees
+        if (@abs(norm_angle - std.math.pi) < epsilon) {
+            for (0..dst_h) |y| {
+                for (0..dst_w) |x| {
+                    const src_x = src_w - 1 - x;
+                    const src_y = src_h - 1 - y;
+                    if (src_y < src_h and src_x < src_w) {
+                        const idx = y * dst_w + x;
+                        const src_idx = src_y * src_w + src_x;
+                        dst_colors[idx] = src_colors[src_idx];
+                        dst_shadow[idx] = src_shadow[src_idx];
+                    }
+                }
+            }
+            return;
+        }
+
+        // Fast path: 270 degrees
+        if (@abs(norm_angle - 3.0 * std.math.pi / 2.0) < epsilon) {
+            for (0..dst_h) |y| {
+                for (0..dst_w) |x| {
+                    const src_x = src_w - 1 - y;
+                    const src_y = x;
+                    if (src_y < src_h and src_x < src_w) {
+                        const idx = y * dst_w + x;
+                        const src_idx = src_y * src_w + src_x;
+                        dst_colors[idx] = src_colors[src_idx];
+                        dst_shadow[idx] = src_shadow[src_idx];
+                    }
+                }
+            }
+            return;
+        }
+
+        // General case: arbitrary angle
+        const cos_theta = std.math.cos(-angle_radians);
+        const sin_theta = std.math.sin(-angle_radians);
+        const dst_cx = @as(f32, @floatFromInt(dst_w)) / 2.0;
+        const dst_cy = @as(f32, @floatFromInt(dst_h)) / 2.0;
+
+        for (0..dst_h) |dy| {
+            for (0..dst_w) |dx| {
+                const dx_f = @as(f32, @floatFromInt(dx));
+                const dy_f = @as(f32, @floatFromInt(dy));
+
+                // Inverse rotation to find source pixel
+                const src_x = (dx_f - dst_cx) * cos_theta -
+                    (dy_f - dst_cy) * sin_theta + src_cx;
+                const src_y = (dx_f - dst_cx) * sin_theta +
+                    (dy_f - dst_cy) * cos_theta + src_cy;
+
+                const src_xi = @as(i32, @intFromFloat(src_x + 0.5));
+                const src_yi = @as(i32, @intFromFloat(src_y + 0.5));
+
+                // Bounds check
+                if (src_xi >= 0 and src_xi < @as(i32, @intCast(src_w)) and
+                    src_yi >= 0 and src_yi < @as(i32, @intCast(src_h)))
+                {
+                    const src_idx = @as(usize, @intCast(src_yi)) * src_w +
+                        @as(usize, @intCast(src_xi));
+                    const dst_idx = dy * dst_w + dx;
+                    dst_colors[dst_idx] = src_colors[src_idx];
+                    dst_shadow[dst_idx] = src_shadow[src_idx];
+                }
+                // else: leave transparent (default initialization)
+            }
+        }
+    }
+
+    /// Bilinear interpolation rotation
+    fn rotateBilinear(
+        src_colors: []const movy.core.types.Rgb,
+        src_shadow: []const u8,
+        src_w: usize,
+        src_h: usize,
+        dst_colors: []movy.core.types.Rgb,
+        dst_shadow: []u8,
+        dst_w: usize,
+        dst_h: usize,
+        angle_radians: f32,
+        src_cx: f32,
+        src_cy: f32,
+    ) void {
+        const cos_theta = std.math.cos(-angle_radians);
+        const sin_theta = std.math.sin(-angle_radians);
+        const dst_cx = @as(f32, @floatFromInt(dst_w)) / 2.0;
+        const dst_cy = @as(f32, @floatFromInt(dst_h)) / 2.0;
+
+        for (0..dst_h) |dy| {
+            for (0..dst_w) |dx| {
+                const dx_f = @as(f32, @floatFromInt(dx));
+                const dy_f = @as(f32, @floatFromInt(dy));
+
+                // Inverse rotation to find source pixel
+                const src_x = (dx_f - dst_cx) * cos_theta -
+                    (dy_f - dst_cy) * sin_theta + src_cx;
+                const src_y = (dx_f - dst_cx) * sin_theta +
+                    (dy_f - dst_cy) * cos_theta + src_cy;
+
+                // Get integer parts
+                const x0 = @as(i32, @intFromFloat(@floor(src_x)));
+                const y0 = @as(i32, @intFromFloat(@floor(src_y)));
+                const x1 = x0 + 1;
+                const y1 = y0 + 1;
+
+                // Get fractional parts
+                const fx = src_x - @floor(src_x);
+                const fy = src_y - @floor(src_y);
+
+                // Check bounds for all 4 neighbors
+                const valid_tl = x0 >= 0 and x0 < @as(i32, @intCast(src_w)) and
+                    y0 >= 0 and y0 < @as(i32, @intCast(src_h));
+                const valid_tr = x1 >= 0 and x1 < @as(i32, @intCast(src_w)) and
+                    y0 >= 0 and y0 < @as(i32, @intCast(src_h));
+                const valid_bl = x0 >= 0 and x0 < @as(i32, @intCast(src_w)) and
+                    y1 >= 0 and y1 < @as(i32, @intCast(src_h));
+                const valid_br = x1 >= 0 and x1 < @as(i32, @intCast(src_w)) and
+                    y1 >= 0 and y1 < @as(i32, @intCast(src_h));
+
+                if (!valid_tl and !valid_tr and !valid_bl and !valid_br) {
+                    continue; // All neighbors out of bounds, leave transparent
+                }
+
+                // Get pixel values (use transparent black for out-of-bounds)
+                const tl_idx = if (valid_tl) @as(usize, @intCast(y0)) * src_w +
+                    @as(usize, @intCast(x0)) else 0;
+                const tr_idx = if (valid_tr) @as(usize, @intCast(y0)) * src_w +
+                    @as(usize, @intCast(x1)) else 0;
+                const bl_idx = if (valid_bl) @as(usize, @intCast(y1)) * src_w +
+                    @as(usize, @intCast(x0)) else 0;
+                const br_idx = if (valid_br) @as(usize, @intCast(y1)) * src_w +
+                    @as(usize, @intCast(x1)) else 0;
+
+                const tl_color = if (valid_tl)
+                    src_colors[tl_idx]
+                else
+                    movy.core.types.Rgb{ .r = 0, .g = 0, .b = 0 };
+                const tr_color = if (valid_tr)
+                    src_colors[tr_idx]
+                else
+                    movy.core.types.Rgb{ .r = 0, .g = 0, .b = 0 };
+                const bl_color = if (valid_bl)
+                    src_colors[bl_idx]
+                else
+                    movy.core.types.Rgb{ .r = 0, .g = 0, .b = 0 };
+                const br_color = if (valid_br)
+                    src_colors[br_idx]
+                else
+                    movy.core.types.Rgb{ .r = 0, .g = 0, .b = 0 };
+
+                const tl_alpha = if (valid_tl) src_shadow[tl_idx] else 0;
+                const tr_alpha = if (valid_tr) src_shadow[tr_idx] else 0;
+                const bl_alpha = if (valid_bl) src_shadow[bl_idx] else 0;
+                const br_alpha = if (valid_br) src_shadow[br_idx] else 0;
+
+                // Bilinear interpolation
+                const w_tl = (1.0 - fx) * (1.0 - fy);
+                const w_tr = fx * (1.0 - fy);
+                const w_bl = (1.0 - fx) * fy;
+                const w_br = fx * fy;
+
+                const r = @as(u8, @intFromFloat(std.math.clamp(
+                    @as(f32, @floatFromInt(tl_color.r)) * w_tl +
+                        @as(f32, @floatFromInt(tr_color.r)) * w_tr +
+                        @as(f32, @floatFromInt(bl_color.r)) * w_bl +
+                        @as(f32, @floatFromInt(br_color.r)) * w_br,
+                    0.0,
+                    255.0,
+                )));
+                const g = @as(u8, @intFromFloat(std.math.clamp(
+                    @as(f32, @floatFromInt(tl_color.g)) * w_tl +
+                        @as(f32, @floatFromInt(tr_color.g)) * w_tr +
+                        @as(f32, @floatFromInt(bl_color.g)) * w_bl +
+                        @as(f32, @floatFromInt(br_color.g)) * w_br,
+                    0.0,
+                    255.0,
+                )));
+                const b = @as(u8, @intFromFloat(std.math.clamp(
+                    @as(f32, @floatFromInt(tl_color.b)) * w_tl +
+                        @as(f32, @floatFromInt(tr_color.b)) * w_tr +
+                        @as(f32, @floatFromInt(bl_color.b)) * w_bl +
+                        @as(f32, @floatFromInt(br_color.b)) * w_br,
+                    0.0,
+                    255.0,
+                )));
+                const alpha = @as(u8, @intFromFloat(std.math.clamp(
+                    @as(f32, @floatFromInt(tl_alpha)) * w_tl +
+                        @as(f32, @floatFromInt(tr_alpha)) * w_tr +
+                        @as(f32, @floatFromInt(bl_alpha)) * w_bl +
+                        @as(f32, @floatFromInt(br_alpha)) * w_br,
+                    0.0,
+                    255.0,
+                )));
+
+                const dst_idx = dy * dst_w + dx;
+                dst_colors[dst_idx] = .{ .r = r, .g = g, .b = b };
+                dst_shadow[dst_idx] = alpha;
+            }
+        }
+    }
+
     pub fn print(self: *RenderSurface) !void {
         var stdout_buffer: [1024]u8 = undefined;
         var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
@@ -1646,6 +1943,245 @@ pub const RenderSurface = struct {
         const new_h =
             @as(usize, @intFromFloat(@as(f32, @floatFromInt(self.h)) * factor));
         try self.scaleInPlaceCentered(allocator, new_w, new_h, mode, algorithm);
+    }
+
+    // -- Rotation Functions
+
+    /// Rotates the RenderSurface by angle (radians), reallocating buffers
+    /// Expands surface dimensions to fit entire rotated image
+    /// Text overlay (char_map) is cleared as text cannot be meaningfully rotated
+    ///
+    /// **When to use:**
+    /// - Permanently rotate a surface to a new orientation
+    /// - Prepare rotated assets during initialization
+    /// - Pre-rotate sprites for different viewing angles
+    pub fn rotate(
+        self: *RenderSurface,
+        allocator: std.mem.Allocator,
+        angle_radians: f32,
+        algorithm: RotateAlgorithm,
+    ) !void {
+        // Calculate new dimensions to fit rotated image
+        const new_bounds = calculateRotatedBounds(self.w, self.h, angle_radians);
+
+        // Allocate temporary buffers for rotated content
+        const new_color_map =
+            try allocator.alloc(movy.core.types.Rgb, new_bounds.w * new_bounds.h);
+        errdefer allocator.free(new_color_map);
+
+        const new_shadow_map = try allocator.alloc(u8, new_bounds.w * new_bounds.h);
+        errdefer allocator.free(new_shadow_map);
+
+        // Initialize with transparent black
+        @memset(new_color_map, movy.core.types.Rgb{ .r = 0, .g = 0, .b = 0 });
+        @memset(new_shadow_map, 0);
+
+        // Rotate using selected algorithm
+        const src_cx = @as(f32, @floatFromInt(self.w)) / 2.0;
+        const src_cy = @as(f32, @floatFromInt(self.h)) / 2.0;
+
+        switch (algorithm) {
+            .nearest_neighbor => rotateNearestNeighbor(
+                self.color_map,
+                self.shadow_map,
+                self.w,
+                self.h,
+                new_color_map,
+                new_shadow_map,
+                new_bounds.w,
+                new_bounds.h,
+                angle_radians,
+                src_cx,
+                src_cy,
+            ),
+            .bilinear => rotateBilinear(
+                self.color_map,
+                self.shadow_map,
+                self.w,
+                self.h,
+                new_color_map,
+                new_shadow_map,
+                new_bounds.w,
+                new_bounds.h,
+                angle_radians,
+                src_cx,
+                src_cy,
+            ),
+        }
+
+        // Free old buffers
+        allocator.free(self.color_map);
+        allocator.free(self.shadow_map);
+
+        // Update to new buffers and dimensions
+        self.color_map = new_color_map;
+        self.shadow_map = new_shadow_map;
+        self.w = new_bounds.w;
+        self.h = new_bounds.h;
+
+        // Reallocate char_map for new dimensions
+        const new_char_map = try allocator.alloc(u21, new_bounds.w * new_bounds.h);
+        @memset(new_char_map, 0);
+        allocator.free(self.char_map);
+        self.char_map = new_char_map;
+
+        // Reallocate rendered_str if needed
+        const needed_size = new_bounds.w * new_bounds.h * ansi_bytes_per_pixel;
+        if (self.rendered_str.len < needed_size) {
+            allocator.free(self.rendered_str);
+            self.rendered_str = try allocator.alloc(u8, needed_size);
+        }
+    }
+
+    /// Rotates content in-place without resizing the surface
+    /// Rotates around custom center point, areas outside become transparent
+    /// Text overlay (char_map) is cleared
+    ///
+    /// **When to use:**
+    /// - Rotation animations where surface position/size is fixed
+    /// - Real-time rotation effects in games
+    /// - Rotate sprites within a fixed canvas
+    pub fn rotateInPlace(
+        self: *RenderSurface,
+        allocator: std.mem.Allocator,
+        angle_radians: f32,
+        center_x: usize,
+        center_y: usize,
+        mode: RotateMode,
+        algorithm: RotateAlgorithm,
+    ) !void {
+        // Determine output dimensions based on mode
+        var output_bounds = calculateRotatedBounds(self.w, self.h, angle_radians);
+        if (mode == .clip) {
+            output_bounds.w = self.w;
+            output_bounds.h = self.h;
+        }
+
+        // Allocate temporary buffers
+        const new_color_map = try allocator.alloc(
+            movy.core.types.Rgb,
+            output_bounds.w * output_bounds.h,
+        );
+        errdefer allocator.free(new_color_map);
+
+        const new_shadow_map = try allocator.alloc(
+            u8,
+            output_bounds.w * output_bounds.h,
+        );
+        errdefer allocator.free(new_shadow_map);
+
+        // Initialize with transparent black
+        @memset(new_color_map, movy.core.types.Rgb{ .r = 0, .g = 0, .b = 0 });
+        @memset(new_shadow_map, 0);
+
+        // Rotate using selected algorithm
+        const src_cx = @as(f32, @floatFromInt(center_x));
+        const src_cy = @as(f32, @floatFromInt(center_y));
+
+        switch (algorithm) {
+            .nearest_neighbor => rotateNearestNeighbor(
+                self.color_map,
+                self.shadow_map,
+                self.w,
+                self.h,
+                new_color_map,
+                new_shadow_map,
+                output_bounds.w,
+                output_bounds.h,
+                angle_radians,
+                src_cx,
+                src_cy,
+            ),
+            .bilinear => rotateBilinear(
+                self.color_map,
+                self.shadow_map,
+                self.w,
+                self.h,
+                new_color_map,
+                new_shadow_map,
+                output_bounds.w,
+                output_bounds.h,
+                angle_radians,
+                src_cx,
+                src_cy,
+            ),
+        }
+
+        // Free old buffers if dimensions changed
+        if (output_bounds.w != self.w or output_bounds.h != self.h) {
+            allocator.free(self.color_map);
+            allocator.free(self.shadow_map);
+            self.color_map = new_color_map;
+            self.shadow_map = new_shadow_map;
+            self.w = output_bounds.w;
+            self.h = output_bounds.h;
+
+            // Reallocate char_map for new dimensions
+            const new_char_map = try allocator.alloc(
+                u21,
+                output_bounds.w * output_bounds.h,
+            );
+            @memset(new_char_map, 0);
+            allocator.free(self.char_map);
+            self.char_map = new_char_map;
+
+            // Reallocate rendered_str if needed
+            const needed_size = output_bounds.w * output_bounds.h *
+                ansi_bytes_per_pixel;
+            if (self.rendered_str.len < needed_size) {
+                allocator.free(self.rendered_str);
+                self.rendered_str = try allocator.alloc(u8, needed_size);
+            }
+        } else {
+            // Same dimensions, just copy data
+            @memcpy(self.color_map, new_color_map);
+            @memcpy(self.shadow_map, new_shadow_map);
+            allocator.free(new_color_map);
+            allocator.free(new_shadow_map);
+
+            // Clear char_map
+            @memset(self.char_map, 0);
+        }
+    }
+
+    /// Convenience wrapper that centers rotation at (w/2, h/2)
+    ///
+    /// **When to use:**
+    /// - Rotate content and center it automatically
+    /// - Common case where you don't need custom center positioning
+    pub fn rotateInPlaceCentered(
+        self: *RenderSurface,
+        allocator: std.mem.Allocator,
+        angle_radians: f32,
+        mode: RotateMode,
+        algorithm: RotateAlgorithm,
+    ) !void {
+        try self.rotateInPlace(
+            allocator,
+            angle_radians,
+            self.w / 2,
+            self.h / 2,
+            mode,
+            algorithm,
+        );
+    }
+
+    /// Loads a PNG file and rotates it to angle in one operation
+    ///
+    /// **When to use:**
+    /// - Load and rotate images in a single call
+    /// - Prepare rotated assets during initialization
+    pub fn createFromPngRotated(
+        allocator: std.mem.Allocator,
+        file_path: []const u8,
+        angle_radians: f32,
+        algorithm: RotateAlgorithm,
+    ) !*RenderSurface {
+        var surface = try RenderSurface.createFromPng(allocator, file_path);
+        errdefer surface.deinit(allocator);
+
+        try surface.rotate(allocator, angle_radians, algorithm);
+        return surface;
     }
 };
 
