@@ -96,6 +96,7 @@ pub fn build(b: *std.Build) void {
         "simple_game",
         "stars",
         "blender_demo",
+        "rotoscale",
     };
 
     for (demos) |name| {
