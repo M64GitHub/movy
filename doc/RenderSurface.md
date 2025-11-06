@@ -921,26 +921,412 @@ pub fn main() !void {
 1. Draw graphics and scale them
 2. Add text **after** scaling
 
-```zig
-// Load and scale image
-var surface = try movy.RenderSurface.createFromPngScaled(
-    allocator,
-    "background.png",
-    100,
-    50,
-    .bilinear,
-);
-defer surface.deinit(allocator);
+---
 
-// NOW add text (after scaling)
-_ = surface.putStrXY(
-    "Scaled Background",
-    10,
-    2,
-    movy.color.white,
-    movy.color.black,
-);
+## Rotation
+
+movy provides image rotation capabilities to rotate RenderSurfaces by arbitrary angles with multiple algorithms and control modes. Rotation can be used for spinning effects, sprite orientation, and dynamic visual transformations.
+
+### Rotation Modes and Algorithms
+
+Before diving into the functions, understand the two enums that control rotation behavior:
+
+#### `RotateMode` - Buffer Management
+
+```zig
+pub const RotateMode = enum {
+    clip,        // Clip rotated content to fit within buffer bounds
+    autoenlarge, // Automatically resize surface to accommodate rotated image
+};
 ```
+
+**When to use:**
+- `.clip` - For in-place rotation where surface size must stay fixed
+- `.autoenlarge` - When you want the surface to grow to fit the rotated bounds
+
+**Note:** Rotating a square by 45 degrees expands its bounding box by approximately 1.41x (sqrt(2)).
+
+#### `RotateAlgorithm` - Quality vs Performance
+
+```zig
+pub const RotateAlgorithm = enum {
+    nearest_neighbor, // Pick closest source pixel (fast, preserves pixel art)
+    bilinear,         // Weighted average of 2x2 pixels (smooth, moderate speed)
+};
+```
+
+**Algorithm comparison:**
+- `.nearest_neighbor` - Fast and preserves hard edges, ideal for pixel art. Includes optimized fast paths for 0, 90, 180, and 270-degree rotations.
+- `.bilinear` - Smooth interpolation, reduces aliasing artifacts, best for photographic content or when quality matters.
+
+**Note:** For 90-degree multiples (0, 90, 180, 270), nearest_neighbor uses optimized direct pixel copying for maximum performance.
+
+Run `zig build run-rotate_angles` to compare algorithms, `zig build run-rotate_animation` for continuous rotation, or `zig build run-rotate_interactive` for hands-on experimentation.
+
+---
+
+### Angle Conversion Helpers
+
+Rotation functions accept angles in **radians**. Helper functions are provided for conversion:
+
+#### `degreesToRadians()` - Convert Degrees to Radians
+
+```zig
+pub inline fn degreesToRadians(degrees: f32) f32
+```
+
+**Example:**
+```zig
+const angle_45_deg = movy.RenderSurface.degreesToRadians(45.0);
+// Returns: ~0.785 radians
+```
+
+#### `radiansToDegrees()` - Convert Radians to Degrees
+
+```zig
+pub inline fn radiansToDegrees(radians: f32) f32
+```
+
+**Example:**
+```zig
+const degrees = movy.RenderSurface.radiansToDegrees(std.math.pi);
+// Returns: 180.0 degrees
+```
+
+---
+
+### Core Rotation Functions
+
+#### `rotate()` - Rotate and Resize Surface
+
+Rotates the RenderSurface by the specified angle, automatically expanding dimensions to fit the rotated content. The surface's `w` and `h` fields are updated to the new bounding box size.
+
+**Function signature:**
+```zig
+pub fn rotate(
+    self: *RenderSurface,
+    allocator: std.mem.Allocator,
+    angle_radians: f32,
+    algorithm: RotateAlgorithm,
+) !void
+```
+
+**Behavior:**
+- Calculates new dimensions needed to contain rotated image
+- Reallocates `color_map`, `shadow_map`, `char_map`, and `rendered_str`
+- Updates `self.w` and `self.h` to new dimensions
+- Centers rotated content in new buffer
+- Clears `char_map` (text cannot be meaningfully rotated)
+
+**Example:**
+```zig
+const std = @import("std");
+const movy = @import("movy");
+
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    // Load a 48x48 asteroid image
+    var asteroid = try movy.RenderSurface.createFromPng(
+        allocator,
+        "assets/asteroid_huge.png",
+    );
+    defer asteroid.deinit(allocator);
+
+    std.debug.print("Original size: {}x{}\n", .{ asteroid.w, asteroid.h });
+    // Output: Original size: 48x48
+
+    // Rotate by 45 degrees
+    const angle = movy.RenderSurface.degreesToRadians(45.0);
+    try asteroid.rotate(allocator, angle, .bilinear);
+
+    std.debug.print("Rotated size: {}x{}\n", .{ asteroid.w, asteroid.h });
+    // Output: Rotated size: 68x68 (expanded to fit diagonal)
+}
+```
+
+---
+
+#### `rotateInPlace()` - Rotate with Custom Center Point
+
+Rotates the content around a custom center point and positions it within the existing surface buffer. The surface dimensions (`w`, `h`) may change only if `mode` is `.autoenlarge`.
+
+**Function signature:**
+```zig
+pub fn rotateInPlace(
+    self: *RenderSurface,
+    allocator: std.mem.Allocator,
+    angle_radians: f32,
+    center_x: usize,
+    center_y: usize,
+    mode: RotateMode,
+    algorithm: RotateAlgorithm,
+) !void
+```
+
+**Parameters:**
+- `angle_radians` - Rotation angle in radians (positive = counter-clockwise)
+- `center_x`, `center_y` - Point around which to rotate
+- `mode` - What to do if rotated bounds exceed buffer size (clip or autoenlarge)
+- `algorithm` - Rotation algorithm to use
+
+**Behavior:**
+- Rotates content around `(center_x, center_y)`
+- With `.clip` mode: Clips if rotated content exceeds buffer
+- With `.autoenlarge` mode: Resizes surface first if needed
+- Areas outside rotated content become transparent
+
+**Example:**
+```zig
+const std = @import("std");
+const movy = @import("movy");
+
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    // Create a surface with a graphic
+    var surface = try movy.RenderSurface.createFromPng(
+        allocator,
+        "assets/player.png",  // 32x32 graphic
+    );
+    defer surface.deinit(allocator);
+
+    // Resize surface to have room for rotation
+    try surface.resize(allocator, 100, 100);
+
+    // Rotate 90 degrees around point (50, 50)
+    const angle_90 = movy.RenderSurface.degreesToRadians(90.0);
+    try surface.rotateInPlace(
+        allocator,
+        angle_90,
+        50,  // Center X
+        50,  // Center Y
+        .clip,
+        .nearest_neighbor,
+    );
+
+    // Surface is still 100x100, but content is now rotated
+    std.debug.print("Surface size: {}x{}\n", .{ surface.w, surface.h });
+    // Output: Surface size: 100x100
+}
+```
+
+---
+
+#### `rotateInPlaceCentered()` - Convenience Wrapper
+
+Rotates in-place with automatic centering at `(w/2, h/2)`.
+
+**Function signature:**
+```zig
+pub fn rotateInPlaceCentered(
+    self: *RenderSurface,
+    allocator: std.mem.Allocator,
+    angle_radians: f32,
+    mode: RotateMode,
+    algorithm: RotateAlgorithm,
+) !void
+```
+
+**Example:**
+```zig
+// Spinning animation: continuous rotation centered in surface
+var angle: f32 = 0.0;
+
+while (true) {
+    const angle_rad = movy.RenderSurface.degreesToRadians(angle);
+
+    try graphic.rotateInPlaceCentered(
+        allocator,
+        angle_rad,
+        .autoenlarge,
+        .nearest_neighbor,
+    );
+
+    // Render graphic...
+
+    // Animate rotation (0 -> 360 degrees)
+    angle += 2.0;
+    if (angle >= 360.0) angle = 0.0;
+}
+```
+
+---
+
+### Convenience Functions
+
+#### `createFromPngRotated()` - Load and Rotate in One Call
+
+Loads a PNG file and immediately rotates it to the specified angle.
+
+**Function signature:**
+```zig
+pub fn createFromPngRotated(
+    allocator: std.mem.Allocator,
+    file_path: []const u8,
+    angle_radians: f32,
+    algorithm: RotateAlgorithm,
+) !*RenderSurface
+```
+
+**Example:**
+```zig
+// Load an image and rotate it 180 degrees immediately
+const angle_180 = movy.RenderSurface.degreesToRadians(180.0);
+var upside_down = try movy.RenderSurface.createFromPngRotated(
+    allocator,
+    "assets/logo.png",
+    angle_180,
+    .nearest_neighbor,
+);
+defer upside_down.deinit(allocator);
+```
+
+---
+
+### Performance Considerations
+
+**Algorithm Speed:**
+1. `.nearest_neighbor` - Fast, with optimized fast paths for 0, 90, 180, 270 degrees
+2. `.bilinear` - Slower, performs 2x2 neighborhood interpolation for every pixel
+
+**Recommendations:**
+- **Pixel art graphics:** Use `.nearest_neighbor` to preserve hard edges
+- **Real-time animations:** Use `.nearest_neighbor` for performance
+- **High-quality rotations:** Use `.bilinear` for smoother results
+- **90-degree rotations:** Always fast with `.nearest_neighbor` (uses optimized path)
+
+**Memory allocation:**
+- `rotate()` - Reallocates buffers, frees old ones
+- `rotateInPlace()` - Allocates temporary buffers (freed immediately), may resize surface with `.autoenlarge`
+
+---
+
+### Complete Example: Spinning Asteroid
+
+```zig
+const std = @import("std");
+const movy = @import("movy");
+
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    const terminal_width: usize = 120;
+    const terminal_height: usize = 80;
+
+    try movy.terminal.beginRawMode();
+    defer movy.terminal.endRawMode();
+    try movy.terminal.beginAlternateScreen();
+    defer movy.terminal.endAlternateScreen();
+
+    var screen = try movy.Screen.init(
+        allocator,
+        terminal_width,
+        terminal_height,
+    );
+    defer screen.deinit(allocator);
+    screen.setScreenMode(movy.Screen.Mode.bgcolor);
+    screen.bg_color = movy.color.BLACK;
+
+    // Load original asteroid image
+    const original = try movy.RenderSurface.createFromPng(
+        allocator,
+        "assets/asteroid_huge.png",
+    );
+    defer original.deinit(allocator);
+
+    // Pre-allocate rotated surface
+    var rotated = try movy.RenderSurface.init(
+        allocator,
+        original.w,
+        original.h,
+        movy.color.BLACK,
+    );
+    defer rotated.deinit(allocator);
+
+    var angle_degrees: f32 = 0.0;
+    const rotation_step: f32 = 2.0;  // 2 degrees per frame
+
+    while (true) {
+        // Handle input
+        if (try movy.input.get()) |in| {
+            switch (in) {
+                .key => |key| {
+                    switch (key.type) {
+                        .Escape => break,
+                        .Char => {
+                            if (key.sequence.len > 0) {
+                                const ch = key.sequence[0];
+                                if (ch == 'q' or ch == 'Q') break;
+                            }
+                        },
+                        else => {},
+                    }
+                },
+                .mouse => {},
+            }
+        }
+
+        // Update rotation angle
+        angle_degrees += rotation_step;
+        if (angle_degrees >= 360.0) {
+            angle_degrees -= 360.0;
+        }
+
+        // Convert to radians and rotate
+        const angle_radians = movy.RenderSurface.degreesToRadians(angle_degrees);
+        try rotated.resize(allocator, original.w, original.h);
+        try rotated.copy(original);
+        try rotated.rotateInPlaceCentered(
+            allocator,
+            angle_radians,
+            .autoenlarge,
+            .nearest_neighbor,
+        );
+
+        // Center the rotated surface on screen
+        const center_x = @as(i32, @intCast(terminal_width / 2)) -
+            @as(i32, @intCast(rotated.w / 2));
+        const center_y = @as(i32, @intCast(terminal_height / 2)) -
+            @as(i32, @intCast(rotated.h / 2));
+        rotated.x = center_x;
+        rotated.y = center_y;
+
+        // Render
+        try screen.renderInit();
+        try screen.addRenderSurface(allocator, rotated);
+        screen.render();
+        try screen.output();
+
+        std.Thread.sleep(16_666_667);  // 60 FPS
+    }
+}
+```
+
+---
+
+### Rotation Examples
+
+For hands-on learning, explore these examples:
+
+- **`zig build run-rotate_animation`** - Continuous 360-degree rotation
+- **`zig build run-rotate_angles`** - Compare rotation at different angles (0, 45, 90, 135, 180, 270) with both algorithms
+- **`zig build run-rotate_interactive`** - User-controlled rotation with arrow keys, algorithm/mode toggling
+
+---
+
+### Rotation with Text
+
+**Important:** Text (`char_map`) is **always cleared** during rotation operations, as character glyphs cannot be meaningfully rotated. If you need to preserve text:
+
+1. Rotate graphics first
+2. Add text **after** rotation
 
 ---
 
