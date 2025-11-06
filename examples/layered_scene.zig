@@ -7,7 +7,7 @@
 /// - Combining opaque and semi-transparent layers
 /// - Real-world scene structure (background, characters, UI)
 ///
-/// This example shows how to build a complex scene with multiple layers,
+/// This example shows how to build a scene with multiple layers,
 /// similar to a game with background, player sprites, and UI overlays.
 const std = @import("std");
 const movy = @import("movy");

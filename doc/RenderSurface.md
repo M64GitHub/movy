@@ -84,12 +84,12 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    // Load a sprite from PNG file
-    var sprite_surface = try movy.core.RenderSurface.createFromPng(
+    // Load a graphic from PNG file
+    var graphic_surface = try movy.core.RenderSurface.createFromPng(
         allocator,
-        "assets/my_sprite.png",
+        "assets/my_graphic.png",
     );
-    defer sprite_surface.deinit(allocator);
+    defer graphic_surface.deinit(allocator);
 
     // The surface now contains:
     // - RGB color data from the PNG
@@ -146,7 +146,7 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    // Load a sprite with transparency (e.g., a circle on transparent background)
+    // Load a graphic with transparency (e.g., a circle on transparent background)
     var surface = try movy.core.RenderSurface.createFromPng(
         allocator,
         "assets/circle.png",
@@ -175,7 +175,7 @@ pub fn main() !void {
 **Key points:**
 - Use `setAlpha()` for fade-in/fade-out effects
 - Original transparency is preserved (pixels with shadow_map=0 stay at 0)
-- Works great for fading sprites, ghosts, or overlay effects
+- Works great for fading graphics, ghosts, or overlay effects
 - Must use `Screen.renderWithAlpha()` for proper alpha blending
 
 ### Alpha Blending vs Binary Transparency
@@ -505,6 +505,445 @@ This means a 40*20 RenderSurface displays as:
 
 ---
 
+## Scaling and Resizing
+
+movy provides powerful image scaling capabilities to resize RenderSurfaces with multiple algorithms and control modes. Scaling can be used for dynamic graphic sizes, zoom effects, and loading assets at different resolutions.
+
+### Scaling Modes and Algorithms
+
+Before diving into the functions, understand the two enums that control scaling behavior:
+
+#### `ScaleMode` - Buffer Management
+
+```zig
+pub const ScaleMode = enum {
+    clip,        // Clip scaled content to fit within buffer bounds
+    autoenlarge, // Automatically resize surface to accommodate target dimensions
+};
+```
+
+**When to use:**
+- `.clip` - For in-place scaling where surface size must stay fixed
+- `.autoenlarge` - When you want the surface to grow if needed
+
+#### `ScaleAlgorithm` - Quality vs Performance
+
+```zig
+pub const ScaleAlgorithm = enum {
+    none,             // Direct pixel mapping, no interpolation (fastest, blockiest)
+    nearest_neighbor, // Pick closest source pixel (fast, blocky)
+    bilinear,         // Weighted average of 2x2 pixels (smooth, moderate speed)
+    bicubic,          // Weighted average of 4x4 pixels (smoothest, slowest)
+};
+```
+
+**Algorithm comparison:**
+- `.none` - Fastest, best for extreme downscaling or when quality doesn't matter
+- `.nearest_neighbor` - Fast and preserves hard edges, ideal for pixel art
+- `.bilinear` - Balanced quality and speed, good for most use cases
+- `.bicubic` - Highest quality, best for photographic content or upscaling
+
+**Note:** Due to terminal's half-block rendering, differences between algorithms are subtle. Nearest neighbor can often sufficient.
+Run `zig build run-scale_algorithms` for comparison, or `zig build run-scale_animation` to see where bilinear scaling makes an actual difference.
+---
+
+### Core Scaling Functions
+
+#### `scale()` - Resize Surface Permanently
+
+Scales the RenderSurface to new dimensions, reallocating all internal buffers. The surface's `w` and `h` fields are updated to the new size.
+
+**Function signature:**
+```zig
+pub fn scale(
+    self: *RenderSurface,
+    allocator: std.mem.Allocator,
+    target_w: usize,
+    target_h: usize,
+    algorithm: ScaleAlgorithm,
+) !void
+```
+
+**Behavior:**
+- Reallocates `color_map`, `shadow_map`, `char_map`, and `rendered_str`
+- Updates `self.w` and `self.h` to new dimensions
+- Clears `char_map` (text cannot be meaningfully scaled)
+- Early returns if `target_w == self.w && target_h == self.h` (no-op optimization)
+
+**Example:**
+```zig
+const std = @import("std");
+const movy = @import("movy");
+
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    // Load a 48x48 asteroid image
+    var asteroid = try movy.RenderSurface.createFromPng(
+        allocator,
+        "assets/asteroid_huge.png",
+    );
+    defer asteroid.deinit(allocator);
+
+    std.debug.print("Original size: {}x{}\n", .{ asteroid.w, asteroid.h });
+    // Output: Original size: 48x48
+
+    // Scale down to 24x24 using bilinear interpolation
+    try asteroid.scale(allocator, 24, 24, .bilinear);
+
+    std.debug.print("Scaled size: {}x{}\n", .{ asteroid.w, asteroid.h });
+    // Output: Scaled size: 24x24
+}
+```
+
+---
+
+#### `scaleInPlace()` - Scale Without Resizing Surface
+
+Scales the content to new dimensions and positions it within the existing surface buffer. The surface dimensions (`w`, `h`) do NOT change. Areas outside the scaled content become transparent.
+
+**Function signature:**
+```zig
+pub fn scaleInPlace(
+    self: *RenderSurface,
+    allocator: std.mem.Allocator,
+    w: usize,
+    h: usize,
+    center_x: usize,
+    center_y: usize,
+    mode: ScaleMode,
+    algorithm: ScaleAlgorithm,
+) !void
+```
+
+**Parameters:**
+- `w`, `h` - Target dimensions for the scaled content
+- `center_x`, `center_y` - Position where scaled content is centered
+- `mode` - What to do if target exceeds buffer size (clip or autoenlarge)
+- `algorithm` - Scaling algorithm to use
+
+**Behavior:**
+- Clears the surface to transparent
+- Scales current content to target size
+- Positions scaled content centered at `(center_x, center_y)`
+- With `.clip` mode: Clips if target exceeds buffer
+- With `.autoenlarge` mode: Resizes surface first if needed
+
+**Example:**
+```zig
+const std = @import("std");
+const movy = @import("movy");
+
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    // Create a 100x100 surface with a graphic
+    var surface = try movy.RenderSurface.createFromPng(
+        allocator,
+        "assets/player.png",  // 32x32 graphic
+    );
+    defer surface.deinit(allocator);
+
+    // Resize surface to have room for scaling
+    try surface.resize(allocator, 100, 100);
+
+    // Zoom in: Scale to 64x64 centered at (50, 50)
+    try surface.scaleInPlace(
+        allocator,
+        64,  // Target width
+        64,  // Target height
+        50,  // Center X
+        50,  // Center Y
+        .clip,
+        .nearest_neighbor,
+    );
+
+    // Surface is still 100x100, but content is now 64x64 and centered
+    std.debug.print("Surface size: {}x{}\n", .{ surface.w, surface.h });
+    // Output: Surface size: 100x100
+}
+```
+
+---
+
+#### `scaleInPlaceCentered()` - Convenience Wrapper
+
+Scales in-place with automatic centering at `(w/2, h/2)`.
+
+**Function signature:**
+```zig
+pub fn scaleInPlaceCentered(
+    self: *RenderSurface,
+    allocator: std.mem.Allocator,
+    w: usize,
+    h: usize,
+    mode: ScaleMode,
+    algorithm: ScaleAlgorithm,
+) !void
+```
+
+**Example:**
+```zig
+// Zoom animation: pulse effect centered in surface
+var scale_factor: f32 = 1.0;
+
+while (true) {
+    const target_w = @as(usize, @intFromFloat(32.0 * scale_factor));
+    const target_h = @as(usize, @intFromFloat(32.0 * scale_factor));
+
+    try graphic.scaleInPlaceCentered(
+        allocator,
+        target_w,
+        target_h,
+        .clip,
+        .nearest_neighbor,
+    );
+
+    // Animate scale factor (1.0 -> 1.5 -> 1.0)
+    scale_factor += 0.01;
+    if (scale_factor > 1.5) scale_factor = 1.0;
+}
+```
+
+---
+
+### Convenience Functions
+
+#### `createFromPngScaled()` - Load and Scale in One Call
+
+Loads a PNG file and immediately scales it to the target dimensions.
+
+**Function signature:**
+```zig
+pub fn createFromPngScaled(
+    allocator: std.mem.Allocator,
+    file_path: []const u8,
+    target_w: usize,
+    target_h: usize,
+    algorithm: ScaleAlgorithm,
+) !*RenderSurface
+```
+
+**Example:**
+```zig
+// Load a large image and scale it down immediately
+var icon = try movy.RenderSurface.createFromPngScaled(
+    allocator,
+    "assets/logo_4k.png",  // 3840x2160
+    64,   // Scale to 64x64
+    64,
+    .bilinear,
+);
+defer icon.deinit(allocator);
+```
+
+---
+
+### Factor-Based Scaling
+
+For proportional scaling that preserves aspect ratio, use the factor-based functions. A factor of `1.0` means original size, `2.0` doubles the size, `0.5` halves it.
+
+#### `scaleByFactor()` - Scale with Aspect Ratio Preservation
+
+**Function signature:**
+```zig
+pub fn scaleByFactor(
+    self: *RenderSurface,
+    allocator: std.mem.Allocator,
+    factor: f32,
+    algorithm: ScaleAlgorithm,
+) !void
+```
+
+**Example:**
+```zig
+var graphic = try movy.RenderSurface.createFromPng(allocator, "graphic.png");
+defer graphic.deinit(allocator);
+
+// Double the size (maintains aspect ratio)
+try graphic.scaleByFactor(allocator, 2.0, .nearest_neighbor);
+
+// Half the size
+try graphic.scaleByFactor(allocator, 0.5, .bilinear);
+```
+
+---
+
+#### `scaleInPlaceByFactor()` - In-Place Factor Scaling
+
+**Function signature:**
+```zig
+pub fn scaleInPlaceByFactor(
+    self: *RenderSurface,
+    allocator: std.mem.Allocator,
+    factor: f32,
+    center_x: usize,
+    center_y: usize,
+    mode: ScaleMode,
+    algorithm: ScaleAlgorithm,
+) !void
+```
+
+---
+
+#### `scaleInPlaceByFactorCentered()` - Centered Factor Scaling
+
+**Function signature:**
+```zig
+pub fn scaleInPlaceByFactorCentered(
+    self: *RenderSurface,
+    allocator: std.mem.Allocator,
+    factor: f32,
+    mode: ScaleMode,
+    algorithm: ScaleAlgorithm,
+) !void
+```
+
+**Example - Breathing/Pulse Effect:**
+```zig
+var breath_phase: f32 = 0.0;
+
+while (true) {
+    // Calculate scale factor (oscillates between 0.8 and 1.2)
+    const scale = 1.0 + 0.2 * @sin(breath_phase);
+
+    try graphic.scaleInPlaceByFactorCentered(
+        allocator,
+        scale,
+        .clip,
+        .bilinear,
+    );
+
+    // Render graphic...
+
+    breath_phase += 0.05;
+}
+```
+
+---
+
+### Performance Considerations
+
+**Algorithm Speed (fastest to slowest):**
+1. `.none` - Direct mapping
+2. `.nearest_neighbor` - Lookup only
+3. `.bilinear` - 2x2 interpolation
+4. `.bicubic` - 4x4 interpolation
+
+**Recommendations:**
+- **Pixel art graphics:** Use `.nearest_neighbor` to preserve hard edges
+- **Real-time animations:** Use `.nearest_neighbor` or `.bilinear`
+- **Pre-processing assets:** Use `.bilinear` or `.bicubic` for quality
+- **Extreme downscaling (e.g., 4x smaller):** Any algorithm works, use `.none` or `.nearest_neighbor` for speed
+
+**Memory allocation:**
+- `scale()` - Reallocates buffers, frees old ones
+- `scaleInPlace()` - Allocates temporary buffers (freed immediately), may resize surface with `.autoenlarge`
+
+---
+
+### Complete Example: Zoom Effect
+
+```zig
+const std = @import("std");
+const movy = @import("movy");
+
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    const term = try movy.terminal.enableRawMode();
+    defer movy.terminal.disableRawMode(term);
+
+    var screen = try movy.Screen.init(allocator, 80, 60);
+    defer screen.deinit(allocator);
+
+    // Load graphic
+    var graphic = try movy.RenderSurface.createFromPng(
+        allocator,
+        "assets/asteroid.png",
+    );
+    defer graphic.deinit(allocator);
+
+    // Make room for scaling
+    try graphic.resize(allocator, 80, 80);
+
+    var zoom: f32 = 0.5;
+    var zoom_direction: f32 = 0.02;
+
+    while (true) {
+        screen.clear();
+
+        // Scale graphic in-place, centered
+        try graphic.scaleInPlaceByFactorCentered(
+            allocator,
+            zoom,
+            .clip,
+            .nearest_neighbor,
+        );
+
+        graphic.x = 20;
+        graphic.y = 20;
+
+        // Render
+        screen.renderInit();
+        try screen.addRenderSurface(allocator, graphic);
+        screen.render();
+        try screen.output();
+
+        // Animate zoom (0.5 <-> 2.0)
+        zoom += zoom_direction;
+        if (zoom >= 2.0 or zoom <= 0.5) {
+            zoom_direction = -zoom_direction;
+        }
+
+        std.time.sleep(33 * std.time.ns_per_ms);  // 30 FPS
+
+        // Check for quit input
+        if (try movy.input.pollKey()) |key| {
+            if (key == 'q' or key == 27) break;
+        }
+    }
+}
+```
+
+---
+
+### Scaling with Text
+
+**Important:** Text (`char_map`) is **always cleared** during scaling operations, as character glyphs cannot be meaningfully scaled. If you need to preserve text:
+
+1. Draw graphics and scale them
+2. Add text **after** scaling
+
+```zig
+// Load and scale image
+var surface = try movy.RenderSurface.createFromPngScaled(
+    allocator,
+    "background.png",
+    100,
+    50,
+    .bilinear,
+);
+defer surface.deinit(allocator);
+
+// NOW add text (after scaling)
+_ = surface.putStrXY(
+    "Scaled Background",
+    10,
+    2,
+    movy.color.white,
+    movy.color.black,
+);
+```
+
+---
+
 ## Using with Screen
 
 The `Screen` struct is movy's top-level rendering canvas. RenderSurfaces are added to a Screen and then composited together.
@@ -541,7 +980,7 @@ pub fn main() !void {
     // -- Create a RenderSurface with graphics
     var my_surface = try movy.core.RenderSurface.createFromPng(
         allocator,
-        "assets/sprite.png",
+        "assets/graphic.png",
     );
     defer my_surface.deinit(allocator);
 
