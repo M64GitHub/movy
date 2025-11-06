@@ -28,8 +28,7 @@ zig build run-framerate_template     # Frame-based game loop template
 ```
 
 Each example corresponds to code snippets and concepts shown in the
-documentation above. See **[examples/README.md](../examples/README.md)**
-for more details.
+documentation above.
 
 ## Demos
 
