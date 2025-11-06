@@ -241,7 +241,7 @@ pub fn main() !void {
         try screen.addRenderSurface(allocator, title);
         try screen.addRenderSurface(allocator, info);
         try screen.addRenderSurface(allocator, asteroid_working);
-        // try screen.addRenderSurface(allocator, scroller.output_surface);
+        try screen.addRenderSurface(allocator, scroller.output_surface);
 
         screen.renderWithAlpha();
         try screen.output();
