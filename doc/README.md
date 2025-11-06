@@ -21,6 +21,9 @@ zig build run-png_loader             # Loading PNG images
 zig build run-sprite_animation       # Sprite frame animation
 zig build run-sprite_alpha_rendering # Sprites with transparency
 zig build run-sprite_pool            # Managing multiple sprites
+zig build run-scale_algorithms       # Compare scaling algorithms
+zig build run-scale_updown           # Interactive upscaling
+zig build run-scale_animation        # Animated scaling effect
 zig build run-framerate_template     # Frame-based game loop template
 ```
 

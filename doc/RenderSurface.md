@@ -84,12 +84,12 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    // Load a sprite from PNG file
-    var sprite_surface = try movy.core.RenderSurface.createFromPng(
+    // Load a graphic from PNG file
+    var graphic_surface = try movy.core.RenderSurface.createFromPng(
         allocator,
-        "assets/my_sprite.png",
+        "assets/my_graphic.png",
     );
-    defer sprite_surface.deinit(allocator);
+    defer graphic_surface.deinit(allocator);
 
     // The surface now contains:
     // - RGB color data from the PNG
@@ -146,7 +146,7 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    // Load a sprite with transparency (e.g., a circle on transparent background)
+    // Load a graphic with transparency (e.g., a circle on transparent background)
     var surface = try movy.core.RenderSurface.createFromPng(
         allocator,
         "assets/circle.png",
@@ -175,7 +175,7 @@ pub fn main() !void {
 **Key points:**
 - Use `setAlpha()` for fade-in/fade-out effects
 - Original transparency is preserved (pixels with shadow_map=0 stay at 0)
-- Works great for fading sprites, ghosts, or overlay effects
+- Works great for fading graphics, ghosts, or overlay effects
 - Must use `Screen.renderWithAlpha()` for proper alpha blending
 
 ### Alpha Blending vs Binary Transparency
@@ -507,7 +507,7 @@ This means a 40*20 RenderSurface displays as:
 
 ## Scaling and Resizing
 
-movy provides powerful image scaling capabilities to resize RenderSurfaces with multiple algorithms and control modes. Scaling is essential for dynamic sprite sizes, zoom effects, and loading assets at different resolutions.
+movy provides powerful image scaling capabilities to resize RenderSurfaces with multiple algorithms and control modes. Scaling can be used for dynamic graphic sizes, zoom effects, and loading assets at different resolutions.
 
 ### Scaling Modes and Algorithms
 
@@ -543,8 +543,8 @@ pub const ScaleAlgorithm = enum {
 - `.bilinear` - Balanced quality and speed, good for most use cases
 - `.bicubic` - Highest quality, best for photographic content or upscaling
 
-**Note:** Due to terminal's half-block rendering, differences between algorithms are subtle. Nearest neighbor is often sufficient.
-
+**Note:** Due to terminal's half-block rendering, differences between algorithms are subtle. Nearest neighbor can often sufficient.
+Run `zig build run-scale_algorithms` for comparison, or `zig build run-scale_animation` to see where bilinear scaling makes an actual difference.
 ---
 
 ### Core Scaling Functions
@@ -641,10 +641,10 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    // Create a 100x100 surface with a sprite
+    // Create a 100x100 surface with a graphic
     var surface = try movy.RenderSurface.createFromPng(
         allocator,
-        "assets/player.png",  // 32x32 sprite
+        "assets/player.png",  // 32x32 graphic
     );
     defer surface.deinit(allocator);
 
@@ -695,7 +695,7 @@ while (true) {
     const target_w = @as(usize, @intFromFloat(32.0 * scale_factor));
     const target_h = @as(usize, @intFromFloat(32.0 * scale_factor));
 
-    try sprite.scaleInPlaceCentered(
+    try graphic.scaleInPlaceCentered(
         allocator,
         target_w,
         target_h,
@@ -761,14 +761,14 @@ pub fn scaleByFactor(
 
 **Example:**
 ```zig
-var sprite = try movy.RenderSurface.createFromPng(allocator, "sprite.png");
-defer sprite.deinit(allocator);
+var graphic = try movy.RenderSurface.createFromPng(allocator, "graphic.png");
+defer graphic.deinit(allocator);
 
 // Double the size (maintains aspect ratio)
-try sprite.scaleByFactor(allocator, 2.0, .nearest_neighbor);
+try graphic.scaleByFactor(allocator, 2.0, .nearest_neighbor);
 
 // Half the size
-try sprite.scaleByFactor(allocator, 0.5, .bilinear);
+try graphic.scaleByFactor(allocator, 0.5, .bilinear);
 ```
 
 ---
@@ -811,14 +811,14 @@ while (true) {
     // Calculate scale factor (oscillates between 0.8 and 1.2)
     const scale = 1.0 + 0.2 * @sin(breath_phase);
 
-    try sprite.scaleInPlaceByFactorCentered(
+    try graphic.scaleInPlaceByFactorCentered(
         allocator,
         scale,
         .clip,
         .bilinear,
     );
 
-    // Render sprite...
+    // Render graphic...
 
     breath_phase += 0.05;
 }
@@ -835,7 +835,7 @@ while (true) {
 4. `.bicubic` - 4x4 interpolation
 
 **Recommendations:**
-- **Pixel art sprites:** Use `.nearest_neighbor` to preserve hard edges
+- **Pixel art graphics:** Use `.nearest_neighbor` to preserve hard edges
 - **Real-time animations:** Use `.nearest_neighbor` or `.bilinear`
 - **Pre-processing assets:** Use `.bilinear` or `.bicubic` for quality
 - **Extreme downscaling (e.g., 4x smaller):** Any algorithm works, use `.none` or `.nearest_neighbor` for speed
@@ -863,15 +863,15 @@ pub fn main() !void {
     var screen = try movy.Screen.init(allocator, 80, 60);
     defer screen.deinit(allocator);
 
-    // Load sprite
-    var sprite = try movy.RenderSurface.createFromPng(
+    // Load graphic
+    var graphic = try movy.RenderSurface.createFromPng(
         allocator,
         "assets/asteroid.png",
     );
-    defer sprite.deinit(allocator);
+    defer graphic.deinit(allocator);
 
     // Make room for scaling
-    try sprite.resize(allocator, 80, 80);
+    try graphic.resize(allocator, 80, 80);
 
     var zoom: f32 = 0.5;
     var zoom_direction: f32 = 0.02;
@@ -879,20 +879,20 @@ pub fn main() !void {
     while (true) {
         screen.clear();
 
-        // Scale sprite in-place, centered
-        try sprite.scaleInPlaceByFactorCentered(
+        // Scale graphic in-place, centered
+        try graphic.scaleInPlaceByFactorCentered(
             allocator,
             zoom,
             .clip,
             .nearest_neighbor,
         );
 
-        sprite.x = 20;
-        sprite.y = 20;
+        graphic.x = 20;
+        graphic.y = 20;
 
         // Render
         screen.renderInit();
-        try screen.addRenderSurface(allocator, sprite);
+        try screen.addRenderSurface(allocator, graphic);
         screen.render();
         try screen.output();
 
@@ -980,7 +980,7 @@ pub fn main() !void {
     // -- Create a RenderSurface with graphics
     var my_surface = try movy.core.RenderSurface.createFromPng(
         allocator,
-        "assets/sprite.png",
+        "assets/graphic.png",
     );
     defer my_surface.deinit(allocator);
 
