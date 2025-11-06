@@ -30,7 +30,7 @@ The result is a **modular visual engine** — expressive, composable, and built 
 ![Sequence_600](https://github.com/user-attachments/assets/a151f672-0bbf-4601-905f-1e1584be95fc)  
 (alpha blending demo - [blender_demo.zig](./demos/blender_demo.zig))
 
-![Sequence 01](https://github.com/user-attachments/assets/d2040db8-c062-4b5b-8c0f-f6f249f3978e)
+https://github.com/user-attachments/assets/8e25096a-56c1-4188-b6c1-590f288f1ce4
 (scaling and rotation demo - [rotoscale.zig](./demos/rotoscale.zig)
 
 
