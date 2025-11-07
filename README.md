@@ -24,15 +24,7 @@ The result is a **modular visual engine** — expressive, composable, and built 
 ![screenshot](https://github.com/user-attachments/assets/c5e4885b-2f31-49d7-aa35-bdc4dff5eefe)
 (dev snapshot of a game)
 
-![win_demo](https://github.com/user-attachments/assets/4ceae31d-bbb1-4a2c-95d9-8bd09e2a513b)
-(window demo)
-
-![Sequence_600](https://github.com/user-attachments/assets/a151f672-0bbf-4601-905f-1e1584be95fc)  
-(alpha blending demo - [blender_demo.zig](./demos/blender_demo.zig))
-
-
 <video src="https://github.com/user-attachments/assets/719af1a5-d6bd-4a33-91bf-780af909fef2" width="640" autoplay loop muted></video>
-
 (scaling and rotation demo - [rotoscale.zig](./demos/rotoscale.zig)
 
 
