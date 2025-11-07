@@ -39,7 +39,7 @@ Check out games, demos, and tools built with movy in the **[Gallery](#showcase-b
 
 ## Core Concepts
 
-At its heart, **movy** is built on composable rendering, effect-driven visuals, and structured interaction. The system is organized around a few core types that coordinate how visuals are drawn, animated, and composed on screen.
+**movy** is organized around a few core types that coordinate how visuals are drawn, animated, and composed on screen.
 
 ### Rendering Engine Concepts
 
