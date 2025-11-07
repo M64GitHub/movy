@@ -14,7 +14,7 @@ The engine provides:
 
 * **Layered rendering** with alpha blending, z-ordering, and compositing.
 * **Programmable pipelines** for chaining effects, transitions, and post-processing.
-* **Sprite and surface abstraction** for transparent drawing and dynamic composition.
+* **Sprite and surface abstraction** for transparent drawing and dynamic frame animations.
 * **Animation control** via IndexAnimators, waveform generators, and easing functions — driving frame indices, colors, positions, and other parameters.
 * **Half-block rendering** for double vertical resolution and smoother gradients.
 
