@@ -39,11 +39,9 @@ Check out games, demos, and tools built with movy in the **[Gallery](#showcase-b
 
 ## Core Concepts
 
-**movy** is organized around a few core types that coordinate how visuals are drawn, animated, and composed on screen.
+**movy** is organized around a few core types that coordinate how visuals are drawn, animated, and composed on screen:
 
 ### Rendering Engine Concepts
-
-**movy**'s rendering engine is centered around composable surfaces and reusable visual logic.
 
 - **RenderSurface** is the foundational structure — a 2D matrix of pixels (with optional text overlays) that anything visual draws onto. It can be resized, cleared, and converted to ANSI via `.toAnsi()`.
 
