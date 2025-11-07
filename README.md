@@ -8,12 +8,17 @@
 
 ## The Idea Behind movy
 
-**movy** began with a simple vision — to bring real rendering power to the terminal.
-It features layered drawing, alpha blending, z-index ordering, and a programmable pipeline that adds motion and color to text mode.
+**movy** began with a simple vision — to bring real rendering power to the terminal — treating text mode as a programmable graphics environment rather than plain text output.
 
-Using ANSI half-blocks for higher vertical resolution, movy supports transparent sprites, per-frame visual effects, and real-time composition. Visuals optionally flow through effect chains — reusable transformations that enable transitions, layering, and post-processing.
+The engine provides:
 
-**movy** drives animation through IndexAnimators (looping, bouncing, or one-shot), waveforms, and easing functions — creating smooth motion across frames, positions, and colors.
+* **Layered rendering** with alpha blending, z-ordering, and compositing.
+* **Programmable pipelines** for chaining effects, transitions, and post-processing.
+* **Sprite and surface abstraction** for transparent drawing and dynamic composition.
+* **Animation control** via IndexAnimators, waveform generators, and easing functions — driving frame indices, colors, positions, and other parameters.
+* **Half-block rendering** for double vertical resolution and smoother gradients.
+
+Rendering, animation, and effects are independent yet interoperable subsystems.
 
 The result is a **modular visual engine** — expressive, composable, and built for creative experimentation.
 
