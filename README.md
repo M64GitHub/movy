@@ -25,7 +25,7 @@ The result is a **modular visual engine** — expressive, composable, and built 
 (dev snapshot of a game)
 
 <video src="https://github.com/user-attachments/assets/719af1a5-d6bd-4a33-91bf-780af909fef2" width="640" autoplay loop muted></video>
-(scaling and rotation demo - [rotoscale.zig](./demos/rotoscale.zig)
+(scaling and rotation demo - [rotoscale.zig](./demos/rotoscale.zig)) (rendered 60fps, captured with 30fps video)
 
 
 ## Made with movy
