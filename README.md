@@ -16,7 +16,7 @@ The engine provides:
 * **Programmable pipelines** for chaining effects, transitions, and post-processing.
 * **Sprite and surface abstraction** for transparent drawing and dynamic frame animations.
 * **Animation control** via IndexAnimators, waveform generators, and easing functions — driving frame indices, colors, positions, and other parameters.
-* **Half-block rendering** for double vertical resolution and smoother gradients.
+* **Half-block rendering** for double vertical resolution.
 
 Rendering, animation, and effects are independent yet interoperable subsystems.
 
