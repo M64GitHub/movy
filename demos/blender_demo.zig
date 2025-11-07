@@ -128,21 +128,20 @@ pub fn main() !void {
     const movy_y = @divTrunc(@as(i32, @intCast(screen_height * 3)), 4);
 
     // -- Setup scrolling alpha text
-    var alpha_scroller = try movy.graphic.Sprite.initFromPng(
+    var scroller = try movy.RenderSurface.createFromPng(
         allocator,
         "demos/assets/alpha_scroller.png",
-        "alpha_scroller",
     );
-    defer alpha_scroller.deinit(allocator);
+    defer scroller.deinit(allocator);
 
-    const scroller_surface = try alpha_scroller.getCurrentFrameSurface();
-    const scroller_width = @as(i32, @intCast(scroller_surface.w));
-    const scroller_height = @as(i32, @intCast(scroller_surface.h));
+    const scroller_width = @as(i32, @intCast(scroller.w));
+    const scroller_height = @as(i32, @intCast(scroller.h));
 
     // Start scroller off-screen to the right
     var scroller_x = @as(i32, @intCast(screen_width)) + 30;
     const scroller_y = @divTrunc(@as(i32, @intCast(screen_height)), 2) - 10;
-    alpha_scroller.setXY(scroller_x, scroller_y);
+    scroller.x = scroller_x;
+    scroller.y = scroller_y;
 
     // Sine waves for scroller alpha pulsing and vertical bobbing
     var scroller_sine = movy.animation.TrigWave.init(150, 250);
@@ -456,18 +455,14 @@ pub fn main() !void {
 
         // Apply vertical sine wave to scroller
         const scroller_y_offset = scroller_vertical_sine.tickSine();
-        alpha_scroller.setXY(scroller_x, scroller_y + scroller_y_offset);
+        scroller.x = scroller_x;
+        scroller.y = scroller_y + scroller_y_offset;
 
         // Update scroller alpha transparency
         const scroller_alpha_offset = scroller_sine.tickSine();
         const scroller_alpha = @as(u8, @intCast(128 + scroller_alpha_offset));
 
-        for (alpha_scroller.output_surface.shadow_map, 0..) |*alpha, idx| {
-            const original_alpha = scroller_surface.shadow_map[idx];
-            if (original_alpha != 0) {
-                alpha.* = scroller_alpha;
-            }
-        }
+        scroller.setAlpha(scroller_alpha);
 
         // Update flashing title text
         const flash_value = flash_sine.tickSine();
@@ -500,7 +495,7 @@ pub fn main() !void {
             );
         }
         try screen.addRenderSurface(allocator, movy_logo.output_surface);
-        try screen.addRenderSurface(allocator, alpha_scroller.output_surface);
+        try screen.addRenderSurface(allocator, scroller);
 
         for (0..16) |i| {
             try screen.addRenderSurface(

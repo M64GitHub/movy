@@ -1,7 +1,7 @@
 // Rotoscale Demo - Combined rotation, scaling, and alpha effects
 //
 // Features:
-// - Huge asteroid with synchronized rotation, scaling, and alpha pulsing
+// - Huge asteroid with synchronized rotation and scaling
 // - Rotation continuously spins the asteroid 360 degrees
 // - Scaling pulses from 10% to 120% and back
 // - Scrolling text banner with vertical bobbing and alpha pulsing
@@ -31,9 +31,6 @@ pub fn main() !void {
     try movy.terminal.beginAlternateScreen();
     defer movy.terminal.endAlternateScreen();
 
-    movy.terminal.cursorOff();
-    defer movy.terminal.cursorOn();
-
     var screen = try movy.Screen.init(
         allocator,
         terminal_size.width,
@@ -61,21 +58,21 @@ pub fn main() !void {
     asteroid_working.z = 1;
 
     // Setup scrolltext
-    var scroller = try movy.graphic.Sprite.initFromPng(
+    var scroller = try movy.RenderSurface.createFromPng(
         allocator,
         "demos/assets/scaling_and_rotation.png",
-        "scroller",
     );
     defer scroller.deinit(allocator);
 
-    const scroller_surface = try scroller.getCurrentFrameSurface();
-    const scroller_width = @as(i32, @intCast(scroller_surface.w));
-    const scroller_height = @as(i32, @intCast(scroller_surface.h));
+    const scroller_width = @as(i32, @intCast(scroller.w));
+    const scroller_height = @as(i32, @intCast(scroller.h));
 
     // Start scroller off-screen to the right
     var scroller_x = @as(i32, @intCast(terminal_size.width)) + 30;
-    const scroller_y = @divTrunc(@as(i32, @intCast(terminal_size.height)), 2) + 20;
-    scroller.setXY(scroller_x, scroller_y);
+    const scroller_y =
+        @divTrunc(@as(i32, @intCast(terminal_size.height)), 2) + 20;
+    scroller.x = scroller_x;
+    scroller.y = scroller_y;
 
     // Sine waves for scroller alpha pulsing and vertical bobbing
     var scroller_sine = movy.animation.TrigWave.init(150, 250);
@@ -128,7 +125,8 @@ pub fn main() !void {
                         .Escape => break,
                         .Char => {
                             if (key.sequence.len > 0 and
-                                (key.sequence[0] == 'q' or key.sequence[0] == 'Q')) break;
+                                (key.sequence[0] == 'q' or
+                                    key.sequence[0] == 'Q')) break;
                         },
                         else => {},
                     }
@@ -204,18 +202,14 @@ pub fn main() !void {
 
         // Apply vertical sine wave to scroller
         const scroller_y_offset = scroller_vertical_sine.tickSine();
-        scroller.setXY(scroller_x, scroller_y + scroller_y_offset);
+        scroller.x = scroller_x;
+        scroller.y = scroller_y + scroller_y_offset;
 
         // Update scroller alpha transparency
         const scroller_alpha_offset = scroller_sine.tickSine();
         const scroller_alpha = @as(u8, @intCast(128 + scroller_alpha_offset));
 
-        for (scroller.output_surface.shadow_map, 0..) |*alpha, idx| {
-            const original_alpha = scroller_surface.shadow_map[idx];
-            if (original_alpha != 0) {
-                alpha.* = scroller_alpha;
-            }
-        }
+        scroller.setAlpha(scroller_alpha);
 
         // Update info display
         const info_text = try std.fmt.bufPrint(
@@ -230,7 +224,7 @@ pub fn main() !void {
         try screen.addRenderSurface(allocator, title);
         try screen.addRenderSurface(allocator, info);
         try screen.addRenderSurface(allocator, asteroid_working);
-        try screen.addRenderSurface(allocator, scroller.output_surface);
+        try screen.addRenderSurface(allocator, scroller);
 
         screen.renderWithAlpha();
         try screen.output();
