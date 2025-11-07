@@ -115,8 +115,6 @@ zig build test
 
 ## Documentation
 
-... is being under construction, and frequently updated and expanded. The most foundational concepts are covered. Please check:
-
 - **[Guides](./doc/README.md)** — Documentation on core concepts like RenderSurface and RenderEngine, written for developers new to movy
 - **[Examples](./examples/)** — Code examples demonstrating specific features (alpha blending, PNG loading, sprite animations, rotation / scaling, ...)
 - **[Demos](./demos/README.md)** — Programs showcasing visual effects, animations, and interaction
