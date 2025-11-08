@@ -269,8 +269,8 @@ movy.render.RenderEngine.renderWithAlpha(&surfaces, overlay);
 ```
 
 **Difference from `renderWithAlphaToBg()`:**
-- `renderWithAlphaToBg()`: Assumes destination is opaque → simpler math → faster
-- `renderWithAlpha()`: Handles any alpha values → more complex math → slightly slower but more flexible
+- `renderWithAlphaToBg()`: Assumes destination is opaque -> simpler math -> faster
+- `renderWithAlpha()`: Handles any alpha values -> more complex math -> slightly slower but more flexible
 
 ---
 

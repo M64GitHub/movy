@@ -75,6 +75,7 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
+    // -- Setup terminal / screen
     const terminal_size = try movy.terminal.getSize();
     const screen_width = terminal_size.width;
     const screen_height = terminal_size.height * 2; // Double height for half-block rendering
@@ -174,10 +175,7 @@ pub fn main() !void {
         );
 
         // Apply graduated alpha transparency
-        const current_frame = try sprites[i].getCurrentFrameSurface();
-        for (current_frame.shadow_map) |*alpha| {
-            if (alpha.* != 0) alpha.* = alpha_values[i];
-        }
+        try sprites[i].setAlphaCurrentFrameSurface(alpha_values[i]);
 
         // Setup frame animation
         try sprites[i].splitByWidth(allocator, 16);

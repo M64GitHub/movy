@@ -46,8 +46,6 @@ zig build run-mouse_demo     # Interactive input with UI Manager
 zig build run-win_demo       # Multiple windows with themes
 ```
 
-See **[demos/README.md](../demos/README.md)** for complete descriptions of all available demos and what each one demonstrates.
-
 ## Status
 
-This documentation is an ongoing process. More guides covering additional movy components will be added as development continues.
+This documentation is an ongoing process.

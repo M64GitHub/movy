@@ -147,7 +147,7 @@ The dashboard includes several chart types, each showing a different perspective
 **Time per iteration (μs)** - Lower is better
 - Latency metric: how long each iteration takes
 - More intuitive for understanding frame budgets
-- "Can I hit 60 FPS?" → Need < 16,667 μs per frame
+- "Can I hit 60 FPS?" -> Need < 16,667 μs per frame
 
 **Speed Index** - Higher is better
 - Computed as `(1 / time_per_iter_us) × 1000`
@@ -282,17 +282,15 @@ The embedded JSON data is available in JavaScript as `embeddedData[runKey]`, whe
 
 I picked these tests to answer specific questions:
 
-**RenderSurface.toAnsi** → "How expensive is terminal output rendering?"
+**RenderSurface.toAnsi** -> "How expensive is terminal output rendering?"
 - ANSI conversion is pure overhead
 - Can't be skipped in real usage
-- Shows if we should cache ANSI strings or convert on-demand
 
-**RenderEngine.render_stable** → "How fast is the core compositor?"
-- No ANSI conversion noise in the measurements
+**RenderEngine.render_stable** -> "How fast is the core compositor?"
 - Tests z-ordering, alpha blending, pixel-level operations
 - Different aspect ratios reveal cache and memory access patterns
 
-**render_stable_with_toAnsi** → "What's the real-world performance?"
+**render_stable_with_toAnsi** -> "What's the real-world performance?"
 - Measures what actually happens in production
 - Gap between this and sum of parts shows hidden overhead
 - Helps identify optimization opportunities

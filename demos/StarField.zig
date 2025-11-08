@@ -32,11 +32,11 @@ pub const Starfield = struct {
     const Star = struct {
         x: i32,
         y: i32,
-        z: i32,  // Depth (0=close, 250=far)
-        accumulator: i32,  // Subpixel movement accumulator
-        adder_value: i32,  // Speed based on depth
+        z: i32, // Depth (0=close, 250=far)
+        accumulator: i32, // Subpixel movement accumulator
+        adder_value: i32, // Speed based on depth
         kind: StarType,
-        flashy_frame: usize = 0,  // Frame counter for flash timing
+        flashy_frame: usize = 0, // Frame counter for flash timing
         flashy_interval: usize = FlashyInterval,
         flashy_ani_frame: usize = 0,
         flashy_speed: usize = 5,
@@ -46,7 +46,6 @@ pub const Starfield = struct {
     };
 
     const StarKindDistribution = struct {
-        // const KindWeights = [_]usize{ 90, 10 };
         const KindWeights = [_]usize{ 60, 30 };
         const KindMap = [_]StarType{ .Normal, .Flashy };
 
@@ -108,38 +107,38 @@ pub const Starfield = struct {
         const color_val = @as(u8, @intCast(@min(250, z + 50)));
         const progress = @as(u16, color_val) -| 50; // 0 to 200
 
-        // 4-stage gradient: z=0→250 maps to progress=0→200
-        // Stage 1 (z~0-90): Dark blue rgb(20, 30, 80) → Purple rgb(120, 60, 180)
-        // Stage 2 (z~90-170): Purple → Cyan rgb(60, 200, 240)
+        // 4-stage gradient: z=0->250 maps to progress=0->200
+        // Stage 1 (z~0-90): Dark blue rgb(20, 30, 80) -> Purple rgb(120, 60, 180)
+        // Stage 2 (z~90-170): Purple -> Cyan rgb(60, 200, 240)
         // Stage 3 (z~170-190): Cyan (stays cyan)
-        // Stage 4 (z~190-200 / z~220-250): Cyan → Bright Cyan rgb(0, 245, 255) - only 5%!
+        // Stage 4 (z~190-200 / z~220-250): Cyan -> Bright Cyan rgb(0, 245, 255)
 
         const red: u8 = if (progress < 90)
-            @intCast(20 + (progress * 100) / 90) // 20→120
+            @intCast(20 + (progress * 100) / 90) // 20->120
         else if (progress < 170)
-            @intCast(120 - ((progress - 90) * 60) / 80) // 120→60
+            @intCast(120 - ((progress - 90) * 60) / 80) // 120->60
         else if (progress < 190)
             60 // stay cyan longer
         else
-            @intCast(60 - ((progress - 190) * 60) / 10); // 60→0 remove red (compressed)
+            @intCast(60 - ((progress - 190) * 60) / 10); // 60->0 remove red
 
         const green: u8 = if (progress < 90)
-            @intCast(30 + (progress * 30) / 90) // 30→60
+            @intCast(30 + (progress * 30) / 90) // 30->60
         else if (progress < 170)
-            @intCast(60 + ((progress - 90) * 140) / 80) // 60→200
+            @intCast(60 + ((progress - 90) * 140) / 80) // 60->200
         else if (progress < 190)
             200 // stay cyan longer
         else
-            @intCast(200 + ((progress - 190) * 45) / 10); // 200→245 brighten (compressed)
+            @intCast(200 + ((progress - 190) * 45) / 10); // 200->245 brighten
 
         const blue: u8 = if (progress < 90)
-            @intCast(80 + (progress * 100) / 90) // 80→180
+            @intCast(80 + (progress * 100) / 90) // 80->180
         else if (progress < 170)
-            @intCast(180 + ((progress - 90) * 60) / 80) // 180→240
+            @intCast(180 + ((progress - 90) * 60) / 80) // 180->240
         else if (progress < 190)
             240 // stay cyan longer
         else
-            @intCast(240 + ((progress - 190) * 15) / 10); // 240→255 brighten (compressed)
+            @intCast(240 + ((progress - 190) * 15) / 10); // 240->255 brighten
 
         return .{ .r = red, .g = green, .b = blue };
     }
@@ -166,7 +165,7 @@ pub const Starfield = struct {
                 star.y = 0;
                 star.x = r.intRangeAtMost(i32, 0, @intCast(w - 1));
                 star.z = r.intRangeAtMost(i32, 0, self.depth);
-                star.adder_value = star.z + 50;  // Speed based on depth
+                star.adder_value = star.z + 50; // Speed based on depth
                 star.accumulator = 0;
             }
 
@@ -177,11 +176,11 @@ pub const Starfield = struct {
 
             // Character size based on depth (closer = larger)
             const dot_char: u21 = switch (star.z) {
-                0...99 => 0x00B7,    // · (small)
+                0...99 => 0x00B7, // · (small)
                 100...149 => 0x2022, // • (medium)
                 150...199 => 0x02022,
                 200...220 => '.',
-                else => '●',         // ● (large, closest)
+                else => '●', // ● (large, closest)
             };
 
             switch (star.kind) {

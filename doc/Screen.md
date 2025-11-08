@@ -363,7 +363,7 @@ pub fn main() !void {
 
         // Apply fading effect
         try sprite.setAlphaCurrentFrameSurface(alpha);
-        alpha = @addWithOverflow(alpha, 2)[0];  // Cycle 0→255→0
+        alpha = @addWithOverflow(alpha, 2)[0];  // Cycle 0->255->0
 
         sprite.setXY(20, 15);
 
@@ -426,7 +426,7 @@ try screen.addRenderSurface(allocator, try player.getCurrentFrameSurface());
 try screen.addRenderSurface(allocator, background);
 try screen.addRenderSurface(allocator, ui_surface);
 
-screen.render();  // Automatically sorted: background → player → UI
+screen.render();  // Automatically sorted: background -> player -> UI
 try screen.output();
 ```
 
