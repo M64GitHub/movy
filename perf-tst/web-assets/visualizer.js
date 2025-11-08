@@ -27,7 +27,7 @@ let currentCharts = [];
 // INITIALIZATION
 // ====================================================================
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     console.log('MOVY Visualizer loaded');
 
     // Load embedded benchmark data
@@ -43,13 +43,6 @@ document.addEventListener('DOMContentLoaded', () => {
         console.warn('No embedded benchmark data found');
     }
 
-    // Add visual indicator that JS is working
-    const indicator = document.createElement('div');
-    indicator.style.cssText = 'position:fixed;top:10px;right:10px;background:#00f0ff;color:#0a0e27;padding:10px;border-radius:5px;font-family:Orbitron;z-index:10000;';
-    indicator.textContent = '✓ JavaScript Loaded';
-    document.body.appendChild(indicator);
-    setTimeout(() => indicator.remove(), 3000);
-
     console.log('Initializing run selector...');
     initializeRunSelector();
     console.log('Setting up event listeners...');
@@ -58,6 +51,48 @@ document.addEventListener('DOMContentLoaded', () => {
     loadAvailableRuns();
     console.log('Setting up hamburger menu...');
     setupHamburgerMenu();
+
+    // Check for data and auto-load latest
+    const indicator = document.createElement('div');
+    indicator.style.cssText = 'position:fixed;top:10px;right:10px;background:#00f0ff;color:#0a0e27;padding:10px;border-radius:5px;font-family:Orbitron;z-index:10000;';
+    document.body.appendChild(indicator);
+
+    const runKeys = Object.keys(embeddedData);
+    if (runKeys.length === 0) {
+        indicator.textContent = 'No data yet';
+        setTimeout(() => indicator.remove(), 3000);
+    } else {
+        // Sort run keys to find latest (format: YYYY-MM-DD/HH-MM-SS)
+        runKeys.sort();
+        const latestRunKey = runKeys[runKeys.length - 1];
+
+        // Load the latest run
+        const data = await loadRunData(latestRunKey);
+        if (data) {
+            const [date, timestamp] = latestRunKey.split('/');
+            const runInfo = {
+                date: date,
+                timestamp: timestamp,
+                files: benchmarkData[latestRunKey] ? benchmarkData[latestRunKey].files : []
+            };
+
+            // Update selector to show loaded run
+            const selector = document.getElementById('run-selector');
+            if (selector) {
+                selector.value = latestRunKey;
+            }
+
+            // Render charts
+            renderCharts(data, runInfo);
+
+            indicator.textContent = `✓ Latest Charts loaded: ${date} ${timestamp}`;
+            setTimeout(() => indicator.remove(), 4000);
+        } else {
+            indicator.textContent = 'Failed to load data';
+            setTimeout(() => indicator.remove(), 3000);
+        }
+    }
+
     console.log('Initialization complete');
 });
 
