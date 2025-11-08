@@ -108,6 +108,10 @@ zig build -Dvideo=true # build full movy incl movy_video, requires ffmpeg
 Tests currently cover:
 
 - RenderEngine: composition modes, alpha blending
+- Sprite: splitting functions
+- Indexanimator
+- RenderSurface: scaling
+- RenderEngine: render modes
 
 ```bash
 zig build test
