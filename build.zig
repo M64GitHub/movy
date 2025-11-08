@@ -197,6 +197,7 @@ pub fn build(b: *std.Build) void {
 
     const perf_tests = [_][]const u8{
         "RenderEngine.alpha_comparison",
+        "RenderEngine.branch_cache",
         "RenderEngine.render",
         "RenderSurface.toAnsi",
         "RenderEngine.render_with_toAnsi",

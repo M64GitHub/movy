@@ -14,12 +14,11 @@ const std = @import("std");
 /// - Best for: Simple sprite rendering without semi-transparency
 /// - Limitation: Does NOT support true alpha blending
 ///
-/// **`renderWithAlphaToBg()`** - Alpha blending onto opaque backgrounds **RECOMMENDED**
+/// **`renderWithAlphaToBg()`** - Alpha blending onto opaque backgrounds
 /// - True Porter-Duff alpha compositing for semi-transparent surfaces
 /// - Optimized for typical use case: blending onto opaque background
-/// - ~20-30% faster than general alpha blending
 /// - Supports z-ordering, clipping, and bounds checking
-/// - Best for: Standard rendering with transparency effects (glass, fade, shadows)
+/// - Best for: Standard rendering with transparency effects
 /// - Use when: Background is opaque and you need realistic transparency
 ///
 /// ## Advanced Rendering Functions
@@ -31,7 +30,6 @@ const std = @import("std");
 /// - Best for: Pre-compositing multiple semi-transparent surfaces into another
 ///   semi-transparent surface
 /// - Use when: Both foreground and background can have arbitrary alpha values
-/// - Slightly slower than `renderWithAlphaToBg()` due to variable denominator
 ///
 /// **`renderOver()`** - Unconditional overwrite
 /// - Always overwrites destination pixels (no destination check)
@@ -47,7 +45,7 @@ const std = @import("std");
 /// - Assumes all surfaces have identical dimensions
 /// - Ignores position offsets (x, y)
 /// - Binary transparency only
-/// - Best for: Compositing aligned layers (e.g., effect pipelines)
+/// - Best for: Compositing aligned layers (e.g., used in effect pipelines)
 ///
 /// ## Technical Details
 ///
@@ -146,170 +144,6 @@ pub const RenderEngine = struct {
                             surface_in.char_map[idx_in];
                     }
                 }
-            }
-        }
-    }
-
-    /// Merges multiple surfaces into one, overwriting areas
-    /// Surfaces are rendered front-to-back (highest Z first)
-    /// No real alpha rendering! color_map[idx] != 0 means pixel opaque
-    pub fn renderOver(
-        surfaces_in: []const *movy.core.RenderSurface,
-        out_surface: *movy.core.RenderSurface,
-    ) void {
-        // Z-sort surfaces (front-to-back, highest Z first)
-        var indices: [2048]usize = undefined;
-        zSort(surfaces_in, &indices);
-        const surface_count = @min(surfaces_in.len, 2048);
-
-        for (indices[0..surface_count]) |i| {
-            const surface_in = surfaces_in[i];
-            const in_w = surface_in.w;
-            const in_h = surface_in.h;
-            const out_w = out_surface.w;
-            const out_h = out_surface.h;
-
-            // Early rejection - surface completely off-screen
-            if (surface_in.x < -@as(i32, @intCast(surface_in.w))) continue;
-            if (surface_in.y < -@as(i32, @intCast(surface_in.h))) continue;
-
-            // Calculate clipping bounds once
-            const x_start = if (surface_in.x < 0)
-                @as(usize, @intCast(-surface_in.x))
-            else
-                0;
-
-            const y_start = if (surface_in.y < 0)
-                @as(usize, @intCast(-surface_in.y))
-            else
-                0;
-
-            const x_end = if (surface_in.x < 0)
-                @min(in_w, out_w + @as(usize, @intCast(-surface_in.x)))
-            else
-                @min(in_w, out_w - @as(usize, @intCast(surface_in.x)));
-
-            const y_end = if (surface_in.y < 0)
-                @min(in_h, out_h + @as(usize, @intCast(-surface_in.y)))
-            else
-                @min(in_h, out_h - @as(usize, @intCast(surface_in.y)));
-
-            // Hoist invariant calculations outside inner loops
-            const x_offset = surface_in.x;
-            const y_offset = surface_in.y;
-            const out_h_i32 = @as(i32, @intCast(out_h));
-            const out_w_i32 = @as(i32, @intCast(out_w));
-
-            // Process row by row
-            for (y_start..y_end) |y| {
-                // Calculate output Y position once per row
-                const out_y = @as(i32, @intCast(y)) + y_offset;
-
-                // Skip entire row if out of bounds
-                if (out_y < 0 or out_y >= out_h_i32) continue;
-
-                // Pre-compute row offsets once per row
-                const out_y_usize = @as(usize, @intCast(out_y));
-                const out_row_offset = out_y_usize * out_w;
-                const in_row_offset = y * in_w;
-
-                // Process each pixel in the row
-                for (x_start..x_end) |x| {
-                    const idx_in = in_row_offset + x;
-
-                    // Skip transparent pixels
-                    if (surface_in.shadow_map[idx_in] == 0) continue;
-
-                    // Calculate output X position
-                    const out_x = @as(i32, @intCast(x)) + x_offset;
-                    if (out_x < 0 or out_x >= out_w_i32) continue;
-
-                    // Use pre-computed row offset
-                    const idx_out = out_row_offset + @as(usize, @intCast(out_x));
-
-                    // Always overwrite (no shadow_map check)
-                    // (that's the purpose of renderOver)
-                    out_surface.color_map[idx_out] = surface_in.color_map[idx_in];
-                    out_surface.shadow_map[idx_out] = 1;
-                    out_surface.char_map[idx_out] = surface_in.char_map[idx_in];
-                }
-            }
-        }
-    }
-
-    /// Render a surface onto another, overwriting areas
-    pub fn renderSurfaceOver(
-        surface_in: *movy.core.RenderSurface,
-        out_surface: *movy.core.RenderSurface,
-    ) void {
-        const in_w = surface_in.w;
-        const in_h = surface_in.h;
-        const out_w = out_surface.w;
-        const out_h = out_surface.h;
-
-        // Early rejection - surface completely off-screen
-        if (surface_in.x < -@as(i32, @intCast(surface_in.w))) return;
-        if (surface_in.y < -@as(i32, @intCast(surface_in.h))) return;
-
-        // Calculate clipping bounds once
-        const x_start = if (surface_in.x < 0)
-            @as(usize, @intCast(-surface_in.x))
-        else
-            0;
-
-        const y_start = if (surface_in.y < 0)
-            @as(usize, @intCast(-surface_in.y))
-        else
-            0;
-
-        const x_end = if (surface_in.x < 0)
-            @min(in_w, out_w + @as(usize, @intCast(-surface_in.x)))
-        else
-            @min(in_w, out_w - @as(usize, @intCast(surface_in.x)));
-
-        const y_end = if (surface_in.y < 0)
-            @min(in_h, out_h + @as(usize, @intCast(-surface_in.y)))
-        else
-            @min(in_h, out_h - @as(usize, @intCast(surface_in.y)));
-
-        // Hoist invariant calculations outside inner loops
-        const x_offset = surface_in.x;
-        const y_offset = surface_in.y;
-        const out_h_i32 = @as(i32, @intCast(out_h));
-        const out_w_i32 = @as(i32, @intCast(out_w));
-
-        // Process row by row
-        for (y_start..y_end) |y| {
-            // Calculate output Y position once per row
-            const out_y = @as(i32, @intCast(y)) + y_offset;
-
-            // Skip entire row if out of bounds
-            if (out_y < 0 or out_y >= out_h_i32) continue;
-
-            // Pre-compute row offsets once per row
-            const out_y_usize = @as(usize, @intCast(out_y));
-            const out_row_offset = out_y_usize * out_w;
-            const in_row_offset = y * in_w;
-
-            // Process each pixel in the row
-            for (x_start..x_end) |x| {
-                const idx_in = in_row_offset + x;
-
-                // Skip transparent pixels
-                if (surface_in.shadow_map[idx_in] == 0) continue;
-
-                // Calculate output X position
-                const out_x = @as(i32, @intCast(x)) + x_offset;
-                if (out_x < 0 or out_x >= out_w_i32) continue;
-
-                // Use pre-computed row offset
-                const idx_out = out_row_offset + @as(usize, @intCast(out_x));
-
-                // Always overwrite (no shadow_map check)
-                // (that's the purpose of renderSurfaceOver)
-                out_surface.color_map[idx_out] = surface_in.color_map[idx_in];
-                out_surface.shadow_map[idx_out] = 1;
-                out_surface.char_map[idx_out] = surface_in.char_map[idx_in];
             }
         }
     }
@@ -515,6 +349,170 @@ pub const RenderEngine = struct {
         }
     }
 
+    /// Merges multiple surfaces into one, overwriting areas
+    /// Surfaces are rendered front-to-back (highest Z first)
+    /// No real alpha rendering! color_map[idx] != 0 means pixel opaque
+    pub fn renderOver(
+        surfaces_in: []const *movy.core.RenderSurface,
+        out_surface: *movy.core.RenderSurface,
+    ) void {
+        // Z-sort surfaces (front-to-back, highest Z first)
+        var indices: [2048]usize = undefined;
+        zSort(surfaces_in, &indices);
+        const surface_count = @min(surfaces_in.len, 2048);
+
+        for (indices[0..surface_count]) |i| {
+            const surface_in = surfaces_in[i];
+            const in_w = surface_in.w;
+            const in_h = surface_in.h;
+            const out_w = out_surface.w;
+            const out_h = out_surface.h;
+
+            // Early rejection - surface completely off-screen
+            if (surface_in.x < -@as(i32, @intCast(surface_in.w))) continue;
+            if (surface_in.y < -@as(i32, @intCast(surface_in.h))) continue;
+
+            // Calculate clipping bounds once
+            const x_start = if (surface_in.x < 0)
+                @as(usize, @intCast(-surface_in.x))
+            else
+                0;
+
+            const y_start = if (surface_in.y < 0)
+                @as(usize, @intCast(-surface_in.y))
+            else
+                0;
+
+            const x_end = if (surface_in.x < 0)
+                @min(in_w, out_w + @as(usize, @intCast(-surface_in.x)))
+            else
+                @min(in_w, out_w - @as(usize, @intCast(surface_in.x)));
+
+            const y_end = if (surface_in.y < 0)
+                @min(in_h, out_h + @as(usize, @intCast(-surface_in.y)))
+            else
+                @min(in_h, out_h - @as(usize, @intCast(surface_in.y)));
+
+            // Hoist invariant calculations outside inner loops
+            const x_offset = surface_in.x;
+            const y_offset = surface_in.y;
+            const out_h_i32 = @as(i32, @intCast(out_h));
+            const out_w_i32 = @as(i32, @intCast(out_w));
+
+            // Process row by row
+            for (y_start..y_end) |y| {
+                // Calculate output Y position once per row
+                const out_y = @as(i32, @intCast(y)) + y_offset;
+
+                // Skip entire row if out of bounds
+                if (out_y < 0 or out_y >= out_h_i32) continue;
+
+                // Pre-compute row offsets once per row
+                const out_y_usize = @as(usize, @intCast(out_y));
+                const out_row_offset = out_y_usize * out_w;
+                const in_row_offset = y * in_w;
+
+                // Process each pixel in the row
+                for (x_start..x_end) |x| {
+                    const idx_in = in_row_offset + x;
+
+                    // Skip transparent pixels
+                    if (surface_in.shadow_map[idx_in] == 0) continue;
+
+                    // Calculate output X position
+                    const out_x = @as(i32, @intCast(x)) + x_offset;
+                    if (out_x < 0 or out_x >= out_w_i32) continue;
+
+                    // Use pre-computed row offset
+                    const idx_out = out_row_offset + @as(usize, @intCast(out_x));
+
+                    // Always overwrite (no shadow_map check)
+                    // (that's the purpose of renderOver)
+                    out_surface.color_map[idx_out] = surface_in.color_map[idx_in];
+                    out_surface.shadow_map[idx_out] = 1;
+                    out_surface.char_map[idx_out] = surface_in.char_map[idx_in];
+                }
+            }
+        }
+    }
+
+    /// Render a surface onto another, overwriting areas
+    pub fn renderSurfaceOver(
+        surface_in: *movy.core.RenderSurface,
+        out_surface: *movy.core.RenderSurface,
+    ) void {
+        const in_w = surface_in.w;
+        const in_h = surface_in.h;
+        const out_w = out_surface.w;
+        const out_h = out_surface.h;
+
+        // Early rejection - surface completely off-screen
+        if (surface_in.x < -@as(i32, @intCast(surface_in.w))) return;
+        if (surface_in.y < -@as(i32, @intCast(surface_in.h))) return;
+
+        // Calculate clipping bounds once
+        const x_start = if (surface_in.x < 0)
+            @as(usize, @intCast(-surface_in.x))
+        else
+            0;
+
+        const y_start = if (surface_in.y < 0)
+            @as(usize, @intCast(-surface_in.y))
+        else
+            0;
+
+        const x_end = if (surface_in.x < 0)
+            @min(in_w, out_w + @as(usize, @intCast(-surface_in.x)))
+        else
+            @min(in_w, out_w - @as(usize, @intCast(surface_in.x)));
+
+        const y_end = if (surface_in.y < 0)
+            @min(in_h, out_h + @as(usize, @intCast(-surface_in.y)))
+        else
+            @min(in_h, out_h - @as(usize, @intCast(surface_in.y)));
+
+        // Hoist invariant calculations outside inner loops
+        const x_offset = surface_in.x;
+        const y_offset = surface_in.y;
+        const out_h_i32 = @as(i32, @intCast(out_h));
+        const out_w_i32 = @as(i32, @intCast(out_w));
+
+        // Process row by row
+        for (y_start..y_end) |y| {
+            // Calculate output Y position once per row
+            const out_y = @as(i32, @intCast(y)) + y_offset;
+
+            // Skip entire row if out of bounds
+            if (out_y < 0 or out_y >= out_h_i32) continue;
+
+            // Pre-compute row offsets once per row
+            const out_y_usize = @as(usize, @intCast(out_y));
+            const out_row_offset = out_y_usize * out_w;
+            const in_row_offset = y * in_w;
+
+            // Process each pixel in the row
+            for (x_start..x_end) |x| {
+                const idx_in = in_row_offset + x;
+
+                // Skip transparent pixels
+                if (surface_in.shadow_map[idx_in] == 0) continue;
+
+                // Calculate output X position
+                const out_x = @as(i32, @intCast(x)) + x_offset;
+                if (out_x < 0 or out_x >= out_w_i32) continue;
+
+                // Use pre-computed row offset
+                const idx_out = out_row_offset + @as(usize, @intCast(out_x));
+
+                // Always overwrite (no shadow_map check)
+                // (that's the purpose of renderSurfaceOver)
+                out_surface.color_map[idx_out] = surface_in.color_map[idx_in];
+                out_surface.shadow_map[idx_out] = 1;
+                out_surface.char_map[idx_out] = surface_in.char_map[idx_in];
+            }
+        }
+    }
+
     /// Composites multiple input surfaces into one output surface,
     /// assuming all surfaces are the same size and ignoring position offsets.
     /// Surfaces are rendered front-to-back (highest Z first)
@@ -557,7 +555,7 @@ pub const RenderEngine = struct {
     /// Sorts surface indices by Z value (highest Z first, front-to-back rendering)
     /// Skips sort if all Z values are equal
     /// Handles up to 2048 surfaces with stack allocation
-    fn zSort(surfaces: []const *movy.core.RenderSurface, indices: []usize) void {
+    pub fn zSort(surfaces: []const *movy.core.RenderSurface, indices: []usize) void {
         const count = @min(surfaces.len, indices.len);
 
         for (0..count) |i| {
@@ -625,7 +623,7 @@ pub const RenderEngine = struct {
     /// Handles any alpha values - both foreground and background can be
     /// semi-transparent
     /// Returns blended color (output alpha not stored per requirements)
-    inline fn blendPixelGeneral(
+    pub inline fn blendPixelGeneral(
         fg: movy.core.types.Rgb,
         alpha_fg: u8,
         bg: movy.core.types.Rgb,
@@ -680,7 +678,7 @@ pub const RenderEngine = struct {
     /// Assumes background is always opaque (a_bg = 255)
     /// Output is always opaque (a_out = 255)
     /// Much faster than general blending - use for typical rendering scenarios
-    inline fn blendPixelToBg(
+    pub inline fn blendPixelToBg(
         fg: movy.core.types.Rgb,
         alpha_fg: u8,
         bg: movy.core.types.Rgb,

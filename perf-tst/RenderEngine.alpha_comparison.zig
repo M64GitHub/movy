@@ -32,8 +32,14 @@ const RenderMethod = enum {
     ) void {
         switch (self) {
             .render => movy.render.RenderEngine.render(surfaces, output),
-            .renderWithAlpha => movy.render.RenderEngine.renderWithAlpha(surfaces, output),
-            .renderWithAlphaToBg => movy.render.RenderEngine.renderWithAlphaToBg(surfaces, output),
+            .renderWithAlpha => movy.render.RenderEngine.renderWithAlpha(
+                surfaces,
+                output,
+            ),
+            .renderWithAlphaToBg => movy.render.RenderEngine.renderWithAlphaToBg(
+                surfaces,
+                output,
+            ),
         }
     }
 };
@@ -66,7 +72,10 @@ const TestResult = struct {
         return @as(f64, @floatFromInt(total_pixels)) / elapsed_s / 1_000_000.0;
     }
 
-    fn toMeasurementPoint(self: TestResult, allocator: std.mem.Allocator) !types.MeasurementPoint {
+    fn toMeasurementPoint(
+        self: TestResult,
+        allocator: std.mem.Allocator,
+    ) !types.MeasurementPoint {
         const name = try std.fmt.allocPrint(
             allocator,
             "{s}_{s}_{d}surf",
@@ -85,8 +94,6 @@ const TestResult = struct {
         };
     }
 };
-
-// Removed - not used
 
 fn testConfiguration(
     allocator: std.mem.Allocator,
@@ -125,19 +132,22 @@ fn testConfiguration(
         sprites.deinit(allocator);
     }
 
-    const alpha_values = [_]u8{ 64, 128, 192 };
+    const alpha_value = 1;
 
     for (0..surface_count) |i| {
         const name_buf = try std.fmt.allocPrint(allocator, "surf_{d}", .{i});
         defer allocator.free(name_buf);
 
         // Create sprite and append to list
-        var sprite = try movy.Sprite.initFromPng(allocator, asset_path, name_buf);
+        var sprite = try movy.Sprite.initFromPng(
+            allocator,
+            asset_path,
+            name_buf,
+        );
         try sprites.append(allocator, sprite);
 
         // Set alpha value on sprite (cycling through 64, 128, 192)
-        const alpha_val = alpha_values[i % 3];
-        try sprite.setAlphaCurrentFrameSurface(alpha_val);
+        try sprite.setAlphaCurrentFrameSurface(alpha_value);
 
         // Get surface from the sprite
         const surface = try sprite.getCurrentFrameSurface();
@@ -184,12 +194,36 @@ fn runSizeTests(
         path: []const u8,
         output_size: usize,
     }{
-        .{ .name = "10x10", .path = "perf-tst/assets/10x10.png", .output_size = 64 },
-        .{ .name = "20x20", .path = "perf-tst/assets/20x20.png", .output_size = 80 },
-        .{ .name = "40x40", .path = "perf-tst/assets/40x40.png", .output_size = 100 },
-        .{ .name = "64x64", .path = "perf-tst/assets/movycat.png", .output_size = 128 },
-        .{ .name = "80x80", .path = "perf-tst/assets/80x80.png", .output_size = 160 },
-        .{ .name = "100x100", .path = "perf-tst/assets/100x100.png", .output_size = 192 },
+        .{
+            .name = "10x10",
+            .path = "perf-tst/assets/10x10.png",
+            .output_size = 64,
+        },
+        .{
+            .name = "20x20",
+            .path = "perf-tst/assets/20x20.png",
+            .output_size = 80,
+        },
+        .{
+            .name = "40x40",
+            .path = "perf-tst/assets/40x40.png",
+            .output_size = 100,
+        },
+        .{
+            .name = "64x64",
+            .path = "perf-tst/assets/movycat.png",
+            .output_size = 128,
+        },
+        .{
+            .name = "80x80",
+            .path = "perf-tst/assets/80x80.png",
+            .output_size = 160,
+        },
+        .{
+            .name = "100x100",
+            .path = "perf-tst/assets/100x100.png",
+            .output_size = 192,
+        },
     };
 
     for (configs) |config| {
@@ -248,7 +282,7 @@ pub fn main() !void {
 
     if (write_json) {
         std.debug.print(
-            "JSON output: {s}/RenderEngine.alpha_comparison_{s}.json\n\n",
+            "JSON output: {s}/{s}_RenderEngine.alpha_comparison.json\n\n",
             .{ args.output_dir, args.suffix.? },
         );
     }
@@ -256,7 +290,11 @@ pub fn main() !void {
     var all_results = std.ArrayList(TestResult){};
     defer all_results.deinit(allocator);
 
-    const methods = [_]RenderMethod{ .render, .renderWithAlphaToBg, .renderWithAlpha };
+    const methods = [_]RenderMethod{
+        .render,
+        .renderWithAlphaToBg,
+        .renderWithAlpha,
+    };
     const surface_counts = [_]usize{ 3, 5, 10 };
 
     // Run all combinations
