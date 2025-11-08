@@ -35,52 +35,45 @@ pub fn writeTestResult(
 /// Format: YYYY-MM-DDTHH-MM-SS
 pub fn generateTimestamp(allocator: std.mem.Allocator) ![]const u8 {
     const timestamp_ms = std.time.milliTimestamp();
-    const epoch_seconds: u64 = @intCast(@divTrunc(timestamp_ms, 1000));
+    const epoch_seconds: i64 = @intCast(@divTrunc(timestamp_ms, 1000));
 
-    // Use epoch seconds to calculate date/time (very simplified)
-    const seconds_per_minute: u64 = 60;
-    const seconds_per_hour: u64 = 3600;
-    const seconds_per_day: u64 = 86400;
-
-    const days_since_epoch = epoch_seconds / seconds_per_day;
-    const seconds_today = epoch_seconds % seconds_per_day;
-
-    // Approximate year/month/day (simplified - good enough for filenames)
-    const days_per_year: u64 = 365;
-    const year = 1970 + (days_since_epoch / days_per_year);
-    const day_of_year = days_since_epoch % days_per_year;
-    const month = 1 + (day_of_year / 30);
-    const day = 1 + (day_of_year % 30);
-
-    // Calculate time
-    const hours = seconds_today / seconds_per_hour;
-    const minutes = (seconds_today % seconds_per_hour) / seconds_per_minute;
-    const seconds = seconds_today % seconds_per_minute;
+    // Use Zig's proper epoch time conversion
+    const epoch = std.time.epoch.EpochSeconds{ .secs = @intCast(epoch_seconds) };
+    const day_seconds = epoch.getDaySeconds();
+    const year_day = epoch.getEpochDay().calculateYearDay();
+    const month_day = year_day.calculateMonthDay();
 
     return try std.fmt.allocPrint(
         allocator,
         "{d:0>4}-{d:0>2}-{d:0>2}T{d:0>2}-{d:0>2}-{d:0>2}",
-        .{ year, month, day, hours, minutes, seconds },
+        .{
+            year_day.year,
+            month_day.month.numeric(),
+            month_day.day_index + 1,
+            day_seconds.getHoursIntoDay(),
+            day_seconds.getMinutesIntoHour(),
+            day_seconds.getSecondsIntoMinute(),
+        },
     );
 }
 
 /// Generate date string for directory: YYYY-MM-DD
 pub fn generateDateString(allocator: std.mem.Allocator) ![]const u8 {
     const timestamp_ms = std.time.milliTimestamp();
-    const epoch_seconds: u64 = @intCast(@divTrunc(timestamp_ms, 1000));
+    const epoch_seconds: i64 = @intCast(@divTrunc(timestamp_ms, 1000));
 
-    const seconds_per_day: u64 = 86400;
-    const days_since_epoch = epoch_seconds / seconds_per_day;
-
-    const days_per_year: u64 = 365;
-    const year = 1970 + (days_since_epoch / days_per_year);
-    const day_of_year = days_since_epoch % days_per_year;
-    const month = 1 + (day_of_year / 30);
-    const day = 1 + (day_of_year % 30);
+    // Use Zig's proper epoch time conversion
+    const epoch = std.time.epoch.EpochSeconds{ .secs = @intCast(epoch_seconds) };
+    const year_day = epoch.getEpochDay().calculateYearDay();
+    const month_day = year_day.calculateMonthDay();
 
     return try std.fmt.allocPrint(
         allocator,
         "{d:0>4}-{d:0>2}-{d:0>2}",
-        .{ year, month, day },
+        .{
+            year_day.year,
+            month_day.month.numeric(),
+            month_day.day_index + 1,
+        },
     );
 }

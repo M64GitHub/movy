@@ -19,6 +19,7 @@ const RenderMethod = enum {
     renderNoBranchBitwise,
     renderNoConditionalMove,
     renderPredictablePatternClean,
+    renderWithAlpha,
     renderWithAlphaClean,
     renderWithAlphaToBgClean,
 
@@ -30,6 +31,7 @@ const RenderMethod = enum {
             .renderNoBranchBitwise => "renderNoBranchBitwise()",
             .renderNoConditionalMove => "renderConditionalMove()",
             .renderPredictablePatternClean => "renderPredictablePatternClean()",
+            .renderWithAlpha => "renderWithAlpha()",
             .renderWithAlphaClean => "renderWithAlphaClean()",
             .renderWithAlphaToBgClean => "renderWithAlphaToBgClean()",
         };
@@ -47,6 +49,10 @@ const RenderMethod = enum {
             .renderNoBranchBitwise => renderNoBranchBitwise(surfaces, output),
             .renderNoConditionalMove => renderConditionalMove(surfaces, output),
             .renderPredictablePatternClean => renderPredictablePatternClean(
+                surfaces,
+                output,
+            ),
+            .renderWithAlpha => movy.render.RenderEngine.renderWithAlpha(
                 surfaces,
                 output,
             ),
@@ -310,6 +316,7 @@ pub fn main() !void {
         .renderNoBranchBitwise,
         .renderNoConditionalMove,
         .renderPredictablePatternClean,
+        .renderWithAlpha,
         .renderWithAlphaClean,
         .renderWithAlphaToBgClean,
     };
@@ -377,7 +384,7 @@ pub fn main() !void {
         defer allocator.free(sys_info.cpu_model);
 
         const test_result = types.TestResult{
-            .test_name = "RenderEngine.alpha_comparison",
+            .test_name = "RenderEngine.branch_cache",
             .timestamp = args.suffix.?,
             .system_info = sys_info,
             .results = measurements.items,
@@ -385,7 +392,7 @@ pub fn main() !void {
 
         const filename = try std.fmt.allocPrint(
             allocator,
-            "{s}/RenderEngine.alpha_comparison_{s}.json",
+            "{s}/RenderEngine.branch_cache_{s}.json",
             .{ args.output_dir, args.suffix.? },
         );
         defer allocator.free(filename);

@@ -117,6 +117,10 @@ pub fn main() !void {
             .executable = "perf-RenderEngine.alpha_comparison",
         },
         .{
+            .name = "RenderEngine.branch_cache",
+            .executable = "perf-RenderEngine.branch_cache",
+        },
+        .{
             .name = "RenderSurface.toAnsi",
             .executable = "perf-RenderSurface.toAnsi",
         },
@@ -199,7 +203,8 @@ pub fn main() !void {
                     // Check if it's a constant string literal
                     if (!std.mem.eql(u8, arg, "-suffix") and
                         !std.mem.eql(u8, arg, "-output_dir") and
-                        !std.mem.eql(u8, arg, "-iterations")) {
+                        !std.mem.eql(u8, arg, "-iterations"))
+                    {
                         allocator.free(arg);
                     }
                 }

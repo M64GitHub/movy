@@ -228,6 +228,11 @@ function renderCharts(data, runInfo) {
         renderAlphaComparisonCharts(container, data['RenderEngine.alpha_comparison']);
     }
 
+    // Render branch cache comparison charts (BEFORE toAnsi)
+    if (data['RenderEngine.branch_cache']) {
+        renderBranchCacheCharts(container, data['RenderEngine.branch_cache']);
+    }
+
     // Create charts for each test type
     if (data['RenderSurface.toAnsi']) {
         renderToAnsiCharts(container, data['RenderSurface.toAnsi']);
@@ -311,7 +316,11 @@ function renderAlphaComparisonCharts(container, testData) {
         });
 
         // Chart 1: Throughput Comparison (Line Chart)
-        const canvas1 = createCanvas(section, `alpha-throughput-${surfCount}surf`);
+        const canvas1 = createChartWithTitle(
+            section,
+            `Alpha Blending Performance (${surfCount} surfaces)`,
+            `Alpha blending methods with ${surfCount} overlapping surfaces`
+        );
         const ctx1 = canvas1.getContext('2d');
 
         const datasets = Object.keys(byMethod).map(method => {
@@ -348,7 +357,11 @@ function renderAlphaComparisonCharts(container, testData) {
         }));
 
         // Chart 2: Time per Iteration Comparison (Grouped Bar Chart)
-        const canvas2 = createCanvas(section, `alpha-time-${surfCount}surf`);
+        const canvas2 = createChartWithTitle(
+            section,
+            `Alpha Blending Time Comparison (${surfCount} surfaces)`,
+            `Time per iteration comparison for ${surfCount} overlapping surfaces`
+        );
         const ctx2 = canvas2.getContext('2d');
 
         const barDatasets = Object.keys(byMethod).map(method => {
@@ -386,7 +399,11 @@ function renderAlphaComparisonCharts(container, testData) {
 }
 
 function renderAlphaOverheadChart(section, allData, baselineData) {
-    const canvas = createCanvas(section, 'alpha-overhead');
+    const canvas = createChartWithTitle(
+        section,
+        'Alpha Blending Overhead',
+        'Alpha blending overhead vs baseline render()'
+    );
     const ctx = canvas.getContext('2d');
 
     // Calculate overhead ratios for each surface count
@@ -445,18 +462,344 @@ function renderAlphaOverheadChart(section, allData, baselineData) {
 }
 
 // ====================================================================
+// CHART: RenderEngine.branch_cache
+// ====================================================================
+
+function renderBranchCacheCharts(container, testData) {
+    const section = createChartSection(container, 'Branch Prediction Comparisons', 'yellow');
+
+    // Parse measurement names to extract: method, size, surface_count
+    // Example: "render()_10x10_3surf" -> { method: "render()", size: "10x10", surfCount: 3 }
+    const parsed = testData.results.map(r => {
+        const parts = r.name.split('_');
+        return {
+            method: parts[0],
+            size: parts[1],
+            surfCount: parseInt(parts[2].replace('surf', '')),
+            data: r
+        };
+    });
+
+    // Separate render variants from renderWithAlpha variants
+    const renderMethods = ['render()', 'renderOriginalClean()', 'renderNoBranchClean()',
+                           'renderNoBranchBitwise()', 'renderConditionalMove()',
+                           'renderPredictablePatternClean()'];
+    const alphaRenderMethods = ['renderWithAlpha()', 'renderWithAlphaClean()',
+                                'renderWithAlphaToBgClean()'];
+
+    // Get unique sizes (sorted)
+    const sizes = [...new Set(parsed.map(d => d.size))].sort((a, b) => {
+        const aNum = parseInt(a.split('x')[0]);
+        const bNum = parseInt(b.split('x')[0]);
+        return aNum - bNum;
+    });
+
+    // === TOP SECTION: Overview Charts ===
+
+    // Chart 1 & 2: Clean Render Variants Performance (3 and 5 surfaces)
+    const cleanMethods = ['renderOriginalClean()', 'renderNoBranchClean()',
+                          'renderPredictablePatternClean()', 'renderWithAlphaClean()'];
+    renderCleanVariantsChart(section, parsed, cleanMethods, sizes, 3);
+    renderCleanVariantsChart(section, parsed, cleanMethods, sizes, 5);
+
+    // Chart 3: Baseline Comparison (render vs renderOriginalClean for 3 and 5 surfaces)
+    renderBaselineComparisonChart(section, parsed, sizes);
+
+    // === DETAILED SECTION: 3 Surfaces ===
+
+    const renderData3 = parsed.filter(p => renderMethods.includes(p.method) && p.surfCount === 3);
+    const alphaRenderData3 = parsed.filter(p => alphaRenderMethods.includes(p.method) && p.surfCount === 3);
+
+    renderBranchVariantsAbsolute(section, renderData3, renderMethods, sizes, 'Render Variants Performance (3 surfaces)');
+    renderBranchVariantsOverhead(section, renderData3, renderMethods, sizes, 'render()', 'Render Variants Overhead (3 surfaces)');
+    renderBranchVariantsAbsolute(section, alphaRenderData3, alphaRenderMethods, sizes, 'RenderWithAlpha Variants Performance (3 surfaces)');
+    renderBranchVariantsOverhead(section, alphaRenderData3, alphaRenderMethods, sizes, 'renderWithAlpha()', 'RenderWithAlpha Variants Overhead (3 surfaces)');
+
+    // === DETAILED SECTION: 5 Surfaces ===
+
+    const renderData5 = parsed.filter(p => renderMethods.includes(p.method) && p.surfCount === 5);
+    const alphaRenderData5 = parsed.filter(p => alphaRenderMethods.includes(p.method) && p.surfCount === 5);
+
+    renderBranchVariantsAbsolute(section, renderData5, renderMethods, sizes, 'Render Variants Performance (5 surfaces)');
+    renderBranchVariantsOverhead(section, renderData5, renderMethods, sizes, 'render()', 'Render Variants Overhead (5 surfaces)');
+    renderBranchVariantsAbsolute(section, alphaRenderData5, alphaRenderMethods, sizes, 'RenderWithAlpha Variants Performance (5 surfaces)');
+    renderBranchVariantsOverhead(section, alphaRenderData5, alphaRenderMethods, sizes, 'renderWithAlpha()', 'RenderWithAlpha Variants Overhead (5 surfaces)');
+}
+
+function renderCleanVariantsChart(section, data, methods, sizes, surfaceCount) {
+    const title = `Clean Render Variants Performance (${surfaceCount} surfaces)`;
+    const caption = `Performance comparison using only ${surfaceCount} overlapping surfaces`;
+
+    const canvas = createChartWithTitle(section, title, caption);
+    const ctx = canvas.getContext('2d');
+
+    // Color palette
+    const colorPalette = [
+        { line: COLORS.cyan, fill: COLORS.cyanTransparent },
+        { line: COLORS.magenta, fill: COLORS.magentaTransparent },
+        { line: COLORS.purple, fill: COLORS.purpleTransparent },
+        { line: COLORS.pink, fill: COLORS.pinkTransparent }
+    ];
+
+    const datasets = methods.map((method, idx) => {
+        const color = colorPalette[idx % colorPalette.length];
+
+        const methodData = sizes.map(size => {
+            const item = data.find(d => d.method === method && d.size === size && d.surfCount === surfaceCount);
+            return item ? item.data.megapixels_per_sec : null;
+        });
+
+        return {
+            label: method,
+            data: methodData,
+            borderColor: color.line,
+            backgroundColor: color.fill,
+            borderWidth: 3,
+            pointRadius: 6,
+            pointHoverRadius: 8,
+            pointBackgroundColor: color.line,
+            pointBorderColor: '#0a0e27',
+            pointBorderWidth: 2,
+            tension: 0.4,
+            fill: true,
+            spanGaps: false
+        };
+    });
+
+    currentCharts.push(new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: sizes,
+            datasets: datasets
+        },
+        options: getSynthwaveChartOptions('Surface Size', 'MP/sec')
+    }));
+}
+
+function renderBaselineComparisonChart(section, data, sizes) {
+    const title = 'Baseline Comparison (render vs renderOriginalClean)';
+    const caption = 'Left: 3 surfaces | Right: 5 surfaces - Comparing render() vs renderOriginalClean()';
+
+    const canvas = createChartWithTitle(section, title, caption);
+    const ctx = canvas.getContext('2d');
+
+    // Create doubled X-axis labels: sizes for 3 surfaces, then sizes for 5 surfaces
+    const doubledLabels = [...sizes, ...sizes];
+
+    // 4 datasets with data arranged to create left/right grouping
+    const configs = [
+        { method: 'render()', surfCount: 3, label: 'render() - 3 surfaces', color: COLORS.cyan, fill: COLORS.cyanTransparent },
+        { method: 'renderOriginalClean()', surfCount: 3, label: 'renderOriginalClean() - 3 surfaces', color: COLORS.magenta, fill: COLORS.magentaTransparent },
+        { method: 'render()', surfCount: 5, label: 'render() - 5 surfaces', color: COLORS.purple, fill: COLORS.purpleTransparent },
+        { method: 'renderOriginalClean()', surfCount: 5, label: 'renderOriginalClean() - 5 surfaces', color: COLORS.pink, fill: COLORS.pinkTransparent }
+    ];
+
+    const datasets = configs.map(config => {
+        // Create data array with nulls for the opposite surface count
+        const methodData = sizes.map(size => {
+            const item = data.find(d => d.method === config.method && d.size === size && d.surfCount === config.surfCount);
+            return item ? item.data.megapixels_per_sec : null;
+        });
+
+        // For 3 surfaces: [data, data, ...] + [null, null, ...]
+        // For 5 surfaces: [null, null, ...] + [data, data, ...]
+        const arrangedData = config.surfCount === 3
+            ? [...methodData, ...Array(sizes.length).fill(null)]
+            : [...Array(sizes.length).fill(null), ...methodData];
+
+        return {
+            label: config.label,
+            data: arrangedData,
+            borderColor: config.color,
+            backgroundColor: config.fill,
+            borderWidth: 3,
+            pointRadius: 6,
+            pointHoverRadius: 8,
+            pointBackgroundColor: config.color,
+            pointBorderColor: '#0a0e27',
+            pointBorderWidth: 2,
+            tension: 0.4,
+            fill: true,
+            spanGaps: false
+        };
+    });
+
+    currentCharts.push(new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: doubledLabels,
+            datasets: datasets
+        },
+        options: getSynthwaveChartOptions('Surface Size', 'MP/sec')
+    }));
+}
+
+function renderBranchVariantsAbsolute(section, data, methods, sizes, title) {
+    const surfaceCount = title.includes('3 surfaces') ? 3 : 5;
+    const isAlpha = title.includes('RenderWithAlpha');
+    const caption = isAlpha
+        ? `Alpha blending variants tested with ${surfaceCount} overlapping surfaces`
+        : `All render variants tested with ${surfaceCount} overlapping surfaces`;
+
+    const canvas = createChartWithTitle(section, title, caption);
+    const ctx = canvas.getContext('2d');
+
+    // Color palette for different methods
+    const colorPalette = [
+        { line: COLORS.cyan, fill: COLORS.cyanTransparent },
+        { line: COLORS.magenta, fill: COLORS.magentaTransparent },
+        { line: COLORS.purple, fill: COLORS.purpleTransparent },
+        { line: COLORS.pink, fill: COLORS.pinkTransparent },
+        { line: COLORS.yellow, fill: COLORS.yellowTransparent },
+        { line: 'rgba(0, 255, 127, 1)', fill: 'rgba(0, 255, 127, 0.2)' } // Spring green
+    ];
+
+    const datasets = methods.map((method, idx) => {
+        const color = colorPalette[idx % colorPalette.length];
+
+        // Data is already filtered by surface count, just extract by size
+        const methodData = sizes.map(size => {
+            const item = data.find(d => d.method === method && d.size === size);
+            return item ? item.data.megapixels_per_sec : null;
+        });
+
+        return {
+            label: method,
+            data: methodData,
+            borderColor: color.line,
+            backgroundColor: color.fill,
+            borderWidth: 3,
+            pointRadius: 6,
+            pointHoverRadius: 8,
+            pointBackgroundColor: color.line,
+            pointBorderColor: '#0a0e27',
+            pointBorderWidth: 2,
+            tension: 0.4,
+            fill: true,
+            spanGaps: false
+        };
+    });
+
+    currentCharts.push(new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: sizes,
+            datasets: datasets
+        },
+        options: getSynthwaveChartOptions('Surface Size', 'MP/sec')
+    }));
+}
+
+function renderBranchVariantsOverhead(section, data, methods, sizes, baselineMethod, title) {
+    const surfaceCount = title.includes('3 surfaces') ? 3 : 5;
+    const caption = `Performance overhead relative to baseline ${baselineMethod} - ${surfaceCount} overlapping surfaces`;
+
+    const canvas = createChartWithTitle(section, title, caption);
+    const ctx = canvas.getContext('2d');
+
+    // Color palette (skip first color for baseline)
+    const colorPalette = [
+        { line: COLORS.magenta, fill: COLORS.magentaTransparent },
+        { line: COLORS.purple, fill: COLORS.purpleTransparent },
+        { line: COLORS.pink, fill: COLORS.pinkTransparent },
+        { line: COLORS.yellow, fill: COLORS.yellowTransparent },
+        { line: 'rgba(0, 255, 127, 1)', fill: 'rgba(0, 255, 127, 0.2)' }
+    ];
+
+    // Get baseline data (already filtered by surface count)
+    const baselineData = sizes.map(size => {
+        const item = data.find(d => d.method === baselineMethod && d.size === size);
+        return item ? item.data.time_per_iter_us : null;
+    });
+
+    const datasets = methods
+        .filter(method => method !== baselineMethod) // Exclude baseline
+        .map((method, idx) => {
+            const color = colorPalette[idx % colorPalette.length];
+
+            // For each size, calculate overhead % compared to baseline
+            const overheadData = sizes.map((size, sizeIdx) => {
+                const item = data.find(d => d.method === method && d.size === size);
+                if (!item || !baselineData[sizeIdx]) return null;
+
+                const overhead = ((item.data.time_per_iter_us - baselineData[sizeIdx]) / baselineData[sizeIdx]) * 100;
+                return overhead;
+            });
+
+            return {
+                label: method,
+                data: overheadData,
+                borderColor: color.line,
+                backgroundColor: color.fill,
+                borderWidth: 3,
+                pointRadius: 6,
+                pointHoverRadius: 8,
+                pointBackgroundColor: color.line,
+                pointBorderColor: '#0a0e27',
+                pointBorderWidth: 2,
+                tension: 0.4,
+                fill: true,
+                spanGaps: false
+            };
+        });
+
+    currentCharts.push(new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: sizes,
+            datasets: datasets
+        },
+        options: {
+            ...getSynthwaveChartOptions('Surface Size', 'Overhead (%)'),
+            plugins: {
+                ...getSynthwaveChartOptions('', '').plugins,
+                tooltip: {
+                    ...getSynthwaveChartOptions('', '').plugins.tooltip,
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) label += ': ';
+                            const value = context.parsed.y;
+                            label += (value >= 0 ? '+' : '') + value.toFixed(1) + '%';
+                            return label;
+                        }
+                    }
+                }
+            },
+            scales: {
+                ...getSynthwaveChartOptions('', '').scales,
+                y: {
+                    ...getSynthwaveChartOptions('', '').scales.y,
+                    title: {
+                        display: true,
+                        text: 'Overhead vs ' + baselineMethod + ' (%)',
+                        color: COLORS.text,
+                        font: { size: 14, family: 'Orbitron' }
+                    }
+                }
+            }
+        }
+    }));
+}
+
+// ====================================================================
 // CHART: RenderSurface.toAnsi
 // ====================================================================
 
 function renderToAnsiCharts(container, testData) {
     const section = createChartSection(container, 'RenderSurface.toAnsi Performance', 'cyan');
 
-    // Chart 1: Throughput vs Sprite Size
-    const throughputCanvas = createCanvas(section, 'toAnsi-throughput');
-    const ctx1 = throughputCanvas.getContext('2d');
-
     const labels = testData.results.map(r => r.name);
     const mpData = testData.results.map(r => r.megapixels_per_sec);
+    const timeData = testData.results.map(r => r.time_per_iter_us);
+
+    // Chart 1: Throughput vs Sprite Size
+    const throughputCanvas = createChartWithTitle(
+        section,
+        'Throughput vs Sprite Size',
+        'ANSI conversion performance across different sprite sizes'
+    );
+    const ctx1 = throughputCanvas.getContext('2d');
 
     currentCharts.push(new Chart(ctx1, {
         type: 'line',
@@ -481,10 +824,12 @@ function renderToAnsiCharts(container, testData) {
     }));
 
     // Chart 2: Time per Iteration
-    const timeCanvas = createCanvas(section, 'toAnsi-time');
+    const timeCanvas = createChartWithTitle(
+        section,
+        'Time per Iteration',
+        'Time per iteration for ANSI conversion'
+    );
     const ctx2 = timeCanvas.getContext('2d');
-
-    const timeData = testData.results.map(r => r.time_per_iter_us);
 
     currentCharts.push(new Chart(ctx2, {
         type: 'bar',
@@ -515,7 +860,11 @@ function renderRenderStableCharts(container, testData) {
     const vertical = testData.results.filter(r => r.width < r.height);
 
     // Chart: Throughput by Output Size (All Aspect Ratios)
-    const canvas = createCanvas(section, 'render-stable-throughput');
+    const canvas = createChartWithTitle(
+        section,
+        'Throughput by Output Size',
+        'Comparing performance across square, 16:9, and 9:16 output sizes'
+    );
     const ctx = canvas.getContext('2d');
 
     // Create aligned data arrays - each dataset gets the full label array length
@@ -575,7 +924,11 @@ function renderRenderStableCharts(container, testData) {
     }));
 
     // Chart: Throughput vs Pixel Count (scatter)
-    const scatterCanvas = createCanvas(section, 'render-stable-scatter');
+    const scatterCanvas = createChartWithTitle(
+        section,
+        'Performance Scaling',
+        'Performance scaling with pixel count'
+    );
     const ctx2 = scatterCanvas.getContext('2d');
 
     currentCharts.push(new Chart(ctx2, {
@@ -630,12 +983,15 @@ function renderRenderStableCharts(container, testData) {
 function renderCombinedCharts(container, testData) {
     const section = createChartSection(container, 'RenderEngine.render_stable_with_toAnsi Performance', 'purple');
 
-    const canvas = createCanvas(section, 'combined-throughput');
-    const ctx = canvas.getContext('2d');
-
     const labels = testData.results.map(r => r.name);
     const mpData = testData.results.map(r => r.megapixels_per_sec);
-    const timeData = testData.results.map(r => r.time_per_iter_us);
+
+    const canvas = createChartWithTitle(
+        section,
+        'Combined Pipeline Throughput',
+        'Full pipeline performance: rendering + ANSI conversion'
+    );
+    const ctx = canvas.getContext('2d');
 
     currentCharts.push(new Chart(ctx, {
         type: 'bar',
@@ -691,10 +1047,10 @@ function renderComparisonChart(container, allData) {
     const validTests = Object.values(data).filter(d => d !== null).length;
     if (validTests < 2) return; // Not enough data for comparison
 
-    // Create all three comparison charts
-    renderSimpleBarComparison(container, data);
-    renderGroupedBarComparison(container, data);
-    renderRadarComparison(container, data);
+    // Comparison charts removed per user request
+    // renderSimpleBarComparison(container, data);
+    // renderGroupedBarComparison(container, data);
+    // renderRadarComparison(container, data);
 }
 
 // Chart 1: Simple Bar Chart - Throughput Comparison
@@ -1024,15 +1380,35 @@ function createChartSection(container, title, color) {
     return section;
 }
 
-function createCanvas(parent, id) {
+function createChartWithTitle(parent, title, caption) {
+    // Create h4 title for this specific chart
+    const h4 = document.createElement('h4');
+    h4.className = 'text-cyan';
+    h4.style.marginTop = '30px';
+    h4.style.marginBottom = '15px';
+    h4.textContent = title;
+    parent.appendChild(h4);
+
+    // Create canvas container
     const wrapper = document.createElement('div');
     wrapper.className = 'chart-container';
 
     const canvas = document.createElement('canvas');
-    canvas.id = id;
+    canvas.id = title.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '');
 
     wrapper.appendChild(canvas);
     parent.appendChild(wrapper);
+
+    // Create caption AFTER the chart
+    const captionElem = document.createElement('p');
+    captionElem.className = 'text-secondary chart-caption';
+    captionElem.style.marginTop = '10px';
+    captionElem.style.marginBottom = '50px';
+    captionElem.style.fontSize = '0.9em';
+    captionElem.style.fontStyle = 'italic';
+    captionElem.style.textAlign = 'center';
+    captionElem.textContent = caption;
+    parent.appendChild(captionElem);
 
     return canvas;
 }
