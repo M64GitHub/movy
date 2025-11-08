@@ -111,7 +111,6 @@ Tests currently cover:
 - Sprite: splitting functions
 - Indexanimator
 - RenderSurface: scaling
-- RenderEngine: render modes
 
 ```bash
 zig build test
