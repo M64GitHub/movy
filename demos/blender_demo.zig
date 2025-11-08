@@ -313,11 +313,6 @@ pub fn main() !void {
     );
     defer text_surface.deinit(allocator);
 
-    // Transparent background
-    for (text_surface.shadow_map) |*alpha| {
-        alpha.* = 0;
-    }
-
     // Position at bottom, aligned to even row for half-block rendering
     var ty = screen_height - 5;
     if (ty % 2 == 1) ty -= 1;
@@ -335,10 +330,6 @@ pub fn main() !void {
         movy.core.types.Rgb{ .r = 0, .g = 0, .b = 0 },
     );
     defer help_surface.deinit(allocator);
-
-    for (help_surface.shadow_map) |*alpha| {
-        alpha.* = 0;
-    }
 
     _ = help_surface.putStrXY(
         "Press ESC or 'q' to quit",
@@ -436,11 +427,7 @@ pub fn main() !void {
             const circle_alpha = @as(u8, @intCast(128 + alpha_offset));
 
             const circle_frame = try circle_sprites[i].getCurrentFrameSurface();
-            for (circle_frame.shadow_map) |*alpha| {
-                if (alpha.* != 0) {
-                    alpha.* = circle_alpha;
-                }
-            }
+            circle_frame.setAlpha(circle_alpha);
         }
 
         // Update scrolling text position
