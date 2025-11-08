@@ -8,12 +8,17 @@
 
 ## The Idea Behind movy
 
-**movy** began with a simple vision — to bring real rendering power to the terminal.
-It features layered drawing, alpha blending, z-index ordering, and a programmable pipeline that adds motion and color to text mode.
+**movy** began with a simple vision — to bring real rendering power to the terminal — treating text mode as a programmable graphics environment rather than plain text output.
 
-Using ANSI half-blocks for higher vertical resolution, movy supports transparent sprites, per-frame visual effects, and real-time composition. Visuals optionally flow through effect chains — reusable transformations that enable transitions, layering, and post-processing.
+The engine provides:
 
-**movy** drives animation through IndexAnimators (looping, bouncing, or one-shot), waveforms, and easing functions — creating smooth motion across frames, positions, and colors.
+* **Layered rendering** with alpha blending, z-ordering, and compositing.
+* **Programmable pipelines** for chaining effects, transitions, and post-processing.
+* **Sprite and surface abstraction** for transparent drawing and dynamic frame animations.
+* **Animation control** via IndexAnimators, waveform generators, and easing functions — driving frame indices, colors, positions, and other parameters.
+* **Half-block rendering** for double vertical resolution.
+
+Rendering, animation, and effects are independent yet interoperable subsystems.
 
 The result is a **modular visual engine** — expressive, composable, and built for creative experimentation.
 
@@ -34,13 +39,11 @@ Check out games, demos, and tools built with movy in the **[Gallery](#showcase-b
 
 ## Core Concepts
 
-At its heart, **movy** is built on composable rendering, effect-driven visuals, and structured interaction. The system is organized around a few core types that coordinate how visuals are drawn, animated, and composed on screen.
+**movy** is organized around a few core types that coordinate how visuals are drawn, animated, and composed on screen:
 
 ### Rendering Engine Concepts
 
-**movy**'s rendering engine is centered around composable surfaces and reusable visual logic.
-
-- **RenderSurface** is the foundational structure — a 2D matrix of pixels (with optional text overlays) that anything visual draws onto. It can be resized, cleared, and converted to ANSI via `.toAnsi()`.
+- **RenderSurface** is the foundational structure — a 2D matrix of pixels (with optional text overlays) that anything visual draws onto. It supports alpha, can be resized, cleared, scaled, rotated, and converted to ANSI via `.toAnsi()`.
 
 - **RenderEffect** modifies a RenderSurface by applying visual transformations such as blur, dim, stretch, or color shifting. It receives input and output surfaces via a `RenderEffectContext`, which handles size awareness and expansion when needed. Internally, `RenderEffect` acts as an interface and wraps an effect instance to make it compatible with chaining, pipelines, and dynamic surface management.  
   Each effect defines its own `run()` method and `validate()` method, and can optionally declare how much space it requires beyond the surface bounds. Effects can be run manually on surfaces, or exposed through a simple `asEffect()` function to integrate cleanly into the rendering system. They will automatically operate with `RenderEffectContext`, gaining full expansion handling and chaining capabilities.
@@ -94,7 +97,7 @@ See [movycat](https://github.com/M64GitHub/movycat) for a complete terminal vide
 The module uses the modern FFmpeg channel layout API (`AVChannelLayout`) and is compatible with both FFmpeg 7.x and 8.x versions.
 
 ## Building
-
+Works with `zig 0.15.2`
 ```bash
 zig build              # build without ffmpeg dependencies, movy_video
 zig build -Dvideo=true # build full movy incl movy_video, requires ffmpeg
@@ -105,6 +108,9 @@ zig build -Dvideo=true # build full movy incl movy_video, requires ffmpeg
 Tests currently cover:
 
 - RenderEngine: composition modes, alpha blending
+- Sprite: splitting functions
+- Indexanimator
+- RenderSurface: scaling
 
 ```bash
 zig build test
@@ -112,13 +118,9 @@ zig build test
 
 ## Documentation
 
-... is being under construction, and frequently updated and expanded. Please check:
-
-- **[Guides](./doc/README.md)** — In-depth documentation on core concepts like RenderSurface and RenderEngine, written for developers new to movy
-- **[Examples](./examples/)** — Focused code examples demonstrating specific features (alpha blending, PNG loading, layered scenes)
-- **[Demos](./demos/README.md)** — Complete working programs showcasing visual effects, animations, and interaction
-
-Start with [simple_game.zig](./demos/simple_game.zig) as a game starter template, or explore [sprite_fading.zig](./examples/sprite_fading.zig) to learn sprite alpha blending, framerate control and animation.  
+- **[Guides](./doc/README.md)** — Documentation on core concepts like RenderSurface and RenderEngine, written for developers new to movy
+- **[Examples](./examples/)** — Code examples demonstrating specific features (alpha blending, PNG loading, sprite animations, rotation / scaling, ...)
+- **[Demos](./demos/README.md)** — Programs showcasing visual effects, animations, and interaction
 
 The sections are being updated frequently.
 
