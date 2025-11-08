@@ -97,7 +97,7 @@ See [movycat](https://github.com/M64GitHub/movycat) for a complete terminal vide
 The module uses the modern FFmpeg channel layout API (`AVChannelLayout`) and is compatible with both FFmpeg 7.x and 8.x versions.
 
 ## Building
-
+Works with `zig 0.15.2`
 ```bash
 zig build              # build without ffmpeg dependencies, movy_video
 zig build -Dvideo=true # build full movy incl movy_video, requires ffmpeg
