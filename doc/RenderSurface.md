@@ -905,8 +905,20 @@ pub fn main() !void {
         std.time.sleep(33 * std.time.ns_per_ms);  // 30 FPS
 
         // Check for quit input
-        if (try movy.input.pollKey()) |key| {
-            if (key == 'q' or key == 27) break;
+         if (try movy.input.get()) |in| {
+            switch (in) {
+                .key => |key| {
+                    switch (key.type) {
+                        .Escape => break,
+                        .Char => {
+                            if (key.sequence.len > 0 and
+                                key.sequence[0] == 'q') break;
+                        },
+                        else => {},
+                    }
+                },
+                .mouse => {},
+            }
         }
     }
 }
