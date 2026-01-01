@@ -158,7 +158,7 @@ See a generated report including charts and raw data [here](https://m64github.gi
 ## Contributing
 
 movy is a work of love and dedicated vision, still evolving rapidly.
-External code contributions are paused for now, but ideas and feedback are always welcome —
+External code contributions are paused for now, but ideas and feedback are always welcome -
 see [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
 
 ---
