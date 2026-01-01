@@ -8,19 +8,19 @@
 
 ## The Idea Behind movy
 
-**movy** began with a simple vision — to bring real rendering power to the terminal — treating text mode as a programmable graphics environment rather than plain text output.
+**movy** began with a simple vision - to bring real rendering power to the terminal - treating text mode as a programmable graphics environment rather than plain text output.
 
 The engine provides:
 
 * **Layered rendering** with alpha blending, z-ordering, and compositing.
 * **Programmable pipelines** for chaining effects, transitions, and post-processing.
 * **Sprite and surface abstraction** for transparent drawing and dynamic frame animations.
-* **Animation control** via IndexAnimators, waveform generators, and easing functions — driving frame indices, colors, positions, and other parameters.
+* **Animation control** via IndexAnimators, waveform generators, and easing functions - driving frame indices, colors, positions, and other parameters.
 * **Half-block rendering** for double vertical resolution.
 
 Rendering, animation, and effects are independent yet interoperable subsystems.
 
-The result is a **modular visual engine** — expressive, composable, and built for creative experimentation.
+The result is a **modular visual engine** - expressive, composable, and built for creative experimentation.
 
 ![mouse_demo](https://github.com/user-attachments/assets/d9852663-fe6d-4119-8c15-90501a3622c1)
 (alien mouse move demo)
@@ -43,7 +43,7 @@ Check out games, demos, and tools built with movy in the **[Gallery](#showcase-b
 
 ### Rendering Engine Concepts
 
-- **RenderSurface** is the foundational structure — a 2D matrix of pixels (with optional text overlays) that anything visual draws onto. It supports alpha, can be resized, cleared, scaled, rotated, and converted to ANSI via `.toAnsi()`.
+- **RenderSurface** is the foundational structure - a 2D matrix of pixels (with optional text overlays) that anything visual draws onto. It supports alpha, can be resized, cleared, scaled, rotated, and converted to ANSI via `.toAnsi()`.
 
 - **RenderEffect** modifies a RenderSurface by applying visual transformations such as blur, dim, stretch, or color shifting. It receives input and output surfaces via a `RenderEffectContext`, which handles size awareness and expansion when needed. Internally, `RenderEffect` acts as an interface and wraps an effect instance to make it compatible with chaining, pipelines, and dynamic surface management.  
   Each effect defines its own `run()` method and `validate()` method, and can optionally declare how much space it requires beyond the surface bounds. Effects can be run manually on surfaces, or exposed through a simple `asEffect()` function to integrate cleanly into the rendering system. They will automatically operate with `RenderEffectContext`, gaining full expansion handling and chaining capabilities.
@@ -118,9 +118,9 @@ zig build test
 
 ## Documentation
 
-- **[Guides](./doc/README.md)** — Documentation on core concepts like RenderSurface and RenderEngine, written for developers new to movy
-- **[Examples](./examples/)** — Code examples demonstrating specific features (alpha blending, PNG loading, sprite animations, rotation / scaling, ...)
-- **[Demos](./demos/README.md)** — Programs showcasing visual effects, animations, and interaction
+- **[Guides](./doc/README.md)** - Documentation on core concepts like RenderSurface and RenderEngine, written for developers new to movy
+- **[Examples](./examples/)** - Code examples demonstrating specific features (alpha blending, PNG loading, sprite animations, rotation / scaling, ...)
+- **[Demos](./demos/README.md)** - Programs showcasing visual effects, animations, and interaction
 
 The sections are being updated frequently.
 
@@ -137,9 +137,9 @@ The sections are being updated frequently.
 Create something awesome with movy and share it in our [Discussion](https://github.com/M64GitHub/movy/discussions/10)!
 
 Your project might be featured in the next README update.  
-Let the pixels glow — and the Terminal Revolution begin!
+Let the pixels glow - and the Terminal Revolution begin!
 
-Whether it's a game, a demo, an effect, or a tool — if it glows in the terminal, it belongs here.
+Whether it's a game, a demo, an effect, or a tool - if it glows in the terminal, it belongs here.
 
 ## Performance Suite
 
