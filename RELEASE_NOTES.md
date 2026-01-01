@@ -747,14 +747,14 @@ You'll see a retro synthwave-themed dashboard with interactive charts showing th
 The suite runs three test types, each targeting a specific part of the rendering pipeline:
 
 ### 1. RenderSurface.toAnsi
-Tests ANSI conversion performance—how fast we can convert raw pixel data into terminal escape sequences.
+Tests ANSI conversion performance-how fast we can convert raw pixel data into terminal escape sequences.
 
 **Tests sizes:** 10x10, 25x25, 50x50, 64x64, 100x100, 150x150, 200x200
 
 **Why it matters:** ANSI conversion is our main bottleneck. Every frame needs to be converted before it hits the terminal, so this needs to be fast. The test shows how conversion time scales with sprite size.
 
 ### 2. RenderEngine.render_stable
-Tests static (not moving / animating) sprite rendering performance—compositing multiple sprites into a single output surface.
+Tests static (not moving / animating) sprite rendering performance-compositing multiple sprites into a single output surface.
 
 **Tests configurations:**
 - Square outputs: 64x64, 96x96, 128x128, 160x160, 192x192, 256x256
@@ -764,7 +764,7 @@ Tests static (not moving / animating) sprite rendering performance—compositing
 **Why it matters:** This is the core rendering loop. It handles z-ordering, alpha blending, and pixel composition. Understanding how it scales across different output sizes and aspect ratios helps optimization.
 
 ### 3. RenderEngine.render_stable_with_toAnsi
-Tests the full pipeline—render sprites AND convert to ANSI in one measurement.
+Tests the full pipeline-render sprites AND convert to ANSI in one measurement.
 
 **Uses same configurations as render_stable**
 
@@ -990,7 +990,7 @@ The dashboard uses Chart.js for rendering. To add new chart types:
 3. Call it from the appropriate section (e.g., `renderCharts()`)
 4. Regenerate with `zig build perf-html-gen`
 
-The embedded JSON data is available in JavaScript as `embeddedData[runKey]`, where each runKey is formatted as `"YYYY-MM-DD/HH-MM-SS"`. No need to deal with fetch() or CORS—everything's embedded directly in the HTML.
+The embedded JSON data is available in JavaScript as `embeddedData[runKey]`, where each runKey is formatted as `"YYYY-MM-DD/HH-MM-SS"`. No need to deal with fetch() or CORS-everything's embedded directly in the HTML.
 
 ## Why These Specific Tests?
 

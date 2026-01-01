@@ -233,8 +233,8 @@ fn getKeyPosix() !?Key {
     }
 
     // F5-F12, Page Up/Down (moved up to catch before fragment check)
-    if (input_len > 1) {
-        if (remaining[0] == 0x1b and remaining[1] == '[' and remaining.len >= 4) {
+    if (input_len > 1 and remaining.len >= 4) {
+        if (remaining[0] == 0x1b and remaining[1] == '[') {
             var i: usize = 2;
             while (i < remaining.len and remaining[i] != '~') : (i += 1) {}
             if (i < remaining.len and remaining[i] == '~') {

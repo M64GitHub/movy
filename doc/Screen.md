@@ -49,12 +49,12 @@ while (rendering) {
 
 ### Screen as Compositing Layer
 
-The Screen doesn't draw graphics itself—it's a **compositor**. You create RenderSurfaces (or get them from sprites), add them to the Screen, and the Screen blends them all together based on:
+The Screen doesn't draw graphics itself-it's a **compositor**. You create RenderSurfaces (or get them from sprites), add them to the Screen, and the Screen blends them all together based on:
 - **Z-index**: Determines which surfaces appear in front or behind
 - **Position**: Each surface has x, y coordinates
 - **Transparency**: Alpha values control blending
 
-Similar to a game with background, player sprites, and UI overlays—the Screen composites all these layers into a single output.
+Similar to a game with background, player sprites, and UI overlays-the Screen composites all these layers into a single output.
 
 ### Height Confusion: Lines vs Pixels
 

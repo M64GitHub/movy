@@ -10,7 +10,7 @@ Welcome to the movy graphics engine! The `RenderSurface` is the **foundational b
 - Load images from PNG files
 - Render everything to your terminal
 
-Every visual element in movy—whether it's a sprite, an effect, or a UI component—ultimately uses a `RenderSurface` to store and manipulate its pixel data.
+Every visual element in movy-whether it's a sprite, an effect, or a UI component-ultimately uses a `RenderSurface` to store and manipulate its pixel data.
 
 **Location:** `src/core/RenderSurface.zig`
 

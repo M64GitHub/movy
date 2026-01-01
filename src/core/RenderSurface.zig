@@ -7,9 +7,9 @@ const cimp = @cImport({
 
 /// Maximum bytes per pixel for ANSI escape sequences
 /// Calculation: ESC[38;2;RRR;GGG;BBBm (24 bytes) +
-/// ESC[48;2;RRR;GGG;BBBm (24 bytes) + UTF-8 char (4 bytes) + margin
-/// = ~50 bytes conservatively, 45 typically sufficient
-const ansi_bytes_per_pixel = 45;
+/// ESC[48;2;RRR;GGG;BBBm (24 bytes) + UTF-8 char (4 bytes) + row control (~8)
+/// = ~56 bytes worst case, 60 for safety margin
+const ansi_bytes_per_pixel = 60;
 
 /// Controls behavior when scaleInPlace target dimensions exceed buffer size
 pub const ScaleMode = enum {
@@ -474,7 +474,10 @@ pub const RenderSurface = struct {
     pub fn toAnsi(self: *RenderSurface) ![]u8 {
         var tmpstr_idx: usize = 0;
 
-        for (0..self.h) |y| {
+        // Stop 1 row early if height is odd to avoid accessing y+1 out of bounds
+        const max_y = if (self.h % 2 == 1) self.h - 1 else self.h;
+
+        for (0..max_y) |y| {
             if (y % 2 != 0) continue; // Step by 2—half-block pairs
             for (0..self.w) |x| {
                 const idx = x + y * self.w;

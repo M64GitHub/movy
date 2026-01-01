@@ -87,7 +87,7 @@ A Sprite contains of these structs:
 
 ### Splitting Sprite Sheets with `splitByWidth()`
 
-Most sprite animations use **sprite sheets**—single PNG images containing multiple frames laid out horizontally. Use `splitByWidth()` to break them into individual animation frames.
+Most sprite animations use **sprite sheets**-single PNG images containing multiple frames laid out horizontally. Use `splitByWidth()` to break them into individual animation frames.
 
 **Function signature:**
 ```zig
@@ -510,7 +510,7 @@ try screen.output();               // 5. Display
 - Updates `output_surface.x`, `output_surface.y`
 - Updates current frame's `data_surface.x`, `data_surface.y`
 
-This is why you should call `setXY()` **before** `getCurrentFrameSurface()`—it ensures the position is applied to the surface you're about to retrieve.
+This is why you should call `setXY()` **before** `getCurrentFrameSurface()`-it ensures the position is applied to the surface you're about to retrieve.
 
 ### Complete Integration Example
 
