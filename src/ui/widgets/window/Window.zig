@@ -1,12 +1,12 @@
 const std = @import("std");
 const movy = @import("../../../movy.zig");
 
-/// Defines a top-level window—wraps a titled window for manager rendering.
+/// Defines a top-level window-wraps a titled window for manager rendering.
 pub const Window = struct {
-    base: movy.ui.TitleWindow, // Base titled window—bg, border, title
+    base: movy.ui.TitleWindow, // Base titled window-bg, border, title
     base_widget: *movy.ui.Widget,
 
-    /// Initializes a window—sets up base with title.
+    /// Initializes a window-sets up base with title.
     pub fn init(
         allocator: std.mem.Allocator,
         x: i32,
@@ -48,7 +48,7 @@ pub const Window = struct {
         return self.base_widget.is_active;
     }
 
-    /// Sets a new theme for the window—propagates to base.
+    /// Sets a new theme for the window-propagates to base.
     pub fn setTheme(
         self: *Window,
         theme: *const movy.ui.ColorTheme,
@@ -61,7 +61,7 @@ pub const Window = struct {
         return self.base.getTheme();
     }
 
-    /// Sets a new style for the window—propagates to base.
+    /// Sets a new style for the window-propagates to base.
     pub fn setStyle(self: *Window, style: *const movy.ui.Style) void {
         self.base.setStyle(style);
     }
@@ -71,7 +71,7 @@ pub const Window = struct {
         return self.base.getStyle();
     }
 
-    /// Sets the window title—propagates to base.
+    /// Sets the window title-propagates to base.
     pub fn setTitle(self: *Window, title: []const u8) void {
         self.base.setTitle(title);
     }
@@ -81,17 +81,17 @@ pub const Window = struct {
         return self.base.getTitle();
     }
 
-    /// Retrieves the window’s position—passes through to base.
+    /// Retrieves the window’s position-passes through to base.
     pub fn getPosition(self: *const Window) movy.ui.Position2D {
         return self.base.getPosition();
     }
 
-    /// Sets the window’s position—propagates to base.
+    /// Sets the window’s position-propagates to base.
     pub fn setPosition(self: *Window, x: i32, y: i32) void {
         self.base.setPosition(x, y);
     }
 
-    /// Resizes the window—updates base dimensions.
+    /// Resizes the window-updates base dimensions.
     pub fn resize(
         self: *Window,
         allocator: std.mem.Allocator,
@@ -101,7 +101,7 @@ pub const Window = struct {
         try self.base.resize(allocator, w, h);
     }
 
-    /// Retrieves the window’s size—passes through to base.
+    /// Retrieves the window’s size-passes through to base.
     pub fn getSize(self: *const Window) movy.ui.Size {
         return self.base.getSize();
     }
@@ -125,10 +125,10 @@ pub const Window = struct {
             y == pos.y;
     }
 
-    /// Renders the window—composites base, returns the final surface
+    /// Renders the window-composites base, returns the final surface
     /// for manager use.
     pub fn render(self: *Window) *movy.core.RenderSurface {
-        // Render base (bg, border, title)—pass final surface
+        // Render base (bg, border, title)-pass final surface
         return self.base.render();
         //  TODO: Add content (buttons, text)
     }

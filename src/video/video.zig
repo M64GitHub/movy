@@ -56,7 +56,7 @@ const AlignedRgbBuf = []align(32) u8;
 pub const VideoDecoder = struct {
     video: VideoState,
     audio: ?AudioState = null,
-    /// Clock base reference — playback time = now - clock_start_ns
+    /// Clock base reference - playback time = now - clock_start_ns
     clock_start_ns: i128,
 
     /// Opens the given video file for decoding and prepares all resources.
@@ -561,7 +561,7 @@ pub const VideoState = struct {
         var send_result = c.avcodec_send_packet(self.codec_ctx, pkt);
 
         if (send_result == AVERROR_EAGAIN) {
-            // Decoder full — try draining to make room
+            // Decoder full - try draining to make room
             while (true) {
                 const drain_result =
                     c.avcodec_receive_frame(self.codec_ctx, frame);
@@ -595,7 +595,7 @@ pub const VideoState = struct {
     /// `self.frame`, which remains valid until the next call to this function.
     /// Returns `null` if the decoder has no frames ready yet.
     ///
-    /// Note: This does not enqueue the frame — use `drainAndQueueFrames()`
+    /// Note: This does not enqueue the frame - use `drainAndQueueFrames()`
     ///       for that.
     pub fn tryReceiveFrame(self: *VideoState) !?*c.AVFrame {
         const t_before = std.time.nanoTimestamp();

@@ -11,3 +11,7 @@ pub const RenderObject = @import("RenderObject.zig").RenderObject;
 pub const RenderPipeline = @import("RenderPipeline.zig").RenderPipeline;
 pub const RenderPipelineError = @import("RenderPipeline.zig").Error;
 pub const RenderEngine = @import("RenderEngine.zig").RenderEngine;
+
+// Float framebuffer + glow/bloom + CRT post-fx, composited into a
+// RenderSurface. The neon-look layer for 60fps terminal apps.
+pub const Frame = @import("Frame.zig").Frame;

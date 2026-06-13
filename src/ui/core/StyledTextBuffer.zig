@@ -21,7 +21,7 @@ pub const StyledTextBuffer = struct {
 
     pub const SelectionState = union(enum) {
         None, // No selection
-        Selecting: usize, // In progress — from this start index to cursor
+        Selecting: usize, // In progress - from this start index to cursor
         Selected: struct {
             start: usize,
             end: usize,
@@ -364,7 +364,7 @@ pub const StyledTextBuffer = struct {
 
         switch (self.selection) {
             .None => {
-                // First time shift is held — start selecting
+                // First time shift is held - start selecting
                 self.selection = SelectionState{ .Selecting = self.cursor_idx };
                 anchor = self.cursor_idx;
             },
@@ -400,7 +400,7 @@ pub const StyledTextBuffer = struct {
 
         switch (self.selection) {
             .None => {
-                // First time shift is held — start selecting
+                // First time shift is held - start selecting
                 self.selection = SelectionState{ .Selecting = self.cursor_idx };
                 anchor = self.cursor_idx;
             },
@@ -1119,7 +1119,7 @@ pub const StyledTextBuffer = struct {
             theme.colors.get(.CodeBackground),
         );
 
-        // 3. Highlight symbols (optional — just to give it structure)
+        // 3. Highlight symbols (optional - just to give it structure)
         self.highlightSymbols(
             &[_]u21{
                 '{',

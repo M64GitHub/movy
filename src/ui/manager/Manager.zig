@@ -1,7 +1,7 @@
 const std = @import("std");
 const movy = @import("../../movy.zig");
 
-/// Manages collections of widgets and windows—creates, tracks,
+/// Manages collections of widgets and windows-creates, tracks,
 /// and renders them.
 pub const Manager = struct {
     allocator: std.mem.Allocator,
@@ -29,7 +29,7 @@ pub const Manager = struct {
         offset: movy.ui.Position2D = .{ .x = 0, .y = 0 },
     };
 
-    /// Initializes the manager with a screen—starts with empty lists
+    /// Initializes the manager with a screen-starts with empty lists
     /// for all widget types.
     pub fn init(
         allocator: std.mem.Allocator,
@@ -49,7 +49,7 @@ pub const Manager = struct {
         };
     }
 
-    /// Frees all managed widgets and windows—cleans up all resources owned by
+    /// Frees all managed widgets and windows-cleans up all resources owned by
     /// the manager.
     pub fn deinit(self: *Manager) void {
         for (self.widgets.items) |widget| {
@@ -91,7 +91,7 @@ pub const Manager = struct {
         };
     }
 
-    /// Creates a new widget—adds it to the widget list and returns its pointer.
+    /// Creates a new widget-adds it to the widget list and returns its pointer.
     pub fn createWidget(
         self: *Manager,
         x: i32,
@@ -114,7 +114,7 @@ pub const Manager = struct {
         return widget;
     }
 
-    /// Removes a widget from the manager—frees it and updates active_widget
+    /// Removes a widget from the manager-frees it and updates active_widget
     /// if needed.
     pub fn removeWidget(self: *Manager, widget: *movy.ui.Widget) void {
         for (self.widgets.items, 0..) |w, i| {
@@ -126,7 +126,7 @@ pub const Manager = struct {
         }
     }
 
-    /// Creates a new bordered window—adds it to the bordered window list and
+    /// Creates a new bordered window-adds it to the bordered window list and
     /// returns its pointer.
     pub fn createBorderedWindow(
         self: *Manager,
@@ -150,7 +150,7 @@ pub const Manager = struct {
         return window;
     }
 
-    /// Removes a bordered window from the manager—frees it.
+    /// Removes a bordered window from the manager-frees it.
     pub fn removeBorderedWindow(
         self: *Manager,
         window: *movy.ui.BorderedWindow,
@@ -164,7 +164,7 @@ pub const Manager = struct {
         }
     }
 
-    /// Creates a new title window—adds it to the title window list and
+    /// Creates a new title window-adds it to the title window list and
     /// returns its pointer.
     pub fn createTitleWindow(
         self: *Manager,
@@ -204,7 +204,7 @@ pub const Manager = struct {
         }
     }
 
-    /// Creates a new text window—adds it to the text window list and
+    /// Creates a new text window-adds it to the text window list and
     /// returns its pointer.
     pub fn createTextWindow(
         self: *Manager,
@@ -246,7 +246,7 @@ pub const Manager = struct {
         }
     }
 
-    /// Creates a new top-level window—adds it to the window list and
+    /// Creates a new top-level window-adds it to the window list and
     /// returns its pointer.
     pub fn createWindow(
         self: *Manager,
@@ -288,7 +288,7 @@ pub const Manager = struct {
         try self.sprites.append(self.allocator, sprite);
     }
 
-    /// Sets the active widget—focuses it for input handling.
+    /// Sets the active widget-focuses it for input handling.
     pub fn setActiveWidget(self: *Manager, widget: movy.ui.WidgetInfo) void {
         // inactivate current active widget
         if (self.active_widget) |active| {
@@ -357,12 +357,12 @@ pub const Manager = struct {
         }
     }
 
-    /// Gets the currently active widget—null if none.
+    /// Gets the currently active widget-null if none.
     pub fn getActiveWidget(self: *const Manager) ?*movy.ui.Widget {
         return self.active_widget;
     }
 
-    /// Renders all widgets and windows to the screen—composites
+    /// Renders all widgets and windows to the screen-composites
     /// output_surfaces.
     pub fn render(self: *Manager) !void {
         self.screen.output_surfaces.clearRetainingCapacity();
@@ -392,7 +392,7 @@ pub const Manager = struct {
         self.screen.render();
     }
 
-    /// Clears all widgets and windows—resets their output_surfaces to
+    /// Clears all widgets and windows-resets their output_surfaces to
     /// background color.
     pub fn clearAll(self: *Manager) void {
         for (self.widgets.items) |widget| {

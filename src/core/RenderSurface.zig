@@ -478,7 +478,7 @@ pub const RenderSurface = struct {
         const max_y = if (self.h % 2 == 1) self.h - 1 else self.h;
 
         for (0..max_y) |y| {
-            if (y % 2 != 0) continue; // Step by 2—half-block pairs
+            if (y % 2 != 0) continue; // Step by 2-half-block pairs
             for (0..self.w) |x| {
                 const idx = x + y * self.w;
                 const char = self.char_map[idx];
@@ -759,7 +759,7 @@ pub const RenderSurface = struct {
 
     /// Writes a single character to the RenderSurface at the specified
     /// coordinates with foreground and background colors.
-    /// Uses y * 2 to align with half-block rendering—clips if y exceeds h/2.
+    /// Uses y * 2 to align with half-block rendering-clips if y exceeds h/2.
     pub fn putCharXY(
         self: *RenderSurface,
         char: u8,
@@ -781,7 +781,7 @@ pub const RenderSurface = struct {
 
     /// Writes a single character to the RenderSurface at the specified
     /// coordinates with foreground and background colors.
-    /// Uses y * 2 to align with half-block rendering—clips if y exceeds h/2.
+    /// Uses y * 2 to align with half-block rendering-clips if y exceeds h/2.
     pub fn putUtf8XY(
         self: *RenderSurface,
         char: u21,

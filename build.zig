@@ -124,6 +124,28 @@ pub fn build(b: *std.Build) void {
         ).dependOn(&run_demo.step);
     }
 
+    // -- frame-game: a multi-file demo of the new neon-render layer
+    //    (movy.Frame + movy.color.V3 + movy.DiffOutput). Lives in a subdir
+    //    with sibling modules, so it gets its own entry (not the demos loop).
+    {
+        const fg_mod = b.addModule("demo_frame_game", .{
+            .root_source_file = b.path("demos/frame-game/main.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
+        fg_mod.addImport("movy", movy_mod);
+        const fg_exe = b.addExecutable(.{ .name = "frame-game", .root_module = fg_mod });
+        fg_exe.linkLibC(); // Frame.savePng -> bundled lodepng (C)
+        b.installArtifact(fg_exe);
+        const run_fg = b.addRunArtifact(fg_exe);
+        run_fg.step.dependOn(b.getInstallStep());
+        if (b.args) |args| run_fg.addArgs(args);
+        b.step(
+            "run-frame-game",
+            "Run frame-game (Frame/V3/DiffOutput demo)",
+        ).dependOn(&run_fg.step);
+    }
+
     // -- Games
     const games = [_][]const u8{};
 

@@ -56,10 +56,101 @@ pub const KeyType = enum {
     Other, // Unknown sequence
 };
 
+pub const KeyEvent = enum {
+    Press,
+    Repeat,
+    Release,
+};
+
 pub const Key = struct {
     type: KeyType,
     sequence: []const u8,
+    // Only terminals speaking the kitty keyboard protocol (enabled
+    // via enableKittyKeyboard) report Repeat/Release; legacy input
+    // always arrives as Press.
+    event: KeyEvent = .Press,
 };
+
+/// Enables the kitty keyboard protocol (progressive enhancement
+/// flags 1|2|8: disambiguate escape codes, report event types,
+/// report all keys as escape codes). Supporting terminals (kitty,
+/// ghostty, wezterm, foot, recent iterm2) then deliver press, repeat
+/// and release events; others silently ignore this. Call after
+/// entering the alternate screen so the flag push lands on its
+/// keyboard stack, and pair with disableKittyKeyboard before
+/// leaving it. Note: while enabled, shifted text keys report their
+/// base codepoint (e.g. 'a' for Shift+A).
+pub fn enableKittyKeyboard() void {
+    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[>11u") catch {};
+}
+
+/// Pops the kitty keyboard protocol flags pushed by
+/// enableKittyKeyboard.
+pub fn disableKittyKeyboard() void {
+    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[<u") catch {};
+}
+
+/// Autodetects kitty keyboard protocol support. Must be called in raw
+/// mode, before enableKittyKeyboard and before the main input loop.
+///
+/// The handshake: emit the flags query `CSI ? u` immediately followed by
+/// Primary Device Attributes `CSI c`. Every terminal answers DA; only
+/// terminals implementing the kitty protocol answer the flags query
+/// (`CSI ? <flags> u`), and they answer it first. So the DA reply doubles
+/// as the end-of-detection marker - no fixed sleep needed in the common
+/// case (timeout_ms only bounds the wait if DA never arrives).
+///
+/// All replies are consumed so they never reach get(). Any interleaved
+/// keystrokes are skipped. Returns true if the protocol is supported.
+pub fn detectKittyKeyboard(timeout_ms: u32) bool {
+    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[?u\x1b[c") catch
+        return false;
+
+    var buf: [256]u8 = undefined;
+    var len: usize = 0;
+    var waited: u32 = 0;
+    const step: u32 = 20;
+
+    while (waited < timeout_ms) {
+        var fds = [_]c.pollfd{
+            .{ .fd = c.STDIN_FILENO, .events = c.POLLIN, .revents = 0 },
+        };
+        const ready = c.poll(&fds, 1, @intCast(step));
+        waited += step;
+        if (ready <= 0) continue;
+
+        const n = c.read(c.STDIN_FILENO, buf[len..].ptr, buf.len - len);
+        if (n <= 0) continue;
+        len += @intCast(n);
+
+        if (scanKittyReply(buf[0..len])) |result| return result;
+        if (len >= buf.len - 8) break; // overflow guard (key mashing)
+    }
+    return false;
+}
+
+/// Pure scanner for the detect handshake replies. Returns whether the
+/// kitty flags report appeared once the DA terminator is seen, or null if
+/// DA has not arrived yet (caller should read more). Interleaved
+/// keystrokes and partial sequences are ignored.
+fn scanKittyReply(buf: []const u8) ?bool {
+    var kitty = false;
+    var i: usize = 0;
+    while (i + 1 < buf.len) {
+        if (buf[i] == 0x1b and buf[i + 1] == '[') {
+            var j = i + 2;
+            while (j < buf.len and (buf[j] < 0x40 or buf[j] > 0x7e)) j += 1;
+            if (j >= buf.len) return null; // incomplete; read more
+            const private = i + 2 < buf.len and buf[i + 2] == '?';
+            if (private and buf[j] == 'u') kitty = true;
+            if (buf[j] == 'c') return kitty; // DA terminator
+            i = j + 1;
+        } else {
+            i += 1;
+        }
+    }
+    return null;
+}
 
 pub const MouseEvent = enum {
     Down, // Button press
@@ -86,6 +177,11 @@ pub const InputEvent = union(enum) {
 // 64 bytes is not enough - can be overflowed with ultra fast mouse
 // movements. Tested with 512 bytes.
 var input_buffer: [512]u8 = undefined;
+
+// Holds UTF-8 text synthesized from kitty CSI-u codepoints so that
+// Key.sequence stays a plain character for .Char keys. Valid until
+// the next input call, same contract as input_buffer.
+var synth_buffer: [4]u8 = undefined;
 
 var input_len: usize = 0;
 var input_offset: usize = 0;
@@ -196,6 +292,181 @@ fn getMousePosix() !?Mouse {
     };
 }
 
+const ParsedKitty = struct {
+    key: Key,
+    consumed: usize,
+};
+
+// Parses one kitty keyboard protocol sequence at the start of bytes:
+//   CSI code[:alts] [; mods[:event] [; text]] u   (CSI-u keys)
+//   CSI 1 ; mods[:event] {A,B,C,D,H,F}            (arrows, home, end)
+//   CSI num [; mods[:event]] ~                    (del, pgup, F5-F12)
+// Returns null when bytes are not a kitty sequence (plain CSI forms
+// without parameters fall through to the legacy parser).
+fn parseKittyKey(bytes: []const u8) ?ParsedKitty {
+    if (bytes.len < 4) return null;
+    if (bytes[0] != 0x1b or bytes[1] != '[') return null;
+
+    var i: usize = 2;
+    while (i < bytes.len) : (i += 1) {
+        const b = bytes[i];
+        const is_param = (b >= '0' and b <= '9') or b == ';' or b == ':';
+        if (!is_param) break;
+    }
+    if (i >= bytes.len or i == 2) return null;
+
+    const terminator = bytes[i];
+    const params = bytes[2..i];
+    const sequence = bytes[0 .. i + 1];
+    const consumed = i + 1;
+
+    var fields = std.mem.splitScalar(u8, params, ';');
+    const f0 = fields.next() orelse return null;
+    var f0_subs = std.mem.splitScalar(u8, f0, ':');
+    const code_str = f0_subs.next() orelse return null;
+    if (code_str.len == 0) return null;
+    const code = std.fmt.parseInt(u32, code_str, 10) catch return null;
+
+    var mods: u32 = 1;
+    var event = KeyEvent.Press;
+    if (fields.next()) |f1| {
+        var f1_subs = std.mem.splitScalar(u8, f1, ':');
+        if (f1_subs.next()) |mods_str| {
+            if (mods_str.len > 0) {
+                mods = std.fmt.parseInt(u32, mods_str, 10) catch 1;
+            }
+        }
+        if (f1_subs.next()) |event_str| {
+            const ev = std.fmt.parseInt(u32, event_str, 10) catch 1;
+            event = switch (ev) {
+                2 => .Repeat,
+                3 => .Release,
+                else => .Press,
+            };
+        }
+    }
+
+    const mod_bits: u32 = if (mods > 0) mods - 1 else 0;
+    const shift = mod_bits & 1 != 0;
+    const alt = mod_bits & 2 != 0;
+    const ctrl = mod_bits & 4 != 0;
+
+    switch (terminator) {
+        'u' => {
+            const key_type: KeyType = switch (code) {
+                9 => if (shift) .ShiftTab else .Tab,
+                10, 13 => .Enter,
+                27 => .Escape,
+                8, 127 => .Backspace,
+                57361 => if (shift)
+                    .ShiftPrintScreen
+                else if (ctrl) .CtrlPrintScreen else .PrintScreen,
+                57362 => if (shift)
+                    .ShiftPause
+                else if (ctrl) .CtrlPause else .Pause,
+                else => blk: {
+                    if (ctrl and (code == 'c' or code == 'C')) {
+                        break :blk .CtrlC;
+                    }
+                    // Functional keys (kp, media, modifiers) live in
+                    // the unicode private use area.
+                    if (code >= 57344 and code <= 63743) break :blk .Other;
+                    if (code < 0x20) break :blk .Other;
+                    if (ctrl or alt) break :blk .Other;
+                    break :blk .Char;
+                },
+            };
+
+            if (key_type == .Char) {
+                const cp: u21 = @intCast(code);
+                const n = std.unicode.utf8Encode(
+                    cp,
+                    &synth_buffer,
+                ) catch return .{
+                    .key = .{
+                        .type = .Other,
+                        .sequence = sequence,
+                        .event = event,
+                    },
+                    .consumed = consumed,
+                };
+                return .{
+                    .key = .{
+                        .type = .Char,
+                        .sequence = synth_buffer[0..n],
+                        .event = event,
+                    },
+                    .consumed = consumed,
+                };
+            }
+
+            return .{
+                .key = .{
+                    .type = key_type,
+                    .sequence = sequence,
+                    .event = event,
+                },
+                .consumed = consumed,
+            };
+        },
+        'A', 'B', 'C', 'D', 'H', 'F' => {
+            if (!std.mem.eql(u8, code_str, "1")) return null;
+            const key_type: KeyType = switch (terminator) {
+                'A' => if (ctrl) .CtrlUp else if (shift) .ShiftUp else .Up,
+                'B' => if (ctrl)
+                    .CtrlDown
+                else if (shift) .ShiftDown else .Down,
+                'C' => if (ctrl)
+                    .CtrlRight
+                else if (shift) .ShiftRight else .Right,
+                'D' => if (ctrl)
+                    .CtrlLeft
+                else if (shift) .ShiftLeft else .Left,
+                'H' => if (ctrl)
+                    .CtrlHome
+                else if (shift) .ShiftHome else .Home,
+                'F' => if (ctrl)
+                    .CtrlEnd
+                else if (shift) .ShiftEnd else .End,
+                else => .Other,
+            };
+            return .{
+                .key = .{
+                    .type = key_type,
+                    .sequence = sequence,
+                    .event = event,
+                },
+                .consumed = consumed,
+            };
+        },
+        '~' => {
+            const key_type: KeyType = switch (code) {
+                3 => .Delete,
+                5 => .PageUp,
+                6 => .PageDown,
+                15 => .F5,
+                17 => .F6,
+                18 => .F7,
+                19 => .F8,
+                20 => .F9,
+                21 => .F10,
+                23 => .F11,
+                24 => .F12,
+                else => .Other,
+            };
+            return .{
+                .key = .{
+                    .type = key_type,
+                    .sequence = sequence,
+                    .event = event,
+                },
+                .consumed = consumed,
+            };
+        },
+        else => return null,
+    }
+}
+
 fn getKeyPosix() !?Key {
     const builtin = @import("builtin");
     if (builtin.os.tag != .linux and builtin.os.tag != .macos) {
@@ -230,6 +501,14 @@ fn getKeyPosix() !?Key {
         {}
         input_offset += if (i < remaining.len) i + 1 else input_len;
         return null;
+    }
+
+    // Kitty keyboard protocol sequences. Must run before the legacy
+    // parsers: those would strip the event subfield and report a
+    // release as a second key press.
+    if (parseKittyKey(remaining)) |parsed| {
+        input_offset += parsed.consumed;
+        return parsed.key;
     }
 
     // F5-F12, Page Up/Down (moved up to catch before fragment check)
@@ -620,4 +899,108 @@ fn getMouseWindows() !?Mouse {
         .button = button,
         .sequence = sequence,
     };
+}
+
+// Tests
+
+const testing = std.testing;
+
+test "kitty CSI-u reports char press, repeat and release" {
+    const press = parseKittyKey("\x1b[104u").?;
+    try testing.expectEqual(KeyType.Char, press.key.type);
+    try testing.expectEqual(KeyEvent.Press, press.key.event);
+    try testing.expectEqual(@as(u8, 'h'), press.key.sequence[0]);
+    try testing.expectEqual(@as(usize, 6), press.consumed);
+
+    const repeat = parseKittyKey("\x1b[104;1:2u").?;
+    try testing.expectEqual(KeyEvent.Repeat, repeat.key.event);
+
+    const release = parseKittyKey("\x1b[104;1:3u").?;
+    try testing.expectEqual(KeyType.Char, release.key.type);
+    try testing.expectEqual(KeyEvent.Release, release.key.event);
+    try testing.expectEqual(@as(u8, 'h'), release.key.sequence[0]);
+}
+
+test "kitty arrows carry event types and modifiers" {
+    const rel = parseKittyKey("\x1b[1;1:3D").?;
+    try testing.expectEqual(KeyType.Left, rel.key.type);
+    try testing.expectEqual(KeyEvent.Release, rel.key.event);
+
+    const ctrl = parseKittyKey("\x1b[1;5C").?;
+    try testing.expectEqual(KeyType.CtrlRight, ctrl.key.type);
+    try testing.expectEqual(KeyEvent.Press, ctrl.key.event);
+
+    const up = parseKittyKey("\x1b[1;1:1A").?;
+    try testing.expectEqual(KeyType.Up, up.key.type);
+}
+
+test "kitty CSI-u special keys map to legacy key types" {
+    try testing.expectEqual(
+        KeyType.Escape,
+        parseKittyKey("\x1b[27u").?.key.type,
+    );
+    try testing.expectEqual(
+        KeyType.Enter,
+        parseKittyKey("\x1b[13u").?.key.type,
+    );
+    try testing.expectEqual(
+        KeyType.CtrlC,
+        parseKittyKey("\x1b[99;5u").?.key.type,
+    );
+
+    const space = parseKittyKey("\x1b[32u").?;
+    try testing.expectEqual(KeyType.Char, space.key.type);
+    try testing.expectEqual(@as(u8, ' '), space.key.sequence[0]);
+}
+
+test "kitty modifier keys and functional plane map to Other" {
+    const shift_press = parseKittyKey("\x1b[57441;1:1u").?;
+    try testing.expectEqual(KeyType.Other, shift_press.key.type);
+
+    const tilde = parseKittyKey("\x1b[5;1:3~").?;
+    try testing.expectEqual(KeyType.PageUp, tilde.key.type);
+    try testing.expectEqual(KeyEvent.Release, tilde.key.event);
+}
+
+test "legacy sequences fall through to the legacy parser" {
+    try testing.expectEqual(
+        @as(?ParsedKitty, null),
+        parseKittyKey("\x1b[A"),
+    );
+    try testing.expectEqual(
+        @as(?ParsedKitty, null),
+        parseKittyKey("\x1b[<35;1;1M"),
+    );
+    try testing.expectEqual(
+        @as(?ParsedKitty, null),
+        parseKittyKey("\x1b[10"),
+    );
+}
+
+test "detect handshake scanner classifies replies" {
+    // kitty terminal: flags report (CSI ? <flags> u) THEN DA
+    try testing.expectEqual(
+        @as(?bool, true),
+        scanKittyReply("\x1b[?60u\x1b[?62;c"),
+    );
+    // legacy terminal: DA only
+    try testing.expectEqual(
+        @as(?bool, false),
+        scanKittyReply("\x1b[?62;1;6c"),
+    );
+    // DA not arrived yet -> keep reading
+    try testing.expectEqual(
+        @as(?bool, null),
+        scanKittyReply("\x1b[?60u"),
+    );
+    // interleaved keystroke before the replies is ignored
+    try testing.expectEqual(
+        @as(?bool, true),
+        scanKittyReply("a\x1b[?1u\x1b[c"),
+    );
+    // partial trailing CSI -> incomplete
+    try testing.expectEqual(
+        @as(?bool, null),
+        scanKittyReply("\x1b[?1u\x1b[?62"),
+    );
 }

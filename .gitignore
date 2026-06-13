@@ -2,6 +2,5 @@
 zig-out
 .DS_Store
 perf-results
-local/
 
 

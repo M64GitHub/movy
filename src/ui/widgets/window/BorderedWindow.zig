@@ -1,11 +1,11 @@
 const std = @import("std");
 const movy = @import("../../../movy.zig");
 
-/// Defines a bordered window—combines a base widget with a border overlay.
+/// Defines a bordered window-combines a base widget with a border overlay.
 pub const BorderedWindow = struct {
-    base: *movy.ui.Widget, // Base widget—background and core properties
+    base: *movy.ui.Widget, // Base widget-background and core properties
     base_widget: *movy.ui.Widget, // for consistency
-    border: movy.ui.WindowBorder, // Border widget—frame overlay
+    border: movy.ui.WindowBorder, // Border widget-frame overlay
 
     /// Initializes a heap allocated bordered window, sets up base widget
     /// and border with same dimensions.
@@ -60,7 +60,7 @@ pub const BorderedWindow = struct {
         return self.base_widget.is_active;
     }
 
-    /// Sets a new theme for the window—propagates to base and border.
+    /// Sets a new theme for the window-propagates to base and border.
     pub fn setTheme(
         self: *BorderedWindow,
         theme: *const movy.ui.ColorTheme,
@@ -69,14 +69,14 @@ pub const BorderedWindow = struct {
         self.border.setTheme(theme);
     }
 
-    /// Retrieves the current theme from the base—consistent across components.
+    /// Retrieves the current theme from the base-consistent across components.
     pub fn getTheme(
         self: *const BorderedWindow,
     ) *const movy.ui.ColorTheme {
         return self.base.getTheme();
     }
 
-    /// Sets a new style for the window—propagates to base and border.
+    /// Sets a new style for the window-propagates to base and border.
     pub fn setStyle(
         self: *BorderedWindow,
         style: *const movy.ui.Style,
@@ -85,23 +85,23 @@ pub const BorderedWindow = struct {
         self.border.setStyle(style);
     }
 
-    /// Retrieves the current style from the base—consistent across components.
+    /// Retrieves the current style from the base-consistent across components.
     pub fn getStyle(self: *const BorderedWindow) *const movy.ui.Style {
         return self.base.getStyle();
     }
 
-    /// Retrieves the window’s position—passes through to base.
+    /// Retrieves the window’s position-passes through to base.
     pub fn getPosition(self: *const BorderedWindow) movy.ui.Position2D {
         return self.base.getPosition();
     }
 
-    /// Sets the window’s position—propagates to base and border.
+    /// Sets the window’s position-propagates to base and border.
     pub fn setPosition(self: *BorderedWindow, x: i32, y: i32) void {
         self.base.setPosition(x, y);
         self.border.setPosition(x, y);
     }
 
-    /// Resizes the window—updates base and border dimensions.
+    /// Resizes the window-updates base and border dimensions.
     pub fn resize(
         self: *BorderedWindow,
         allocator: std.mem.Allocator,
@@ -112,12 +112,12 @@ pub const BorderedWindow = struct {
         try self.border.resize(allocator, w, h);
     }
 
-    /// Retrieves the window’s size—passes through to base.
+    /// Retrieves the window’s size-passes through to base.
     pub fn getSize(self: *const BorderedWindow) movy.ui.Size {
         return self.base.getSize();
     }
 
-    /// Renders the bordered window—composites base and border,
+    /// Renders the bordered window-composites base and border,
     /// returns the final surface.
     pub fn render(self: *BorderedWindow) *movy.core.RenderSurface {
         _ = self.base.render(); // Render base (background)

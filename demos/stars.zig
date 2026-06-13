@@ -41,6 +41,11 @@ pub fn main() !void {
     const starfield = try Starfield.init(allocator, &screen);
     defer starfield.deinit(allocator);
 
+    // Dirty-row output with a writer thread: only changed rows are sent
+    // and the render loop never blocks on the terminal (tmux-proof)
+    const dout = try movy.DiffOutput.init(allocator, &screen, .threaded);
+    defer dout.deinit();
+
     // Create help text overlay
     const help_surface = try movy.RenderSurface.init(
         allocator,
@@ -91,7 +96,7 @@ pub fn main() !void {
         try screen.addRenderSurface(allocator, help_surface);
         try screen.addRenderSurface(allocator, starfield.out_surface);
         screen.render();
-        try screen.output();
+        try dout.output(&screen);
 
         frame_counter += 1;
 

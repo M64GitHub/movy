@@ -32,14 +32,14 @@ pub const ColorClass = enum {
     TerminalBlack, // Terminal black
 };
 
-/// Manages color assignments for UI elements—maps ColorClass to Rgb
+/// Manages color assignments for UI elements-maps ColorClass to Rgb
 /// with a name.
 pub const ColorTheme = struct {
-    name: []const u8, // Theme name—e.g., "TokyoNight-Storm"
+    name: []const u8, // Theme name-e.g., "TokyoNight-Storm"
     // Fixed mapping for fast lookups
     colors: std.EnumArray(ColorClass, movy.core.types.Rgb),
 
-    /// Initializes a TokyoNight-Storm theme—dark, vibrant, and inspired by
+    /// Initializes a TokyoNight-Storm theme-dark, vibrant, and inspired by
     /// TokyoNight.
     pub fn initTokyoNightStorm() ColorTheme {
         var theme = ColorTheme{
@@ -107,7 +107,7 @@ pub const ColorTheme = struct {
         return theme;
     }
 
-    /// Initializes a Gruvbox theme—warm, retro, and easy on the eyes.
+    /// Initializes a Gruvbox theme-warm, retro, and easy on the eyes.
     pub fn initGruvbox() ColorTheme {
         var theme = ColorTheme{
             .name = "Gruvbox",
@@ -174,7 +174,7 @@ pub const ColorTheme = struct {
         return theme;
     }
 
-    /// Initializes a Catppuccin Mocha theme—warm, muted, and elegant.
+    /// Initializes a Catppuccin Mocha theme-warm, muted, and elegant.
     pub fn initCatppuccinMocha() ColorTheme {
         var theme = ColorTheme{
             .name = "Catppuccin-Mocha",
@@ -241,7 +241,7 @@ pub const ColorTheme = struct {
         return theme;
     }
 
-    /// Initializes a Dracula theme—dark, vibrant, and modern.
+    /// Initializes a Dracula theme-dark, vibrant, and modern.
     pub fn initDracula() ColorTheme {
         var theme = ColorTheme{
             .name = "Dracula",
@@ -308,7 +308,7 @@ pub const ColorTheme = struct {
         return theme;
     }
 
-    /// Initializes a Nord theme—cool, arctic, and minimalist.
+    /// Initializes a Nord theme-cool, arctic, and minimalist.
     pub fn initNord() ColorTheme {
         var theme = ColorTheme{
             .name = "Nord",
@@ -375,7 +375,7 @@ pub const ColorTheme = struct {
         return theme;
     }
 
-    /// Initializes a Monokai theme—classic, vibrant, and high-contrast.
+    /// Initializes a Monokai theme-classic, vibrant, and high-contrast.
     pub fn initMonokai() ColorTheme {
         var theme = ColorTheme{
             .name = "Monokai",
@@ -442,7 +442,7 @@ pub const ColorTheme = struct {
         return theme;
     }
 
-    /// Initializes a Sublime Text Mariana theme—balanced, modern, and vibrant.
+    /// Initializes a Sublime Text Mariana theme-balanced, modern, and vibrant.
     pub fn initSublimeMariana() ColorTheme {
         var theme = ColorTheme{
             .name = "Sublime-Mariana",
@@ -509,7 +509,7 @@ pub const ColorTheme = struct {
         return theme;
     }
 
-    /// Initializes a Solarized Dark theme—balanced, scientific, and eye-friendly.
+    /// Initializes a Solarized Dark theme-balanced, scientific, and eye-friendly.
     pub fn initSolarizedDark() ColorTheme {
         var theme = ColorTheme{
             .name = "Solarized-Dark",
@@ -576,7 +576,7 @@ pub const ColorTheme = struct {
         return theme;
     }
 
-    /// Initializes a Tomorrow Night theme—soft, calming, and readable.
+    /// Initializes a Tomorrow Night theme-soft, calming, and readable.
     pub fn initTomorrowNight() ColorTheme {
         var theme = ColorTheme{
             .name = "Tomorrow-Night",
@@ -643,7 +643,7 @@ pub const ColorTheme = struct {
         return theme;
     }
 
-    /// Initializes a Shades of Purple theme—bold, vibrant, and purple-heavy.
+    /// Initializes a Shades of Purple theme-bold, vibrant, and purple-heavy.
     pub fn initShadesOfPurple() ColorTheme {
         var theme = ColorTheme{
             .name = "Shades-of-Purple",
@@ -710,7 +710,7 @@ pub const ColorTheme = struct {
         return theme;
     }
 
-    /// Initializes a Night Owl theme—night-friendly, accessible, and muted.
+    /// Initializes a Night Owl theme-night-friendly, accessible, and muted.
     pub fn initNightOwl() ColorTheme {
         var theme = ColorTheme{
             .name = "Night-Owl",
@@ -777,7 +777,7 @@ pub const ColorTheme = struct {
         return theme;
     }
 
-    /// Initializes an MS-DOS theme—retro, bold, and terminal-inspired.
+    /// Initializes an MS-DOS theme-retro, bold, and terminal-inspired.
     pub fn initMSDOS() ColorTheme {
         var theme = ColorTheme{
             .name = "MS-DOS",
@@ -844,7 +844,7 @@ pub const ColorTheme = struct {
         return theme;
     }
 
-    /// Initializes a Turbo Vision theme—classic Borland TUI-inspired, updated for accuracy.
+    /// Initializes a Turbo Vision theme-classic Borland TUI-inspired, updated for accuracy.
     pub fn initTurboVision() ColorTheme {
         var theme = ColorTheme{
             .name = "Turbo-Vision",
@@ -911,7 +911,7 @@ pub const ColorTheme = struct {
         return theme;
     }
 
-    /// Initializes a One Dark theme—modern, balanced, and professional.
+    /// Initializes a One Dark theme-modern, balanced, and professional.
     pub fn initOneDark() ColorTheme {
         var theme = ColorTheme{
             .name = "One-Dark",
@@ -978,7 +978,7 @@ pub const ColorTheme = struct {
         return theme;
     }
 
-    /// Initializes a Commodore 64 theme—light blue on dark blue with retro accents.
+    /// Initializes a Commodore 64 theme-light blue on dark blue with retro accents.
     pub fn initCommodore64() ColorTheme {
         var theme = ColorTheme{
             .name = "Commodore-64",
@@ -1045,7 +1045,7 @@ pub const ColorTheme = struct {
         return theme;
     }
 
-    /// Initializes a Commodore 128 theme—light green on dark gray with retro accents.
+    /// Initializes a Commodore 128 theme-light green on dark gray with retro accents.
     pub fn initCommodore128() ColorTheme {
         var theme = ColorTheme{
             .name = "Commodore-128",
@@ -1186,18 +1186,18 @@ pub const ColorTheme = struct {
         return themes;
     }
 
-    /// Stub for loading a theme from JSON—placeholder for future flexibility.
+    /// Stub for loading a theme from JSON-placeholder for future flexibility.
     pub fn initFromJson(
         allocator: std.mem.Allocator,
         json_data: []const u8,
     ) !ColorTheme {
-        // TODO: Parse JSON into colors—e.g., {"WindowBorder": "#6c7086", ...}
+        // TODO: Parse JSON into colors-e.g., {"WindowBorder": "#6c7086", ...}
         _ = allocator;
         _ = json_data;
-        return initTokyoNightStorm(); // Stub—replace with real parsing later
+        return initTokyoNightStorm(); // Stub-replace with real parsing later
     }
 
-    /// Retrieves the color for a given class—simple and efficient.
+    /// Retrieves the color for a given class-simple and efficient.
     pub fn getColor(
         self: *const ColorTheme,
         class: ColorClass,
@@ -1205,7 +1205,7 @@ pub const ColorTheme = struct {
         return self.colors.get(class);
     }
 
-    /// Updates the color for a given class—flexible customization.
+    /// Updates the color for a given class-flexible customization.
     pub fn setColor(
         self: *ColorTheme,
         class: ColorClass,

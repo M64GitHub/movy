@@ -1,7 +1,7 @@
 const std = @import("std");
 const movy = @import("../../../movy.zig");
 
-// Defines a text window—extends a titled window with a text content area.
+// Defines a text window-extends a titled window with a text content area.
 pub const TextWindow = struct {
     base: *movy.ui.TitleWindow,
     base_widget: *movy.ui.Widget,
@@ -42,7 +42,7 @@ pub const TextWindow = struct {
         return self;
     }
 
-    /// Frees the text window’s base resources—caller manages title and text
+    /// Frees the text window’s base resources-caller manages title and text
     /// memory.
     pub fn deinit(self: *TextWindow, allocator: std.mem.Allocator) void {
         self.styled_text.deinit(allocator);
@@ -286,7 +286,7 @@ pub const TextWindow = struct {
         }
     }
 
-    /// Sets a new theme for the window—propagates to base.
+    /// Sets a new theme for the window-propagates to base.
     pub fn setTheme(
         self: *TextWindow,
         theme: *const movy.ui.ColorTheme,
@@ -299,7 +299,7 @@ pub const TextWindow = struct {
         return self.base.getTheme();
     }
 
-    /// Sets a new style for the window—propagates to base.
+    /// Sets a new style for the window-propagates to base.
     pub fn setStyle(self: *TextWindow, style: *const movy.ui.Style) void {
         self.base.setStyle(style);
     }
@@ -309,17 +309,17 @@ pub const TextWindow = struct {
         return self.base.getStyle();
     }
 
-    /// Sets the window’s position—propagates to base.
+    /// Sets the window’s position-propagates to base.
     pub fn setPosition(self: *TextWindow, x: i32, y: i32) void {
         self.base.setPosition(x, y);
     }
 
-    /// Retrieves the window’s position—passes through to base.
+    /// Retrieves the window’s position-passes through to base.
     pub fn getPosition(self: *const TextWindow) movy.ui.Position2D {
         return self.base.getPosition();
     }
 
-    /// Resizes the window—updates base dimensions.
+    /// Resizes the window-updates base dimensions.
     pub fn resize(
         self: *TextWindow,
         allocator: std.mem.Allocator,
@@ -329,12 +329,12 @@ pub const TextWindow = struct {
         try self.base.resize(allocator, w, h);
     }
 
-    /// Retrieves the window’s size—passes through to base.
+    /// Retrieves the window’s size-passes through to base.
     pub fn getSize(self: *const TextWindow) movy.ui.Size {
         return self.base.getSize();
     }
 
-    /// Sets the window title—propagates to base.
+    /// Sets the window title-propagates to base.
     pub fn setTitle(self: *TextWindow, title: []const u8) void {
         self.base.setTitle(title);
     }
@@ -344,7 +344,7 @@ pub const TextWindow = struct {
         return self.base.getTitle();
     }
 
-    /// Sets the window text—updates the displayed content.
+    /// Sets the window text-updates the displayed content.
     pub fn setText(self: *TextWindow, text: []const u8) !void {
         try self.styled_text.setTextFromAscii(text);
     }
@@ -366,7 +366,7 @@ pub const TextWindow = struct {
         return self.base.isInTitleBounds(x, y);
     }
 
-    /// Renders the text window—composites base, title, and text content,
+    /// Renders the text window-composites base, title, and text content,
     /// returns the final surface.
     pub fn render(self: *TextWindow) *movy.core.RenderSurface {
         const surface = self.base.render(); // Render base (bg, border, title)

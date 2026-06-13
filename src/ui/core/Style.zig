@@ -1,6 +1,6 @@
 const std = @import("std");
 
-/// Defines style classes for UI elements—maps to characters for rendering.
+/// Defines style classes for UI elements-maps to characters for rendering.
 pub const StyleClass = enum {
     WindowUpperLeftCorner,
     WindowUpperRightCorner,
@@ -12,9 +12,9 @@ pub const StyleClass = enum {
     WindowTitleRight,
 };
 
-/// Manages character-based styling for UI elements—maps StyleClass to u21.
+/// Manages character-based styling for UI elements-maps StyleClass to u21.
 pub const Style = struct {
-    name: []const u8, // Style name—e.g., "Default", "ThinBorders"
+    name: []const u8, // Style name-e.g., "Default", "ThinBorders"
     chars: std.EnumArray(StyleClass, u21), // Fixed mapping for fast lookups
 
     /// Initializes a default style with classic ASCII window characters.
@@ -695,12 +695,12 @@ pub const Style = struct {
         return style;
     }
 
-    /// Retrieves the character for a given style class—simple and efficient.
+    /// Retrieves the character for a given style class-simple and efficient.
     pub fn getChar(self: *const Style, class: StyleClass) u21 {
         return self.chars.get(class);
     }
 
-    /// Updates the character for a given style class—flexible customization.
+    /// Updates the character for a given style class-flexible customization.
     pub fn setChar(self: *Style, class: StyleClass, char: u21) void {
         self.chars.set(class, char);
     }

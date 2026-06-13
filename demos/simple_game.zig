@@ -494,6 +494,11 @@ pub fn main() !void {
     var game = try Game.init(allocator, &screen);
     defer game.deinit();
 
+    // Dirty-row output with a writer thread: only changed rows are sent
+    // and the game loop never blocks on the terminal (tmux-proof)
+    const dout = try movy.DiffOutput.init(allocator, &screen, .threaded);
+    defer dout.deinit();
+
     // -- Game loop
     var frame_counter: usize = 0;
     const frame_delay_ns = 17 * std.time.ns_per_ms; // ~60 FPS
@@ -536,7 +541,7 @@ pub fn main() !void {
 
         // Render frame
         try game.render();
-        try screen.output();
+        try dout.output(&screen);
 
         frame_counter += 1;
 

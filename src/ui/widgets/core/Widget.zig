@@ -1,9 +1,9 @@
 const std = @import("std");
 const movy = @import("../../../movy.zig");
 
-/// Base widget for all UI elements—defines dimensions and rendering surface.
+/// Base widget for all UI elements-defines dimensions and rendering surface.
 pub const Widget = struct {
-    // Rendered result—chars and pixels combined
+    // Rendered result-chars and pixels combined
     output_surface: *movy.core.RenderSurface,
     x: i32, // X position in terminal coordinates
     y: i32, // Y position in terminal coordinates
@@ -13,7 +13,7 @@ pub const Widget = struct {
     style: *const movy.ui.Style, // Reference to the active style (chars)
     is_active: bool = false,
 
-    /// Initializes a widget with dimensions and default theme/style—allocates
+    /// Initializes a widget with dimensions and default theme/style-allocates
     /// output_surface.
     pub fn init(
         allocator: std.mem.Allocator,
@@ -45,34 +45,34 @@ pub const Widget = struct {
         return self;
     }
 
-    /// Frees the widget’s output_surface—caller must manage theme/style
+    /// Frees the widget’s output_surface-caller must manage theme/style
     /// lifetimes.
     pub fn deinit(self: *Widget, allocator: std.mem.Allocator) void {
         self.output_surface.deinit(allocator);
         allocator.destroy(self);
     }
 
-    /// Sets a new theme for the widget—updates rendering colors.
+    /// Sets a new theme for the widget-updates rendering colors.
     pub fn setTheme(self: *Widget, theme: *const movy.ui.ColorTheme) void {
         self.theme = theme;
     }
 
-    /// Retrieves the current theme—useful for rendering or inspection.
+    /// Retrieves the current theme-useful for rendering or inspection.
     pub fn getTheme(self: *const Widget) *const movy.ui.ColorTheme {
         return self.theme;
     }
 
-    /// Sets a new style for the widget—updates rendering characters.
+    /// Sets a new style for the widget-updates rendering characters.
     pub fn setStyle(self: *Widget, style: *const movy.ui.Style) void {
         self.style = style;
     }
 
-    /// Retrieves the current style—useful for rendering or inspection.
+    /// Retrieves the current style-useful for rendering or inspection.
     pub fn getStyle(self: *const Widget) *const movy.ui.Style {
         return self.style;
     }
 
-    /// Sets the widget’s position—updates x and y coordinates.
+    /// Sets the widget’s position-updates x and y coordinates.
     pub fn setPosition(self: *Widget, x: i32, y: i32) void {
         var y_new: i32 = @divTrunc(y, 2);
         y_new = y_new * 2;
@@ -82,12 +82,12 @@ pub const Widget = struct {
         self.output_surface.y = y_new;
     }
 
-    /// Gets the widget’s position—returns x and y as a Position2D struct.
+    /// Gets the widget’s position-returns x and y as a Position2D struct.
     pub fn getPosition(self: *const Widget) movy.ui.Position2D {
         return movy.ui.Position2D{ .x = self.x, .y = self.y };
     }
 
-    /// Resizes the widget—updates w and h, recreates output_surface if
+    /// Resizes the widget-updates w and h, recreates output_surface if
     /// dimensions change.
     pub fn resize(
         self: *Widget,
@@ -109,7 +109,7 @@ pub const Widget = struct {
         }
     }
 
-    /// Retrieves the widget’s size—returns w and h as a Size struct.
+    /// Retrieves the widget’s size-returns w and h as a Size struct.
     pub fn getSize(self: *const Widget) movy.ui.Size {
         return .{ .w = self.w, .h = self.h };
     }
@@ -120,9 +120,9 @@ pub const Widget = struct {
         self.output_surface.clearColored(self.theme.getColor(.BackgroundColor));
     }
 
-    /// Renders the widget—base implementation fills with background color.
+    /// Renders the widget-base implementation fills with background color.
     pub fn render(self: *Widget) *movy.core.RenderSurface {
-        self.clear(); // Simple bg fill—subclasses override for more
+        self.clear(); // Simple bg fill-subclasses override for more
         return self.output_surface;
     }
 };

@@ -10,6 +10,57 @@ const types = @import("types.zig");
 
 pub const Error = error{InvalidColorString};
 
+/// Linear float color, 0..1 nominal (may exceed 1.0 mid-accumulation - that is
+/// how additive light/glow blooms). This is the working color type for the
+/// `render.Frame` glow framebuffer: draw and accumulate in V3, then convert to
+/// `types.Rgb` at output time (`toRgb`, or `Frame.composite()` does it for you).
+pub const V3 = struct {
+    r: f32 = 0,
+    g: f32 = 0,
+    b: f32 = 0,
+
+    pub inline fn add(a: V3, b_: V3) V3 {
+        return .{ .r = a.r + b_.r, .g = a.g + b_.g, .b = a.b + b_.b };
+    }
+    pub inline fn scale(a: V3, s: f32) V3 {
+        return .{ .r = a.r * s, .g = a.g * s, .b = a.b * s };
+    }
+    pub inline fn mul(a: V3, b_: V3) V3 {
+        return .{ .r = a.r * b_.r, .g = a.g * b_.g, .b = a.b * b_.b };
+    }
+    pub inline fn lerp(a: V3, b_: V3, t: f32) V3 {
+        return .{
+            .r = a.r + (b_.r - a.r) * t,
+            .g = a.g + (b_.g - a.g) * t,
+            .b = a.b + (b_.b - a.b) * t,
+        };
+    }
+    /// Clamp to 0..1 and quantize to an 8-bit terminal color.
+    pub inline fn toRgb(c: V3) types.Rgb {
+        return .{
+            .r = @intFromFloat(std.math.clamp(c.r, 0.0, 1.0) * 255.0),
+            .g = @intFromFloat(std.math.clamp(c.g, 0.0, 1.0) * 255.0),
+            .b = @intFromFloat(std.math.clamp(c.b, 0.0, 1.0) * 255.0),
+        };
+    }
+    pub inline fn fromRgb(c: types.Rgb) V3 {
+        return .{
+            .r = @as(f32, @floatFromInt(c.r)) / 255.0,
+            .g = @as(f32, @floatFromInt(c.g)) / 255.0,
+            .b = @as(f32, @floatFromInt(c.b)) / 255.0,
+        };
+    }
+};
+
+/// Convenience constructor for a `V3` linear float color.
+pub inline fn v3(r: f32, g: f32, b: f32) V3 {
+    return .{ .r = r, .g = g, .b = b };
+}
+
+/// V3 white/black (handy as `Frame` defaults / flash colors).
+pub const WHITE_F = V3{ .r = 1, .g = 1, .b = 1 };
+pub const BLACK_F = V3{ .r = 0, .g = 0, .b = 0 };
+
 /// Return a types.Rgb from HMTL color string like "#892f8c", or "892f8c",
 /// or an error on invalid input string
 pub fn fromHtml(html: []const u8) !types.Rgb {

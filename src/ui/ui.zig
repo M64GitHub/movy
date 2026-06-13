@@ -1,4 +1,4 @@
-// UI submodules — building blocks for window based terminal interfaces
+// UI submodules - building blocks for window based terminal interfaces
 pub const BorderedWindow = @import("widgets/window/BorderedWindow.zig").BorderedWindow;
 pub const TitleWindow = @import("widgets/window/TitleWindow.zig").TitleWindow;
 pub const TextWindow = @import("widgets/window/TextWindow.zig").TextWindow;

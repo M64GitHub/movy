@@ -1,10 +1,10 @@
 const std = @import("std");
 const movy = @import("../../../movy.zig");
 
-/// Defines a border-only widget—renders a rectangular frame using style
+/// Defines a border-only widget-renders a rectangular frame using style
 /// characters.
 pub const WindowBorder = struct {
-    // Rendered border—chars only, transparent inner
+    // Rendered border-chars only, transparent inner
     output_surface: *movy.core.RenderSurface,
     x: i32, // X position in terminal coordinates
     y: i32, // Y position in terminal coordinates
@@ -13,7 +13,7 @@ pub const WindowBorder = struct {
     theme: *const movy.ui.ColorTheme, // Reference to the active color theme
     style: *const movy.ui.Style, // Reference to the active style (chars)
 
-    /// Initializes a border widget—matches Widget dimensions,
+    /// Initializes a border widget-matches Widget dimensions,
     /// allocates output_surface.
     pub fn init(
         allocator: std.mem.Allocator,
@@ -41,16 +41,16 @@ pub const WindowBorder = struct {
         };
     }
 
-    /// Frees the border’s output_surface—caller manages theme/style lifetimes.
+    /// Frees the border’s output_surface-caller manages theme/style lifetimes.
     pub fn deinit(self: *WindowBorder, allocator: std.mem.Allocator) void {
         self.output_surface.deinit(allocator);
     }
 
-    /// Renders the border—draws a single-line rectangular frame using
+    /// Renders the border-draws a single-line rectangular frame using
     /// style characters, returns the surface.
     pub fn render(self: *WindowBorder) *movy.core.RenderSurface {
-        const half_h = self.h / 2; // Lines—y * 2 for pixel rows
-        const bottom_y = half_h * 2 - 2; // Bottom row—y_pixel for bottom border
+        const half_h = self.h / 2; // Lines-y * 2 for pixel rows
+        const bottom_y = half_h * 2 - 2; // Bottom row-y_pixel for bottom border
         self.output_surface.clearTransparent(); // Inner stays transparent
 
         // Top and bottom borders
@@ -155,7 +155,7 @@ pub const WindowBorder = struct {
         return self.output_surface; // Return final surface
     }
 
-    /// Sets the border’s position—updates x and y coordinates.
+    /// Sets the border’s position-updates x and y coordinates.
     pub fn setPosition(self: *WindowBorder, x: i32, y: i32) void {
         var y_new: i32 = @divTrunc(y, 2);
         y_new = y_new * 2;
@@ -165,12 +165,12 @@ pub const WindowBorder = struct {
         self.output_surface.y = y_new;
     }
 
-    /// Retrieves the widget’s size—returns w and h as a Size struct.
+    /// Retrieves the widget’s size-returns w and h as a Size struct.
     pub fn getSize(self: *WindowBorder) movy.ui.Size {
         return .{ .w = self.w, .h = self.h };
     }
 
-    /// Sets a new theme for the widget—updates rendering colors.
+    /// Sets a new theme for the widget-updates rendering colors.
     pub fn setTheme(
         self: *WindowBorder,
         theme: *const movy.ui.ColorTheme,
@@ -178,12 +178,12 @@ pub const WindowBorder = struct {
         self.theme = theme;
     }
 
-    /// Retrieves the current theme—useful for rendering or inspection.
+    /// Retrieves the current theme-useful for rendering or inspection.
     pub fn getTheme(self: *const WindowBorder) *const movy.ui.ColorTheme {
         return self.theme;
     }
 
-    /// Sets a new style for the widget—updates rendering characters.
+    /// Sets a new style for the widget-updates rendering characters.
     pub fn setStyle(
         self: *WindowBorder,
         style: *const movy.ui.Style,
@@ -191,7 +191,7 @@ pub const WindowBorder = struct {
         self.style = style;
     }
 
-    /// Retrieves the current style—useful for rendering or inspection.
+    /// Retrieves the current style-useful for rendering or inspection.
     pub fn getStyle(self: *const WindowBorder) *const movy.ui.Style {
         return self.style;
     }

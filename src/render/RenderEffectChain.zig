@@ -83,7 +83,7 @@ pub const RenderEffectChain = struct {
         const target_w = input.w + expand.border_x * 2;
         const target_h = input.h + expand.border_y * 2;
 
-        // Case 1: Only one effect — no intermediates needed
+        // Case 1: Only one effect - no intermediates needed
         if (self.effect_links.items.len == 1) {
             if (ctx.output_surface.w != target_w or
                 ctx.output_surface.h != target_h)
@@ -94,7 +94,7 @@ pub const RenderEffectChain = struct {
             return;
         }
 
-        // Case 2: Multiple effects — allocate intermediates
+        // Case 2: Multiple effects - allocate intermediates
         for (self.effect_links.items[0 .. self.effect_links.items.len - 1]) |*link| {
             if (link.out_surface) |surface| {
                 if (surface.w != target_w or surface.h != target_h) {

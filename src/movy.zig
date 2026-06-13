@@ -16,25 +16,33 @@ pub const SpritePool = @import("graphic/SpritePool.zig").SpritePool;
 pub const BlockLine = @import("graphic/BlockLine.zig").BlockLine;
 pub const RenderSurface = @import("core/RenderSurface.zig").RenderSurface;
 
-// Core submodules — foundational elements for movy
+// Core submodules - foundational elements for movy
 pub const core = @import("core/core.zig");
 
-// Utility submodules — supporting functionality
+// Utility submodules - supporting functionality
 pub const utils = @import("utils/utils.zig");
 
-// Rendering submodules — tools for composing terminal visuals
+// Rendering submodules - tools for composing terminal visuals
 pub const render = @import("render/render.zig");
 
-// Animation submodules — tools for animations and transitions
+// Float framebuffer with persistent glow/bloom + CRT post-fx - the neon-look
+// layer for 60fps terminal apps/games. Pairs with `color.V3`.
+pub const Frame = @import("render/Frame.zig").Frame;
+
+// Animation submodules - tools for animations and transitions
 pub const animation = @import("animation/animation.zig");
 
-// Graphics submodules — non-UI renderable components for visuals
+// Graphics submodules - non-UI renderable components for visuals
 pub const graphic = @import("graphic/graphic.zig");
 
-// Display surface—top-level rendering canvas, and output to terminal
+// Display surface-top-level rendering canvas, and output to terminal
 pub const Screen = @import("screen/Screen.zig").Screen;
 
-// Top level utility submodules — supporting functionality
+// Dirty-row terminal output with optional writer thread - a faster
+// drop-in for Screen.output() (essential under tmux / ssh)
+pub const DiffOutput = @import("screen/DiffOutput.zig").DiffOutput;
+
+// Top level utility submodules - supporting functionality
 pub const color = @import("core/colors.zig");
 pub const input = @import("input/input.zig");
 pub const terminal = @import("terminal/terminal.zig");
@@ -48,4 +56,5 @@ test {
     _ = @import("graphic/Sprite.zig");
     _ = @import("animation/IndexAnimator.zig");
     _ = @import("render/RenderEngine.zig");
+    _ = @import("input/input.zig");
 }

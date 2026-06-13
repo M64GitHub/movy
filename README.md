@@ -1,12 +1,12 @@
 ![License](https://img.shields.io/badge/License-MIT-85adf2?style=flat)
-![Version](https://img.shields.io/badge/Version-0.2.3-85adf2?style=flat)
+![Version](https://img.shields.io/badge/Version-0.3.0-85adf2?style=flat)
 ![Zig](https://img.shields.io/badge/Zig-0.15.2-orange?style=flat)
 
 <img width="1925" height="600" alt="image" src="https://github.com/user-attachments/assets/9bb4787b-6032-4b59-8e6d-cdac22540909" />
 
 **movy** is a terminal-based graphics and animation engine that brings pixel-level rendering, visual effects, and interactivity to text mode.
 
-## The Idea Behind movy
+## Overview
 
 **movy** began with a simple vision - to bring real rendering power to the terminal - treating text mode as a programmable graphics environment rather than plain text output.
 
@@ -14,11 +14,14 @@ The engine provides:
 
 * **Layered rendering** with alpha blending, z-ordering, and compositing.
 * **Programmable pipelines** for chaining effects, transitions, and post-processing.
+* **Frame-based rendering** - a float framebuffer with a persistent glow/bloom buffer and a built-in CRT post-fx stack (vignette, scanlines, flash, tint), giving a neon look essentially for free. Ideal for games and shader-toy-style demos.
 * **Sprite and surface abstraction** for transparent drawing and dynamic frame animations.
-* **Animation control** via IndexAnimators, waveform generators, and easing functions - driving frame indices, colors, positions, and other parameters.
 * **Half-block rendering** for double vertical resolution.
+* **Animation control** via IndexAnimators, waveform generators, and easing functions - driving frame indices, colors, positions, and other parameters.
+* **High-throughput output** - `DiffOutput` re-paints only the terminal rows that changed, with an optional background writer thread, for smooth 60fps even under tmux / ssh.
+* **Keyboard, mouse, and kitty-protocol input** - including true key press / repeat / release events on supporting terminals.
 
-Rendering, animation, and effects are independent yet interoperable subsystems.
+Rendering, animation, effects, and input are independent yet interoperable subsystems.
 
 The result is a **modular visual engine** - expressive, composable, and built for creative experimentation.
 
@@ -28,6 +31,9 @@ The result is a **modular visual engine** - expressive, composable, and built fo
 
 ![screenshot](https://github.com/user-attachments/assets/c5e4885b-2f31-49d7-aa35-bdc4dff5eefe)
 (dev snapshot of a game)
+
+![frame-game](./demos/frame-game/screenshot.png)
+(frame-game - a neon platformer built on the new **Frame** rendering path - play it with `zig build run-frame-game`, read it in [demos/frame-game](./demos/frame-game/))
 
 <video src="https://github.com/user-attachments/assets/719af1a5-d6bd-4a33-91bf-780af909fef2" width="640" autoplay loop muted></video>
 (scaling and rotation demo - [rotoscale.zig](./demos/rotoscale.zig)) (rendered 60fps, captured with 30fps video)
@@ -39,9 +45,18 @@ Check out games, demos, and tools built with movy in the **[Gallery](#showcase-b
 
 ## Core Concepts
 
-**movy** is organized around a few core types that coordinate how visuals are drawn, animated, and composed on screen:
+**movy** is organized around a few core types that coordinate how visuals are drawn, animated, and composed on screen.
 
-### Rendering Engine Concepts
+For rendering specifically, movy offers **two paths**. They share the same `RenderSurface`, `Screen`, and terminal output, so you can mix them - but each is tuned for a different job:
+
+| Path | Draw onto | Best for |
+|------|-----------|----------|
+| **Compositing Path** | `RenderSurface`s, layered through an effect pipeline | UI, sprite scenes, video playback, transitions, demos that combine many independent visual layers |
+| **Frame Path** | a single `Frame` (float framebuffer + glow + CRT post-fx) | fast-moving games and shader-toy-style demos that want a neon look for free |
+
+### Rendering Path 1 - Compositing
+
+Layered surfaces, composited through a programmable effect pipeline.
 
 - **RenderSurface** is the foundational structure - a 2D matrix of pixels (with optional text overlays) that anything visual draws onto. It supports alpha, can be resized, cleared, scaled, rotated, and converted to ANSI via `.toAnsi()`.
 
@@ -58,9 +73,23 @@ Check out games, demos, and tools built with movy in the **[Gallery](#showcase-b
 
 - **RenderEngine** performs the actual surface merge. It composites multiple `RenderSurface`s into a single output, applying z-ordering and visibility logic. It supports multiple blending modes: binary transparency for performance-critical rendering, and full Porter-Duff alpha compositing for true semi-transparent effects. This is used by the pipeline, UI system, and manual rendering flows.
 
-- **Screen** holds the final output surface. Manually, it allows you to add `RenderSurface`s or `Sprite`s directly and call `screen.render()` to composite them using the **RenderEngine**. Alternatively, its output surface can be rendered by the **RenderPipeline** or the **UI Manager**. Finally, `screen.output()` prints the result to the terminal using ANSI escape sequences.
+### Rendering Path 2 - Frame (neon-render layer)
 
+A single float framebuffer with a built-in post-processing stack. Instead of compositing many surfaces, you draw straight into a **`Frame`**, which gives the neon look essentially for free. Great for games - see the [frame-game demo](./demos/frame-game/) for a complete, copy-able example.
 
+- **Frame** is a float framebuffer built on top of a `RenderSurface`, with two layers and its own effect stack:
+  - a **`solid`** layer for opaque colors (background, bodies, tiles) - you rewrite it each frame, and
+  - a **`glow`** layer that is *additive and persistent*: every `beginFrame()` it is blurred and decayed, then the frame's emissions are added on top. A bright thing at a still spot becomes a stable **bloom**; if it moves, you get a neon **trail** - with zero per-object bookkeeping.
+  
+  `composite()` mixes the two and runs the post-fx chain - `clamp(solid + glow)` -> vignette -> scanline -> warmth -> flash -> tint - into the owned `RenderSurface` that `Screen` / `DiffOutput` consume. Drawing is simple: `px / rect / hline / vline / shadeRect` for solid, and `gpx / grect / ghline / gvline / gring` for glow. `savePng()` provides a headless screenshot dev loop (render N frames, save a PNG, look - no terminal needed).
+
+- **color.V3** is the linear float color used while drawing (`V3{ r, g, b }`, 0..1, allowed to exceed 1.0 while light accumulates - that's what makes glow bloom). Helpers: `v3(r,g,b)`, `.add / .scale / .mul / .lerp`, `.toRgb()` / `.fromRgb()`. `composite()` clamps and quantizes to 8-bit for you.
+
+### Output - shared by both paths
+
+- **Screen** holds the final output surface. Manually, it allows you to add `RenderSurface`s or `Sprite`s directly and call `screen.render()` to composite them using the **RenderEngine**. Alternatively, its output surface can be rendered by the **RenderPipeline**, the **UI Manager**, or fed a `Frame`'s composited surface. Finally, `screen.output()` prints the result to the terminal using ANSI escape sequences.
+
+- **DiffOutput** is a faster, drop-in replacement for `screen.output()`. It compares each terminal row against the previous frame and re-sends only the rows that changed (unchanged rows cost zero bytes), and in `.threaded` mode hands the blocking write to a background writer thread - so the render loop never stalls, dropping a frame instead of freezing. This is what keeps things smooth at 60fps, especially under tmux / ssh.
 
 ### Sprite Rendering
 
@@ -121,8 +150,20 @@ zig build test
 - **[Guides](./doc/README.md)** - Documentation on core concepts like RenderSurface and RenderEngine, written for developers new to movy
 - **[Examples](./examples/)** - Code examples demonstrating specific features (alpha blending, PNG loading, sprite animations, rotation / scaling, ...)
 - **[Demos](./demos/README.md)** - Programs showcasing visual effects, animations, and interaction
+- **[Release Notes](./RELEASE_NOTES.md)** - What's new in the latest release (see [CHANGELOG.md](./CHANGELOG.md) for the full history)
 
 The sections are being updated frequently.
+
+> [!TIP]
+> **Building a game? Start with [frame-game](./demos/frame-game/).**
+> It's a complete, copy-able neon platformer that shows the new **Frame** rendering path end to end - persistent glow/bloom, linear float `V3` color, 60fps `DiffOutput`, and kitty-protocol input - alongside sub-pixel platformer physics, tile collision, and a follow camera with screen shake.
+>
+> ```sh
+> zig build run-frame-game                         # play it
+> zig build run-frame-game -- --shot 160 out.png   # headless: render 160 frames to a PNG
+> ```
+>
+> Its [README](./demos/frame-game/README.md) is a full walkthrough of the Frame path.
 
 ## Showcase: Built with movy
 
