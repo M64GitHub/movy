@@ -36,13 +36,6 @@ The result is a **modular visual engine** - expressive, composable, and built fo
 
 (frame-game - a neon platformer built on the new **Frame** rendering path - play it with `zig build run-frame-game`, read it in [demos/frame-game](./demos/frame-game/))
 
-<video src="https://github.com/user-attachments/assets/719af1a5-d6bd-4a33-91bf-780af909fef2" width="640" autoplay loop muted></video>
-(scaling and rotation demo - [rotoscale.zig](./demos/rotoscale.zig)) (rendered 60fps, captured with 30fps video)
-
-
-## Made with movy
-
-Check out games, demos, and tools built with movy in the **[Gallery](#showcase-built-with-movy)** below!
 
 ## Core Concepts
 
@@ -206,5 +199,4 @@ see [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
 ---
 
 Made with `<3` and **Zig**
-
 
