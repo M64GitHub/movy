@@ -33,6 +33,7 @@ The result is a **modular visual engine** - expressive, composable, and built fo
 (dev snapshot of a game)
 
 ![frame-game](./demos/frame-game/screenshot.png)
+
 (frame-game - a neon platformer built on the new **Frame** rendering path - play it with `zig build run-frame-game`, read it in [demos/frame-game](./demos/frame-game/))
 
 <video src="https://github.com/user-attachments/assets/719af1a5-d6bd-4a33-91bf-780af909fef2" width="640" autoplay loop muted></video>
