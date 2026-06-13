@@ -176,20 +176,6 @@ Let the pixels glow - and the Terminal Revolution begin!
 
 Whether it's a game, a demo, an effect, or a tool - if it glows in the terminal, it belongs here.
 
-## Performance Suite
-
-<img alt="movy-perf-suite" src="https://github.com/user-attachments/assets/5af16b6c-d6c1-4bf0-a620-dbb067ea23e3" />
-
-The integrated performance suite benchmarks ANSI conversion, sprite rendering, and the full pipeline across different sizes and configurations.
-
-```bash
-zig build perf-runner
-open perf-results/index.html  # Interactive retro-themed dashboard
-```
-
-See [perf-tst/README.md](./perf-tst/README.md) for details.  
-See a generated report including charts and raw data [here](https://m64github.github.io/movy-performance-reports/) (click "view charts").
-
 ## Contributing
 
 movy is a work of love and dedicated vision, still evolving rapidly.
