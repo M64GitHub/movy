@@ -167,15 +167,6 @@ The sections are being updated frequently.
 | [movycat](https://github.com/M64GitHub/movycat) | Terminal video player |<img width="1300" height="460" alt="459688245-d07e6ecd-2ee4-41f2-a82c-66096de14aed" src="https://github.com/user-attachments/assets/9b67e47b-30bd-4b04-bbd1-99869bba59e3" /> |
 | *Your project here?* |  | Post in the [Community Showcase Discussion](https://github.com/M64GitHub/movy/discussions/10)! |
 
-### Want to be featured?
-
-Create something awesome with movy and share it in our [Discussion](https://github.com/M64GitHub/movy/discussions/10)!
-
-Your project might be featured in the next README update.  
-Let the pixels glow - and the Terminal Revolution begin!
-
-Whether it's a game, a demo, an effect, or a tool - if it glows in the terminal, it belongs here.
-
 ## Contributing
 
 movy is a work of love and dedicated vision, still evolving rapidly.
