@@ -2,7 +2,7 @@
 ![Version](https://img.shields.io/badge/Version-0.3.0-85adf2?style=flat)
 ![Zig](https://img.shields.io/badge/Zig-0.15.2-orange?style=flat)
 
-<img width="1925" alt="movy-morph5" src="https://github.com/user-attachments/assets/5038ef8c-06a6-4485-bbd4-91a48088fee0" />
+<img width="1925" alt="movy-morph5-shake" src="https://github.com/user-attachments/assets/0d2e0d6c-4de3-4134-a766-6a66d4c9c110" />
 
 
 **movy** is a terminal-based graphics and animation engine that brings pixel-level rendering, visual effects, and interactivity to text mode.
