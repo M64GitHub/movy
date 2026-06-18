@@ -1,4 +1,4 @@
-//! movyfx — the shared harness behind the logo-morph example.
+//! movyfx - the shared harness behind the logo-morph example.
 //!
 //! main.zig owns the *scene* (what one frame looks like); this file owns
 //! everything around it: the canvas size, the small math helpers, the particle
@@ -19,7 +19,7 @@ pub const V3 = movy.color.V3;
 
 // -------------------------------------------------------------- canvas / look
 
-pub const CANVAS_W: i32 = 120; // pixel columns  (= terminal columns) — wide banner
+pub const CANVAS_W: i32 = 120; // pixel columns  (= terminal columns) - wide banner
 pub const CANVAS_H: i32 = 40; // pixel rows     (= 20 terminal lines, 2 px/cell)
 pub const MIN_VIEW_W: i32 = 120; // 120x40 px -> a 3:1 banner, like movy-gfx.png
 pub const FRAME_NS: i128 = 16_666_667; // ~60 fps live
@@ -187,7 +187,7 @@ fn putSeg(
 }
 
 /// Draw the '~/get/movy  master ↓1 ›' prompt line as real terminal text on the
-/// composited surface — a little "movy in your shell" caption under the banner.
+/// composited surface - a little "movy in your shell" caption under the banner.
 pub fn drawPrompt(surface: *movy.RenderSurface, row: usize, blink_on: bool) void {
     const bg: pal.Rgb = .{ .r = 0, .g = 0, .b = 0 };
     const blue: pal.Rgb = .{ .r = 0x3c, .g = 0x9a, .b = 0xe0 };
@@ -195,7 +195,7 @@ pub fn drawPrompt(surface: *movy.RenderSurface, row: usize, blink_on: bool) void
     var x: usize = 6;
     x = putSeg(surface, x, row, "~/get/movy", blue, bg);
     x = putSeg(surface, x, row, "  master ", green, bg);
-    x = putSeg(surface, x, row, "↓1 ", green, bg); // git ahead/behind — green
+    x = putSeg(surface, x, row, "↓1 ", green, bg); // git ahead/behind - green
     x = putSeg(surface, x, row, "› ", green, bg);
     _ = putSeg(surface, x, row, if (blink_on) "█" else " ", green, bg);
 }

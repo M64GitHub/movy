@@ -1,4 +1,4 @@
-//! movy logo bitmap — extracted from the real source asset
+//! movy logo bitmap - extracted from the real source asset
 //! movy/demos/assets/movy-logo2.png (61x18 grayscale, RGBA composited
 //! over black). 0=transparent/black interior, mid grays = the frame +
 //! top/right heat-strip gradient, 255 = bright white walls.

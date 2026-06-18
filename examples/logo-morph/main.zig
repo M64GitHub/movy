@@ -1,9 +1,9 @@
-//! logo-morph — a looping neon logo reveal, drawn straight into a movy.Frame.
+//! logo-morph - a looping neon logo reveal, drawn straight into a movy.Frame.
 //!
 //! The movy logo is rebuilt every frame from its own grayscale pixels (see
 //! logo.zig). A flare beam sweeps across it; where the beam touches, pixels
-//! energize and scatter, then re-form. The logo stays crisp and clean — its
-//! true grays visible — until the beam reaches it. Glow appears only
+//! energize and scatter, then re-form. The logo stays crisp and clean - its
+//! true grays visible - until the beam reaches it. Glow appears only
 //! transiently:
 //!   * energize + warm scorch where/just-behind the beam, and
 //!   * the purple ignite + afterglow swell after the beam exits,
@@ -12,7 +12,7 @@
 //!
 //! This is the animation shown in the project README. It shows off the **Frame**
 //! rendering path: a float framebuffer with a persistent, additive glow buffer
-//! (bloom + neon trails for free) and a built-in CRT post-fx stack — no manual
+//! (bloom + neon trails for free) and a built-in CRT post-fx stack - no manual
 //! per-object trail bookkeeping anywhere.
 //!
 //!   zig build run-logo-morph            -> run it (ESC / q quits)
