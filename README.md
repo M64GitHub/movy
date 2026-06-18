@@ -6,6 +6,14 @@
 
 **movy** is a terminal-based graphics and animation engine that brings pixel-level rendering, visual effects, and interactivity to text mode.
 
+> [!TIP]
+> **The neon banner above is a live movy program** - a looping logo reveal rendered
+> on the new **Frame** path. See how it's made (and run it yourself) in
+> **[examples/logo-morph](./examples/logo-morph/)**:
+> ```sh
+> zig build run-logo-morph
+> ```
+
 ## Overview
 
 **movy** began with a simple vision - to bring real rendering power to the terminal - treating text mode as a programmable graphics environment rather than plain text output.

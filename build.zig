@@ -146,6 +146,28 @@ pub fn build(b: *std.Build) void {
         ).dependOn(&run_fg.step);
     }
 
+    // -- logo-morph: the looping neon banner animation from the README, a
+    //    multi-file example of the Frame neon-render path. Like frame-game it
+    //    lives in a subdir with sibling modules, so it gets its own entry.
+    {
+        const lm_mod = b.addModule("example_logo_morph", .{
+            .root_source_file = b.path("examples/logo-morph/main.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
+        lm_mod.addImport("movy", movy_mod);
+        const lm_exe = b.addExecutable(.{ .name = "logo-morph", .root_module = lm_mod });
+        lm_exe.linkLibC(); // movy bundles lodepng (C); linking libC keeps the movy module happy
+        b.installArtifact(lm_exe);
+        const run_lm = b.addRunArtifact(lm_exe);
+        run_lm.step.dependOn(b.getInstallStep());
+        if (b.args) |args| run_lm.addArgs(args);
+        b.step(
+            "run-logo-morph",
+            "Run logo-morph (the README's neon Frame banner; ESC/q quits)",
+        ).dependOn(&run_lm.step);
+    }
+
     // -- Games
     const games = [_][]const u8{};
 
