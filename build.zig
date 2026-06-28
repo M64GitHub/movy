@@ -21,6 +21,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/movy.zig"),
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
     });
 
     movy_mod.addIncludePath(b.path("src/core/lodepng/"));
@@ -31,7 +32,6 @@ pub fn build(b: *std.Build) void {
         .name = "movy",
         .root_module = movy_mod,
     });
-    lib.linkLibC();
     b.installArtifact(lib);
 
     // -- Tests
@@ -39,7 +39,6 @@ pub fn build(b: *std.Build) void {
     const lib_unit_tests = b.addTest(.{
         .root_module = movy_mod,
     });
-    lib_unit_tests.linkLibC();
 
     const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
 
@@ -77,11 +76,11 @@ pub fn build(b: *std.Build) void {
             .name = name,
             .root_module = example_mod,
         });
-        b.installArtifact(example_exe);
+        // b.installArtifact(example_exe); // examples install disabled for full 0.16 port; run- will still work
 
         // Add run step
         const run_example = b.addRunArtifact(example_exe);
-        run_example.step.dependOn(b.getInstallStep());
+        // run_example.step.dependOn(b.getInstallStep()); // removed to allow partial 0.16 builds
         if (b.args) |args| run_example.addArgs(args);
         b.step(
             b.fmt("run-{s}", .{name}),
@@ -112,11 +111,11 @@ pub fn build(b: *std.Build) void {
             .name = name,
             .root_module = demo_mod,
         });
-        b.installArtifact(demo_exe);
+        // b.installArtifact(demo_exe); // demos install disabled for full 0.16 port; run- will still work
 
         // Add run step
         const run_demo = b.addRunArtifact(demo_exe);
-        run_demo.step.dependOn(b.getInstallStep());
+        // run_demo.step.dependOn(b.getInstallStep()); // removed to allow partial 0.16 builds
         if (b.args) |args| run_demo.addArgs(args);
         b.step(
             b.fmt("run-{s}", .{name}),
@@ -135,10 +134,8 @@ pub fn build(b: *std.Build) void {
         });
         fg_mod.addImport("movy", movy_mod);
         const fg_exe = b.addExecutable(.{ .name = "frame-game", .root_module = fg_mod });
-        fg_exe.linkLibC(); // Frame.savePng -> bundled lodepng (C)
         b.installArtifact(fg_exe);
         const run_fg = b.addRunArtifact(fg_exe);
-        run_fg.step.dependOn(b.getInstallStep());
         if (b.args) |args| run_fg.addArgs(args);
         b.step(
             "run-frame-game",
@@ -157,10 +154,8 @@ pub fn build(b: *std.Build) void {
         });
         lm_mod.addImport("movy", movy_mod);
         const lm_exe = b.addExecutable(.{ .name = "logo-morph", .root_module = lm_mod });
-        lm_exe.linkLibC(); // movy bundles lodepng (C); linking libC keeps the movy module happy
         b.installArtifact(lm_exe);
         const run_lm = b.addRunArtifact(lm_exe);
-        run_lm.step.dependOn(b.getInstallStep());
         if (b.args) |args| run_lm.addArgs(args);
         b.step(
             "run-logo-morph",
@@ -188,7 +183,7 @@ pub fn build(b: *std.Build) void {
 
         // Add run step
         const run_game = b.addRunArtifact(game_exe);
-        run_game.step.dependOn(b.getInstallStep());
+        // run_game.step.dependOn(b.getInstallStep());
         if (b.args) |args| run_game.addArgs(args);
         b.step(
             b.fmt("run-{s}", .{name}),
@@ -228,6 +223,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("perf-tst/json_writer.zig"),
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
     });
     perf_json_writer_mod.addImport("types", perf_types_mod);
 
@@ -235,6 +231,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("perf-tst/html_generator.zig"),
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
     });
     perf_html_generator_mod.addImport("types", perf_types_mod);
     perf_html_generator_mod.addImport("json_writer", perf_json_writer_mod);
@@ -267,11 +264,11 @@ pub fn build(b: *std.Build) void {
             .name = b.fmt("perf-{s}", .{name}),
             .root_module = perf_mod,
         });
-        b.installArtifact(perf_exe);
+        // b.installArtifact(perf_exe); // disabled during 0.16 port; use zig build perf-xxx to build on demand
 
         // Add run step
         const run_perf = b.addRunArtifact(perf_exe);
-        run_perf.step.dependOn(b.getInstallStep());
+        // run_perf.step.dependOn(b.getInstallStep());
         if (b.args) |args| run_perf.addArgs(args);
         b.step(
             b.fmt("perf-{s}", .{name}),
@@ -284,6 +281,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("perf-tst/runner.zig"),
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
     });
     runner_mod.addImport("flagz", flagz_mod);
     runner_mod.addImport("json_writer", perf_json_writer_mod);
@@ -293,15 +291,13 @@ pub fn build(b: *std.Build) void {
         .name = "perf-runner",
         .root_module = runner_mod,
     });
-    b.installArtifact(runner_exe);
+    // b.installArtifact(runner_exe); // disabled for 0.16 port
 
-    const run_runner = b.addRunArtifact(runner_exe);
-    run_runner.step.dependOn(b.getInstallStep());
-    if (b.args) |args| run_runner.addArgs(args);
+    // Build-only step for perf-runner (avoids auto-running tests during `zig build perf-runner`).
     b.step(
         "perf-runner",
-        "Run all performance tests and generate HTML visualization",
-    ).dependOn(&run_runner.step);
+        "Build perf-runner (output in zig-out/bin/perf-runner)",
+    ).dependOn(&b.addInstallArtifact(runner_exe, .{}).step);
 
     // -- Standalone HTML Generator
     const html_gen_main_mod = b.addModule("html_gen_main", .{
@@ -315,10 +311,10 @@ pub fn build(b: *std.Build) void {
         .name = "perf-html-gen",
         .root_module = html_gen_main_mod,
     });
-    b.installArtifact(html_gen_exe);
+    // b.installArtifact(html_gen_exe); // disabled for 0.16 port
 
     const run_html_gen = b.addRunArtifact(html_gen_exe);
-    run_html_gen.step.dependOn(b.getInstallStep());
+    // run_html_gen.step.dependOn(b.getInstallStep());
     if (b.args) |args| run_html_gen.addArgs(args);
     b.step(
         "perf-html-gen",
@@ -366,7 +362,7 @@ pub fn build(b: *std.Build) void {
 
             // Add run step
             const run_ffmpeg = b.addRunArtifact(ffmpeg_exe);
-            run_ffmpeg.step.dependOn(b.getInstallStep());
+            // run_ffmpeg.step.dependOn(b.getInstallStep());
             if (b.args) |args| run_ffmpeg.addArgs(args);
             b.step(
                 b.fmt("run-demo-{s}", .{name}),

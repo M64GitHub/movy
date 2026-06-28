@@ -17,7 +17,7 @@ pub fn cursorUp(n: i32) void {
     // ESC [ {n}A: Move cursor up n lines
     var buf: [32]u8 = undefined;
     const msg = std.fmt.bufPrint(&buf, "\x1b[{d}A", .{n}) catch return;
-    _ = std.posix.write(std.posix.STDOUT_FILENO, msg) catch {};
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, msg.ptr, msg.len);
 }
 
 /// Moves the cursor down by n lines
@@ -25,7 +25,7 @@ pub fn cursorDown(n: i32) void {
     // ESC [ {n}B: Move cursor down n lines
     var buf: [32]u8 = undefined;
     const msg = std.fmt.bufPrint(&buf, "\x1b[{d}B", .{n}) catch return;
-    _ = std.posix.write(std.posix.STDOUT_FILENO, msg) catch {};
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, msg.ptr, msg.len);
 }
 
 /// Moves the cursor left by n columns
@@ -33,7 +33,7 @@ pub fn cursorLeft(n: i32) void {
     // ESC [ {n}D: Move cursor left n columns
     var buf: [32]u8 = undefined;
     const msg = std.fmt.bufPrint(&buf, "\x1b[{d}D", .{n}) catch return;
-    _ = std.posix.write(std.posix.STDOUT_FILENO, msg) catch {};
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, msg.ptr, msg.len);
 }
 
 /// Moves the cursor right by n columns
@@ -41,31 +41,31 @@ pub fn cursorRight(n: i32) void {
     // ESC [ {n}C: Move cursor right n columns
     var buf: [32]u8 = undefined;
     const msg = std.fmt.bufPrint(&buf, "\x1b[{d}C", .{n}) catch return;
-    _ = std.posix.write(std.posix.STDOUT_FILENO, msg) catch {};
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, msg.ptr, msg.len);
 }
 
 /// Shows the cursor
 pub fn cursorOn() void {
     // ESC [ ?25h: Make cursor visible
-    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[?25h") catch {};
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, "\x1b[?25h", 6);
 }
 
 /// Hides the cursor
 pub fn cursorOff() void {
     // ESC [ ?25l: Make cursor invisible
-    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[?25l") catch {};
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, "\x1b[?25l", 6);
 }
 
 /// Resets cursor and text attributes
 pub fn cursorReset() void {
     // ESC [ 0m: Reset all terminal attributes (color, bold, etc.)
-    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[0m") catch {};
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, "\x1b[0m", 4);
 }
 
 /// Moves the cursor to the home position (top-left)
 pub fn cursorHome() void {
     // ESC [ H: Move cursor to home position (row 1, column 1)
-    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[H") catch {};
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, "\x1b[H", 3);
 }
 
 /// Sets the foreground text color to an RGB value
@@ -77,7 +77,7 @@ pub fn setColor(color: movy.core.types.Rgb) void {
         "\x1b[38;2;{d};{d};{d}m",
         .{ color.r, color.g, color.b },
     ) catch return;
-    _ = std.posix.write(std.posix.STDOUT_FILENO, msg) catch {};
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, msg.ptr, msg.len);
 }
 
 /// Sets the background color to an RGB value
@@ -89,40 +89,40 @@ pub fn setBgColor(color: movy.core.types.Rgb) void {
         "\x1b[48;2;{d};{d};{d}m",
         .{ color.r, color.g, color.b },
     ) catch return;
-    _ = std.posix.write(std.posix.STDOUT_FILENO, msg) catch {};
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, msg.ptr, msg.len);
 }
 
 /// Resets color to default
 pub fn resetColor() void {
-    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[0m") catch {};
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, "\x1b[0m", 4);
 }
 
 /// Begins alternate screen mode for full-screen terminal use.
 pub fn beginAlternateScreen() !void {
     // ESC s: Save current cursor position
-    _ = try std.posix.write(std.posix.STDOUT_FILENO, "\x1b[s");
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, "\x1b[s", 3);
     // ESC [ ?47h: Switch to alternate screen buffer
-    _ = try std.posix.write(std.posix.STDOUT_FILENO, "\x1b[?47h");
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, "\x1b[?47h", 8);
     // ESC [ 2J: Clear entire screen
-    _ = try std.posix.write(std.posix.STDOUT_FILENO, "\x1b[2J");
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, "\x1b[2J", 4);
     // ESC [ H: Move cursor to home position (row 1, column 1)
-    _ = try std.posix.write(std.posix.STDOUT_FILENO, "\x1b[H");
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, "\x1b[H", 3);
 }
 
 /// Ends alternate screen mode, returning to the normal screen buffer
 pub fn endAlternateScreen() void {
     // ESC [ ?47l: Switch back to normal screen buffer
-    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[?47l") catch {};
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, "\x1b[?47l", 8);
     // ESC u: Restore previously saved cursor position
-    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[u") catch {};
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, "\x1b[u", 3);
 }
 
 /// Clears the terminal screen
 pub fn clear() void {
     // ESC [ 2J: Clear entire screen
-    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[2J") catch {};
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, "\x1b[2J", 4);
     // ESC [ H: Move cursor to home position (row 1, column 1)
-    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[H") catch {};
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, "\x1b[H", 3);
 }
 
 /// Begins raw terminal mode, enabling unbuffered key and mouse input
@@ -151,7 +151,7 @@ pub fn beginRawMode() !void {
     // ESC [ ?1006h: Enable SGR (extended) mouse reporting
     // ESC [ ?1003h: Enable "all mouse" reporting (any movement)
     const enable = "\x1b[?1000h\x1b[?1006h\x1b[?1003h";
-    _ = try std.posix.write(std.posix.STDOUT_FILENO, enable);
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, enable.ptr, enable.len);
 }
 
 /// Ends raw terminal mode, restoring the original terminal state
@@ -168,7 +168,7 @@ pub fn endRawMode() void {
         // ESC [ 0m: Reset all terminal attributes (color, etc.)
         // \n: Newline to ensure clean prompt
         const reset = "\x1b[?1003l\x1b[?1006l\x1b[?1000l\x1b[0m\n";
-        _ = std.posix.write(std.posix.STDOUT_FILENO, reset) catch {};
+        _ = std.posix.system.write(std.posix.STDOUT_FILENO, reset.ptr, reset.len);
     }
 }
 

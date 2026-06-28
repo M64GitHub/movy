@@ -36,12 +36,12 @@ pub const Manager = struct {
         screen: *movy.Screen,
     ) movy.ui.Manager {
         return Manager{
-            .widgets = std.ArrayList(*movy.ui.Widget){},
-            .bordered_windows = std.ArrayList(*movy.ui.BorderedWindow){},
-            .title_windows = std.ArrayList(*movy.ui.TitleWindow){},
-            .text_windows = std.ArrayList(*movy.ui.TextWindow){},
-            .windows = std.ArrayList(*movy.ui.Window){},
-            .sprites = std.ArrayList(*movy.graphic.Sprite){},
+            .widgets = .empty,
+            .bordered_windows = .empty,
+            .title_windows = .empty,
+            .text_windows = .empty,
+            .windows = .empty,
+            .sprites = .empty,
             .active_widget = null,
             .screen = screen,
             .allocator = allocator,

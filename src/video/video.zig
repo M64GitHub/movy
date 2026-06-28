@@ -86,7 +86,7 @@ pub const VideoDecoder = struct {
         }
 
         // Set video sync clock reference
-        video.start_time_ns = std.time.nanoTimestamp();
+        video.start_time_ns = blk: { var ts: std.c.timespec = undefined; _ = std.c.clock_gettime(std.c.CLOCK.MONOTONIC, &ts); break :blk @as(i128, ts.sec) * 1_000_000_000 + ts.nsec; };
 
         decoder.* = .{
             .video = video,
@@ -159,7 +159,7 @@ pub const VideoDecoder = struct {
     }
 
     pub fn getPlaybackClock(self: *VideoDecoder) i128 {
-        return std.time.nanoTimestamp() - self.clock_start_ns;
+        return blk: { var ts: std.c.timespec = undefined; _ = std.c.clock_gettime(std.c.CLOCK.MONOTONIC, &ts); break :blk @as(i128, ts.sec) * 1_000_000_000 + ts.nsec; } - self.clock_start_ns;
     }
 
     pub fn seekToTimestamp(
@@ -598,9 +598,9 @@ pub const VideoState = struct {
     /// Note: This does not enqueue the frame - use `drainAndQueueFrames()`
     ///       for that.
     pub fn tryReceiveFrame(self: *VideoState) !?*c.AVFrame {
-        const t_before = std.time.nanoTimestamp();
+        const t_before = blk: { var ts: std.c.timespec = undefined; _ = std.c.clock_gettime(std.c.CLOCK.MONOTONIC, &ts); break :blk @as(i128, ts.sec) * 1_000_000_000 + ts.nsec; };
         const res = c.avcodec_receive_frame(self.codec_ctx, self.frame);
-        const t_after = std.time.nanoTimestamp();
+        const t_after = blk: { var ts: std.c.timespec = undefined; _ = std.c.clock_gettime(std.c.CLOCK.MONOTONIC, &ts); break :blk @as(i128, ts.sec) * 1_000_000_000 + ts.nsec; };
 
         const decode_ns = t_after - t_before;
         if (decode_ns > DECODE_TIMEOUT_NS) {

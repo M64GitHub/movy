@@ -68,7 +68,7 @@ pub const Starfield = struct {
                 screen.h,
                 movy.color.WHITE,
             ),
-            .rng = std.Random.DefaultPrng.init(@intCast(std.time.timestamp())),
+            .rng = std.Random.DefaultPrng.init(@as(u64, @intCast(blk: { var ts: std.c.timespec = undefined; _ = std.c.clock_gettime(std.c.CLOCK.MONOTONIC, &ts); break :blk @as(i128, ts.sec) * 1000 + @divTrunc(ts.nsec, 1_000_000); })))),
         };
 
         const w = screen.w;

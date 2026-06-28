@@ -81,13 +81,13 @@ pub const Key = struct {
 /// leaving it. Note: while enabled, shifted text keys report their
 /// base codepoint (e.g. 'a' for Shift+A).
 pub fn enableKittyKeyboard() void {
-    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[>11u") catch {};
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, "\x1b[>11u", 8);
 }
 
 /// Pops the kitty keyboard protocol flags pushed by
 /// enableKittyKeyboard.
 pub fn disableKittyKeyboard() void {
-    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[<u") catch {};
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, "\x1b[<u", 5);
 }
 
 /// Autodetects kitty keyboard protocol support. Must be called in raw
@@ -103,8 +103,7 @@ pub fn disableKittyKeyboard() void {
 /// All replies are consumed so they never reach get(). Any interleaved
 /// keystrokes are skipped. Returns true if the protocol is supported.
 pub fn detectKittyKeyboard(timeout_ms: u32) bool {
-    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[?u\x1b[c") catch
-        return false;
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, "\x1b[?u\x1b[c", 8);
 
     var buf: [256]u8 = undefined;
     var len: usize = 0;
@@ -838,7 +837,7 @@ fn getMouseWindows() !?Mouse {
     var mode: windows.DWORD = 0;
     _ = windows.GetConsoleMode(stdin, &mode);
     try windows.SetConsoleMode(stdin, mode | windows.ENABLE_MOUSE_INPUT);
-    defer windows.SetConsoleMode(stdin, mode) catch {};
+    defer windows.SetConsoleMode(stdin, mode);
 
     var input_records: [1]windows.INPUT_RECORD = undefined;
     var num_read: u32 = 0;

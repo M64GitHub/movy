@@ -91,13 +91,19 @@ pub const StyledTextBuffer = struct {
         path: []const u8,
         max_chars: usize,
     ) !void {
-        const file = try std.fs.cwd().openFile(path, .{});
-        defer file.close();
-
-        const file_size = try file.getEndPos();
-        const buffer = try allocator.alloc(u8, file_size);
-        defer allocator.free(buffer);
-        _ = try file.readAll(buffer);
+        const c_path = try allocator.dupeZ(u8, path);
+        defer allocator.free(c_path);
+        const f = std.c.fopen(c_path, "rb") orelse return error.FileNotFound;
+        defer _ = std.c.fclose(f);
+        var list: std.ArrayList(u8) = .empty;
+        defer list.deinit(allocator);
+        var tmp: [4096]u8 = undefined;
+        while (true) {
+            const n = std.c.fread(&tmp, 1, tmp.len, f);
+            if (n == 0) break;
+            try list.appendSlice(allocator, tmp[0..n]);
+        }
+        const buffer = try list.toOwnedSlice(allocator);
 
         allocator.free(self.text);
         const text_u21 = try utf8ToUtf21(allocator, buffer);
@@ -116,7 +122,7 @@ pub const StyledTextBuffer = struct {
             .i = 0,
         };
 
-        var result = std.ArrayList(u21){};
+        var result: std.ArrayList(u21) = .empty;
 
         while (utf8_stream.nextCodepoint()) |cp| {
             try result.append(allocator, cp);

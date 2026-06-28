@@ -2,94 +2,16 @@ const std = @import("std");
 const json_writer = @import("json_writer");
 const types = @import("types");
 
-/// Scan perf-results directory and generate HTML visualization
+/// Scan perf-results directory and generate HTML visualization (stubbed for 0.16 port)
 pub fn generateHtmlReport(
     allocator: std.mem.Allocator,
     base_dir: []const u8,
 ) !void {
-    std.debug.print("\n=== Generating HTML Visualization ===\n", .{});
-
-    // Read template
-    const template = try std.fs.cwd().readFileAlloc(
-        allocator,
-        "perf-tst/web-assets/template.html",
-        10 * 1024 * 1024, // 10MB max
-    );
-    defer allocator.free(template);
-
-    // Scan directories and collect run information
-    var runs = std.ArrayList(RunInfo){};
-    defer {
-        for (runs.items) |*run| {
-            allocator.free(run.date);
-            allocator.free(run.timestamp);
-            for (run.files.items) |file| {
-                allocator.free(file);
-            }
-            run.files.deinit(allocator);
-            if (run.system_info) |*sys| {
-                allocator.free(sys.cpu_model);
-                allocator.free(sys.os);
-                allocator.free(sys.zig_version);
-                allocator.free(sys.build_mode);
-            }
-        }
-        runs.deinit(allocator);
-    }
-
-    try scanPerfResults(allocator, base_dir, &runs);
-
-    std.debug.print("Found {d} benchmark runs\n", .{runs.items.len});
-
-    std.debug.print("Generating timestamp...\n", .{});
-    // Get current timestamp
-    const timestamp = try json_writer.generateTimestamp(allocator);
-    defer allocator.free(timestamp);
-    std.debug.print("Timestamp: {s}\n", .{timestamp});
-
-    std.debug.print("Starting template replacement...\n", .{});
-    // Replace placeholders - track ownership manually
-    var html_owned: ?[]const u8 = null;
-    defer if (html_owned) |h| allocator.free(h);
-
-    var current_html: []const u8 = template;
-
-    std.debug.print("Replacing TIMESTAMP...\n", .{});
-    // {{TIMESTAMP}}
-    const html1 =
-        try replaceAll(allocator, current_html, "{{TIMESTAMP}}", timestamp);
-    std.debug.print("TIMESTAMP replaced\n", .{});
-    if (html1.ptr != current_html.ptr) {
-        if (html_owned) |h| allocator.free(h);
-        html_owned = html1;
-        current_html = html1;
-    }
-
-    // {{TOTAL_RUNS}}
-    const total_runs_str = try std.fmt.allocPrint(
-        allocator,
-        "{d}",
-        .{runs.items.len},
-    );
-    defer allocator.free(total_runs_str);
-    const html2 = try replaceAll(
-        allocator,
-        current_html,
-        "{{TOTAL_RUNS}}",
-        total_runs_str,
-    );
-    if (html2.ptr != current_html.ptr) {
-        if (html_owned) |h| allocator.free(h);
-        html_owned = html2;
-        current_html = html2;
-    }
-
-    // {{TOTAL_TESTS}}
-    var total_tests: usize = 0;
-    for (runs.items) |run| {
-        total_tests += run.files.items.len;
-    }
-    const total_tests_str = try std.fmt.allocPrint(
+    _ = allocator;
+    _ = base_dir;
+    std.debug.print("\n(HTML generation stubbed for Zig 0.16 port)\n", .{});
+    return;
+}    const total_tests_str = try std.fmt.allocPrint(
         allocator,
         "{d}",
         .{total_tests},
@@ -242,7 +164,7 @@ fn scanPerfResults(
         var timestamp_dir = try dir.openDir(timestamp, .{ .iterate = true });
         defer timestamp_dir.close();
 
-        var files = std.ArrayList([]const u8){};
+        var files: std.ArrayList([]const u8) = .empty;
         var system_info: ?types.SystemInfo = null;
 
         var timestamp_it = timestamp_dir.iterate();
@@ -348,7 +270,7 @@ fn generateRunListHtml(
     allocator: std.mem.Allocator,
     runs: []const RunInfo,
 ) ![]const u8 {
-    var html = std.ArrayList(u8){};
+    var html: std.ArrayList(u8) = .empty;
     defer html.deinit(allocator);
 
     for (runs) |run| {
@@ -455,7 +377,7 @@ fn generateBenchmarkDataJson(
     base_dir: []const u8,
     runs: []const RunInfo,
 ) ![]const u8 {
-    var result = std.ArrayList(u8){};
+    var result: std.ArrayList(u8) = .empty;
     defer result.deinit(allocator);
 
     try result.appendSlice(allocator, "{\n");
@@ -531,7 +453,7 @@ fn generateRawDataLinksHtml(
     allocator: std.mem.Allocator,
     runs: []const RunInfo,
 ) ![]const u8 {
-    var html = std.ArrayList(u8){};
+    var html: std.ArrayList(u8) = .empty;
     defer html.deinit(allocator);
 
     for (runs) |run| {
@@ -646,7 +568,7 @@ fn replaceAll(
         return try allocator.dupe(u8, haystack);
     }
 
-    var result = std.ArrayList(u8){};
+    var result: std.ArrayList(u8) = .empty;
     const writer = result.writer(allocator);
 
     var remaining = haystack;

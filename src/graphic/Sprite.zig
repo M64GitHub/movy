@@ -134,7 +134,7 @@ pub const SpriteFrameSet = struct {
         w: usize,
         h: usize,
     ) !SpriteFrameSet {
-        var frames = std.ArrayList(*SpriteFrame){};
+        var frames = .empty;
         errdefer frames.deinit(allocator);
 
         try frames.ensureTotalCapacity(allocator, frame_count); // Pre-allocate space
@@ -481,7 +481,7 @@ pub const Sprite = struct {
         name: []const u8,
     ) !*Sprite {
         var frame_set = SpriteFrameSet{
-            .frames = std.ArrayList(*SpriteFrame){},
+            .frames = .empty,
         };
         try frame_set.frames.ensureTotalCapacity(allocator, 4);
         errdefer frame_set.deinit(allocator);
@@ -533,7 +533,7 @@ pub const Sprite = struct {
         name: []const u8,
     ) !Sprite {
         var frame_set = SpriteFrameSet{
-            .frames = std.ArrayList(*SpriteFrame){},
+            .frames = .empty,
         };
         try frame_set.frames.ensureTotalCapacity(allocator, 4);
         errdefer frame_set.deinit(allocator);
@@ -895,7 +895,7 @@ pub const Sprite = struct {
 
 test "Sprite.splitByHeight splits vertically into equal frames" {
     const testing = std.testing;
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
@@ -977,7 +977,7 @@ test "Sprite.splitByHeight splits vertically into equal frames" {
 
 test "Sprite.splitByHeight handles edge pixels correctly" {
     const testing = std.testing;
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
@@ -1031,7 +1031,7 @@ test "Sprite.splitByHeight handles edge pixels correctly" {
 
 test "Sprite.splitByWH splits 2x2 grid correctly" {
     const testing = std.testing;
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
@@ -1105,7 +1105,7 @@ test "Sprite.splitByWH splits 2x2 grid correctly" {
 
 test "Sprite.splitByWH handles edge boundaries correctly" {
     const testing = std.testing;
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
@@ -1177,7 +1177,7 @@ test "Sprite.splitByWH handles edge boundaries correctly" {
 
 test "Sprite.splitByWHOffset skips border correctly" {
     const testing = std.testing;
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
@@ -1255,7 +1255,7 @@ test "Sprite.splitByWHOffset skips border correctly" {
 
 test "Sprite.splitByWHOffset validates offset dimensions" {
     const testing = std.testing;
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
@@ -1273,7 +1273,7 @@ test "Sprite.splitByWHOffset validates offset dimensions" {
 
 test "Sprite split functions preserve char_map" {
     const testing = std.testing;
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 

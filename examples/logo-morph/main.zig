@@ -177,15 +177,13 @@ fn scene(f: *movy.Frame, ctx: ?*const anyopaque, n: f32) void {
     ring(f, n, BEAT2, 0.14, cxf, cyf, 48.0, pal.FLARE_RING, 0.32);
 }
 
-pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+pub fn main(init: std.process.Init.Minimal) !void {
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    const args = try std.process.argsAlloc(allocator);
-    defer std.process.argsFree(allocator, args);
-
-    for (args[1..]) |a| {
+    for (init.args.vector[1..]) |arg| {
+        const a = std.mem.span(arg);
         if (std.mem.eql(u8, a, "shake") or std.mem.eql(u8, a, "--shake")) {
             shake_enabled = true;
         }

@@ -14,7 +14,7 @@ const movy = @import("movy");
 
 pub fn main() !void {
     // Setup allocator
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
@@ -90,7 +90,7 @@ pub fn main() !void {
     try screen.output();
 
     // Wait so user can see the result
-    std.Thread.sleep(2 * std.time.ns_per_s);
+
 
     // Cleanup happens automatically via defer
 }

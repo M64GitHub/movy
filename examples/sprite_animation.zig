@@ -16,7 +16,7 @@ const Sprite = movy.graphic.Sprite;
 
 pub fn main() !void {
     // Setup allocator
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
@@ -70,7 +70,7 @@ pub fn main() !void {
 
     // Main loop
     while (true) {
-        const frame_start = std.time.nanoTimestamp();
+        const frame_start = blk: { var ts: std.c.timespec = undefined; _ = std.c.clock_gettime(std.c.CLOCK.MONOTONIC, &ts); break :blk @as(i128, ts.sec) * 1_000_000_000 + ts.nsec; };
 
         // Handle input
         if (try movy.input.get()) |in| {
@@ -114,10 +114,10 @@ pub fn main() !void {
         frame_counter += 1;
 
         // Constant FPS
-        const frame_end = std.time.nanoTimestamp();
+        const frame_end = blk: { var ts: std.c.timespec = undefined; _ = std.c.clock_gettime(std.c.CLOCK.MONOTONIC, &ts); break :blk @as(i128, ts.sec) * 1_000_000_000 + ts.nsec; };
         const frame_time = frame_end - frame_start;
         if (frame_time < frame_delay_ns) {
-            std.Thread.sleep(@intCast(frame_delay_ns - frame_time));
+
         }
     }
 }

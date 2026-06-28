@@ -12,7 +12,7 @@ const std = @import("std");
 const movy = @import("movy");
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
@@ -79,12 +79,12 @@ pub fn main() !void {
     const rotation_step: f32 = 2.0; // 2 degrees per frame (180 frames for full rotation)
 
     // Frame timing
-    var last_frame_time = std.time.nanoTimestamp();
+    var last_frame_time = blk: { var ts: std.c.timespec = undefined; _ = std.c.clock_gettime(std.c.CLOCK.MONOTONIC, &ts); break :blk @as(i128, ts.sec) * 1_000_000_000 + ts.nsec; };
     const frame_time_ns: u64 = 16_666_667; // 60 FPS
 
     // Main loop
     main_loop: while (true) {
-        const current_time = std.time.nanoTimestamp();
+        const current_time = blk: { var ts: std.c.timespec = undefined; _ = std.c.clock_gettime(std.c.CLOCK.MONOTONIC, &ts); break :blk @as(i128, ts.sec) * 1_000_000_000 + ts.nsec; };
         const elapsed = current_time - last_frame_time;
 
         if (elapsed >= frame_time_ns) {
@@ -161,6 +161,5 @@ pub fn main() !void {
             try screen.output();
         }
 
-        std.Thread.sleep(1_000_000); // Sleep 1ms
     }
 }

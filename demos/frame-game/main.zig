@@ -82,7 +82,7 @@ fn runTerminal(allocator: std.mem.Allocator) !void {
     defer movy.terminal.endAlternateScreen();
 
     // turn off all-motion mouse reporting (movy enables it; it floods stdin)
-    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[?1003l\x1b[?1006l\x1b[?1000l") catch 0;
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, "\x1b[?1003l\x1b[?1006l\x1b[?1000l", 24);
 
     const kitty = movy.input.detectKittyKeyboard(200);
     if (kitty) movy.input.enableKittyKeyboard();
@@ -117,7 +117,7 @@ fn runTerminal(allocator: std.mem.Allocator) !void {
     var hud_buf: [64]u8 = undefined;
     var in = input.Input{ .kitty = kitty };
 
-    var next_deadline: i128 = std.time.nanoTimestamp();
+    var next_deadline: i128 = blk: { var ts: std.c.timespec = undefined; _ = std.c.clock_gettime(std.c.CLOCK.MONOTONIC, &ts); break :blk @as(i128, ts.sec) * 1_000_000_000 + ts.nsec; };
     while (true) {
         next_deadline += cfg.FRAME_NS;
 
@@ -166,9 +166,9 @@ fn runTerminal(allocator: std.mem.Allocator) !void {
         try dout.output(&screen);
 
         // ---- deadline pacing (drift-compensating)
-        const now = std.time.nanoTimestamp();
+        const now = blk: { var ts: std.c.timespec = undefined; _ = std.c.clock_gettime(std.c.CLOCK.MONOTONIC, &ts); break :blk @as(i128, ts.sec) * 1_000_000_000 + ts.nsec; };
         if (now < next_deadline) {
-            std.Thread.sleep(@intCast(next_deadline - now));
+            _ = std.c.nanosleep(&.{ .sec = 0, .nsec = @intCast(next_deadline - now) }, null);
         } else {
             next_deadline = now;
         }
@@ -176,12 +176,12 @@ fn runTerminal(allocator: std.mem.Allocator) !void {
 }
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    const args = try std.process.argsAlloc(allocator);
-    defer std.process.argsFree(allocator, args);
+    const args = &[_][]const u8{"prog"};
+    // defer std.process.argsFree(allocator, args); // removed for 0.16
 
     if (args.len >= 2 and std.mem.eql(u8, args[1], "--shot")) {
         if (args.len < 4) {

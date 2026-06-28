@@ -121,10 +121,10 @@ fn testConfiguration(
     output_surface.setAlpha(128);
 
     // Load surfaces with varied alpha values (64, 128, 192)
-    var surfaces = std.ArrayList(*movy.core.RenderSurface){};
+    var surfaces: std.ArrayList(*movy.core.RenderSurface) = .empty;
     defer surfaces.deinit(allocator);
 
-    var sprites = std.ArrayList(*movy.Sprite){};
+    var sprites: std.ArrayList(*movy.Sprite) = .empty;
     defer {
         for (sprites.items) |sprite| {
             sprite.deinit(allocator);
@@ -287,7 +287,7 @@ pub fn main() !void {
         );
     }
 
-    var all_results = std.ArrayList(TestResult){};
+    var all_results: std.ArrayList(TestResult) = .empty;
     defer all_results.deinit(allocator);
 
     const methods = [_]RenderMethod{
@@ -342,7 +342,7 @@ pub fn main() !void {
 
     // Write JSON output if suffix provided
     if (write_json) {
-        var measurements = std.ArrayList(types.MeasurementPoint){};
+        var measurements: std.ArrayList(types.MeasurementPoint) = .empty;
         defer {
             for (measurements.items) |m| {
                 allocator.free(m.name);

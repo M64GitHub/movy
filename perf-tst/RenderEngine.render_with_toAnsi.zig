@@ -115,7 +115,7 @@ fn testOutputSize(
     const dy_20b: i32 = 1;
 
     // Create input array (movycat added last = background)
-    var input_surfaces = std.ArrayList(*movy.core.RenderSurface){};
+    var input_surfaces: std.ArrayList(*movy.core.RenderSurface) = .empty;
     defer input_surfaces.deinit(allocator);
 
     try input_surfaces.append(allocator, surface_10a);

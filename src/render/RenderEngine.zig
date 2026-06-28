@@ -708,7 +708,7 @@ pub const RenderEngine = struct {
 
 test "RenderEngine: renderWithAlphaToBg blends semi-transparent red over black" {
     const testing = std.testing;
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
@@ -756,7 +756,7 @@ test "RenderEngine: renderWithAlphaToBg blends semi-transparent red over black" 
 
 test "RenderEngine: renderWithAlphaToBg blends semi-transparent blue over black" {
     const testing = std.testing;
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
@@ -804,7 +804,7 @@ test "RenderEngine: renderWithAlphaToBg blends semi-transparent blue over black"
 
 test "RenderEngine: renderWithAlphaToBg handles overlapping surfaces with z-ordering" {
     const testing = std.testing;
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
@@ -881,7 +881,7 @@ test "RenderEngine: renderWithAlphaToBg handles overlapping surfaces with z-orde
 
 test "RenderEngine: renderWithAlpha produces same results as renderWithAlphaToBg for opaque background" {
     const testing = std.testing;
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
@@ -945,7 +945,7 @@ test "RenderEngine: renderWithAlpha produces same results as renderWithAlphaToBg
 
 test "RenderEngine: alpha blending skips fully transparent pixels" {
     const testing = std.testing;
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 

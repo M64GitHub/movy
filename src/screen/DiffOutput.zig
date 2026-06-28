@@ -166,10 +166,13 @@ pub const DiffOutput = struct {
         } else {
             var off: usize = 0;
             while (off < bytes.len) {
-                const n = try std.posix.write(
+                const chunk = bytes[off..];
+                const n_ = std.posix.system.write(
                     std.posix.STDOUT_FILENO,
-                    bytes[off..],
+                    chunk.ptr,
+                    chunk.len,
                 );
+                const n: usize = if (n_ < 0) break else @intCast(n_);
                 if (n == 0) break;
                 off += n;
             }
@@ -327,8 +330,8 @@ pub const DiffOutput = struct {
 /// terminal; an unsent frame is replaced (dropped) by a newer one.
 const Writer = struct {
     allocator: std.mem.Allocator,
-    mutex: std.Thread.Mutex = .{},
-    cond: std.Thread.Condition = .{},
+    // Use a simple atomic spin mutex to avoid Io.* dependencies for now.
+    lock_state: std.atomic.Value(u8) = .init(0),
     mailbox: []u8,
     standby: []u8,
     mail_len: usize = 0,
@@ -351,11 +354,19 @@ const Writer = struct {
         return self;
     }
 
+    fn lock(self: *Writer) void {
+        while (self.lock_state.cmpxchgWeak(0, 1, .acquire, .monotonic) != null) {
+            // spin
+        }
+    }
+    fn unlock(self: *Writer) void {
+        self.lock_state.store(0, .release);
+    }
+
     fn deinit(self: *Writer) void {
-        self.mutex.lock();
+        self.lock();
         self.stop = true;
-        self.cond.signal();
-        self.mutex.unlock();
+        self.unlock();
         if (self.thread) |t| t.join();
         self.allocator.free(self.mailbox);
         self.allocator.free(self.standby);
@@ -364,24 +375,27 @@ const Writer = struct {
 
     fn send(self: *Writer, bytes: []const u8) void {
         if (bytes.len == 0) return;
-        self.mutex.lock();
+        self.lock();
         if (self.pending) self.drops +%= 1;
         const n = @min(bytes.len, self.mailbox.len);
         @memcpy(self.mailbox[0..n], bytes[0..n]);
         self.mail_len = n;
         self.pending = true;
-        self.cond.signal();
-        self.mutex.unlock();
+        self.unlock();
     }
 
     fn run(self: *Writer) void {
         while (true) {
-            self.mutex.lock();
+            self.lock();
             while (!self.pending and !self.stop) {
-                self.cond.wait(&self.mutex);
+                self.unlock();
+                // tiny spin pause
+                var spin: u32 = 0;
+                while (spin < 10000) : (spin += 1) {}
+                self.lock();
             }
             if (self.stop) {
-                self.mutex.unlock();
+                self.unlock();
                 return;
             }
             // swap buffers so send() can refill while we write
@@ -390,22 +404,31 @@ const Writer = struct {
             self.mailbox = self.standby;
             self.standby = buf;
             self.pending = false;
-            self.mutex.unlock();
+            self.unlock();
 
-            var timer = std.time.Timer.start() catch null;
+            const t0_ms = blk: {
+                var ts: std.c.timespec = undefined;
+                _ = std.c.clock_gettime(std.c.CLOCK.MONOTONIC, &ts);
+                break :blk @as(i64, ts.sec) * 1000 + @divTrunc(ts.nsec, 1_000_000);
+            };
             var off: usize = 0;
             while (off < len) {
-                const n = std.posix.write(
+                const chunk = buf[off..len];
+                const n_ = std.posix.system.write(
                     std.posix.STDOUT_FILENO,
-                    buf[off..len],
-                ) catch break;
+                    chunk.ptr,
+                    chunk.len,
+                );
+                const n: usize = if (n_ < 0) break else @intCast(n_);
                 if (n == 0) break;
                 off += n;
             }
-            if (timer) |*t| {
-                self.last_write_ms =
-                    @as(f64, @floatFromInt(t.read())) / 1_000_000.0;
-            }
+            const t1_ms = blk: {
+                var ts: std.c.timespec = undefined;
+                _ = std.c.clock_gettime(std.c.CLOCK.MONOTONIC, &ts);
+                break :blk @as(i64, ts.sec) * 1000 + @divTrunc(ts.nsec, 1_000_000);
+            };
+            self.last_write_ms = @as(f64, @floatFromInt(t1_ms - t0_ms));
         }
     }
 };

@@ -27,9 +27,7 @@ pub const Screen = struct {
         var screen = Screen{
             .w = w,
             .h = h * 2,
-            .output_surfaces = std.ArrayList(
-                *movy.core.RenderSurface,
-            ){},
+            .output_surfaces = .empty,
         };
         try screen.output_surfaces.ensureTotalCapacity(allocator, 8);
         screen.output_surface = try movy.core.RenderSurface.init(
@@ -92,9 +90,9 @@ pub const Screen = struct {
         movy.terminal.setBgColor(self.bg_color);
         const half_h: usize = @as(usize, @intCast(self.h)) / 2;
         for (0..half_h) |_| {
-            _ = try std.posix.write(std.posix.STDOUT_FILENO, self.clr_line.?);
+            _ = std.posix.system.write(std.posix.STDOUT_FILENO, self.clr_line.?.ptr, self.clr_line.?.len);
         }
-        _ = try std.posix.write(std.posix.STDOUT_FILENO, "\x1b[0m");
+        _ = std.posix.system.write(std.posix.STDOUT_FILENO, "\x1b[0m", 4);
 
         self.output_surface.clearColored(self.bg_color);
     }
@@ -156,7 +154,7 @@ pub const Screen = struct {
 
         const rendered_ansi = try self.output_surface.toAnsi();
 
-        _ = try std.posix.write(std.posix.STDOUT_FILENO, rendered_ansi);
+        _ = std.posix.system.write(std.posix.STDOUT_FILENO, rendered_ansi.ptr, rendered_ansi.len);
     }
 
     /// Sets the rendering mode of the Screen (transparent or bgcolor)

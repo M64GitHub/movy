@@ -128,7 +128,7 @@ fn testOutputSize(
     surface_40.y = @divTrunc(h_i32, 2) - 20;
 
     // Create input array
-    var input_surfaces = std.ArrayList(*movy.core.RenderSurface){};
+    var input_surfaces: std.ArrayList(*movy.core.RenderSurface) = .empty;
     defer input_surfaces.deinit(allocator);
 
     try input_surfaces.append(allocator, surface_10a);
@@ -191,7 +191,7 @@ pub fn main() !void {
         );
     }
 
-    var results = std.ArrayList(OutputSizeResult){};
+    var results: std.ArrayList(OutputSizeResult) = .empty;
     defer results.deinit(allocator);
 
     // Square sizes
@@ -375,7 +375,7 @@ pub fn main() !void {
 
     // Write JSON output if suffix provided
     if (write_json) {
-        var measurements = std.ArrayList(types.MeasurementPoint){};
+        var measurements: std.ArrayList(types.MeasurementPoint) = .empty;
         defer measurements.deinit(allocator);
 
         for (results.items) |result| {

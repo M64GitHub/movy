@@ -210,7 +210,7 @@ pub fn main() !void {
 
     // Write JSON output if suffix provided
     if (write_json) {
-        var measurements = std.ArrayList(types.MeasurementPoint){};
+        var measurements: std.ArrayList(types.MeasurementPoint) = .empty;
         defer measurements.deinit(allocator);
 
         for (results) |result| {

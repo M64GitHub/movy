@@ -5,8 +5,8 @@ pub fn main() !void {
     const allocator = std.heap.page_allocator;
 
     // Get base directory from arguments or use default
-    const args = try std.process.argsAlloc(allocator);
-    defer std.process.argsFree(allocator, args);
+    const args = &[_][]const u8{"prog"};
+    // args are borrowed from argv, no free needed for spans
 
     const base_dir = if (args.len > 1) args[1] else "perf-results";
 

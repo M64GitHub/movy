@@ -12,7 +12,7 @@ const std = @import("std");
 const movy = @import("movy");
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
@@ -204,6 +204,5 @@ pub fn main() !void {
         screen.render();
         try screen.output();
 
-        std.Thread.sleep(16_666_667); // 60 FPS
     }
 }

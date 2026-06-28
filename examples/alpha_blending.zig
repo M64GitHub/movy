@@ -12,13 +12,14 @@ const std = @import("std");
 const movy = @import("movy");
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
     var stdout_buffer: [1024]u8 = undefined;
-    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
-    const stdout = &stdout_writer.interface;
+    var stdout_buffer2: [1024]u8 = undefined;
+    var w = std.Io.File.stdout().writer(&stdout_buffer2);
+    const stdout = &w.interface;
 
     // Create output surface (opaque black background)
     var output = try movy.RenderSurface.init(

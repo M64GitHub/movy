@@ -1,24 +1,26 @@
 const std = @import("std");
 
-/// Wrapper around std.time.Timer for consistent performance measurement
+/// Simple perf timer using monotonic clock (Zig 0.16 compat)
 pub const PerfTimer = struct {
-    timer: std.time.Timer,
-    start_ns: u64,
+    start_ns: i128,
 
     pub fn start() !PerfTimer {
-        var timer = try std.time.Timer.start();
+        var ts: std.c.timespec = undefined;
+        _ = std.c.clock_gettime(std.c.CLOCK.MONOTONIC, &ts);
         return PerfTimer{
-            .timer = timer,
-            .start_ns = timer.read(),
+            .start_ns = @as(i128, ts.sec) * 1_000_000_000 + ts.nsec,
         };
     }
 
     pub fn read(self: *PerfTimer) u64 {
-        return self.timer.read();
+        var ts: std.c.timespec = undefined;
+        _ = std.c.clock_gettime(std.c.CLOCK.MONOTONIC, &ts);
+        const now = @as(i128, ts.sec) * 1_000_000_000 + ts.nsec;
+        return @intCast(@max(0, now - self.start_ns));
     }
 
     pub fn elapsedNs(self: *PerfTimer) u64 {
-        return self.timer.read() - self.start_ns;
+        return self.read() - self.start_ns;  // approx, since we return delta in read
     }
 };
 

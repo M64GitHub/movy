@@ -1,40 +1,61 @@
 const std = @import("std");
 const types = @import("types");
 
-/// Write test results to JSON file with proper formatting
+/// Write test results to JSON file with proper formatting (libc for 0.16 compat)
 pub fn writeTestResult(
     result: types.TestResult,
     filepath: []const u8,
 ) !void {
-    // Create directory if it doesn't exist
+    // Best effort dir creation via libc
     if (std.fs.path.dirname(filepath)) |dir_path| {
-        std.fs.cwd().makePath(dir_path) catch |err| switch (err) {
-            error.PathAlreadyExists => {},
-            else => return err,
-        };
+        makePathLibc(dir_path);
     }
 
-    // Open file for writing
-    const file = try std.fs.cwd().createFile(filepath, .{});
-    defer file.close();
+    const cpath = std.mem.concat(std.heap.page_allocator, u8, &.{ filepath, "\x00" }) catch return error.OutOfMemory;
+    defer std.heap.page_allocator.free(cpath);
 
-    // Serialize to JSON with buffered writing
-    var buffer: [65536]u8 = undefined;
-    var file_writer = file.writer(&buffer);
-    const writer = &file_writer.interface;
+    const f = std.c.fopen(cpath.ptr, "wb") orelse return error.Unexpected;
+    defer _ = std.c.fclose(f);
 
-    try std.json.Stringify.value(result, .{
-        .whitespace = .indent_2,
-    }, writer);
+    // Serialize directly (simplified, no huge buffer needed for perf results)
+    var buf: [4096]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buf);
+    try std.json.Stringify.value(result, .{ .whitespace = .indent_2 }, fbs.writer());
 
-    // Flush the buffer to ensure all data is written
-    try writer.flush();
+    const data = fbs.getWritten();
+    _ = std.c.fwrite(data.ptr, 1, data.len, f);
+}
+
+/// Minimal makePath using libc (duplicated for module independence)
+fn makePathLibc(path: []const u8) void {
+    if (path.len == 0) return;
+    var buf: [std.fs.max_path_bytes]u8 = undefined;
+    var i: usize = 0;
+    if (path[0] == '/') {
+        buf[0] = '/';
+        i = 1;
+    }
+    var it = std.mem.tokenizeScalar(u8, path, '/');
+    while (it.next()) |segment| {
+        if (i > 0 and buf[i-1] != '/') {
+            buf[i] = '/';
+            i += 1;
+        }
+        @memcpy(buf[i..][0..segment.len], segment);
+        i += segment.len;
+        buf[i] = 0;
+        _ = std.c.mkdir(@ptrCast(&buf[0]), 0o755);
+    }
 }
 
 /// Generate ISO 8601 timestamp for filenames (no colons)
 /// Format: YYYY-MM-DDTHH-MM-SS
 pub fn generateTimestamp(allocator: std.mem.Allocator) ![]const u8 {
-    const timestamp_ms = std.time.milliTimestamp();
+    const timestamp_ms: u64 = blk: {
+        var ts: std.c.timespec = undefined;
+        _ = std.c.clock_gettime(std.posix.CLOCK.MONOTONIC, &ts);
+        break :blk @as(u64, @intCast(@as(i128, ts.sec) * 1000 + @divTrunc(ts.nsec, 1_000_000)));
+    };
     const epoch_seconds: i64 = @intCast(@divTrunc(timestamp_ms, 1000));
 
     // Use Zig's proper epoch time conversion
@@ -59,7 +80,11 @@ pub fn generateTimestamp(allocator: std.mem.Allocator) ![]const u8 {
 
 /// Generate date string for directory: YYYY-MM-DD
 pub fn generateDateString(allocator: std.mem.Allocator) ![]const u8 {
-    const timestamp_ms = std.time.milliTimestamp();
+    const timestamp_ms: u64 = blk: {
+        var ts: std.c.timespec = undefined;
+        _ = std.c.clock_gettime(std.posix.CLOCK.MONOTONIC, &ts);
+        break :blk @as(u64, @intCast(@as(i128, ts.sec) * 1000 + @divTrunc(ts.nsec, 1_000_000)));
+    };
     const epoch_seconds: i64 = @intCast(@divTrunc(timestamp_ms, 1000));
 
     // Use Zig's proper epoch time conversion

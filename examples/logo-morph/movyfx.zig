@@ -227,7 +227,7 @@ pub fn runLive(
     try movy.terminal.beginAlternateScreen();
     defer movy.terminal.endAlternateScreen();
 
-    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[?1003l\x1b[?1006l\x1b[?1000l") catch 0;
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, "\x1b[?1003l\x1b[?1006l\x1b[?1000l", 24);
 
     const kitty = movy.input.detectKittyKeyboard(200);
     if (kitty) movy.input.enableKittyKeyboard();
@@ -247,7 +247,7 @@ pub fn runLive(
     // terminal's top-left (cursorHome) before we switch bg to black, and the
     // centered canvas never covers it. Wipe the whole alt-screen to black once
     // up front (DiffOutput expects a pre-cleared terminal anyway).
-    _ = std.posix.write(std.posix.STDOUT_FILENO, "\x1b[48;2;0;0;0m\x1b[2J\x1b[0m") catch 0;
+    _ = std.posix.system.write(std.posix.STDOUT_FILENO, "\x1b[48;2;0;0;0m\x1b[2J\x1b[0m", 26);
 
     const frame = try movy.Frame.init(allocator, CANVAS_W, CANVAS_H);
     defer frame.deinit();
@@ -261,7 +261,11 @@ pub fn runLive(
 
     // Animation is driven by elapsed wall-clock time -> correct speed and full
     // 60fps smoothness even if some frames are dropped by the writer thread.
-    const start: i128 = std.time.nanoTimestamp();
+    const start: i128 = blk: {
+        var ts: std.c.timespec = undefined;
+        _ = std.c.clock_gettime(std.c.CLOCK.MONOTONIC, &ts);
+        break :blk @as(i128, ts.sec) * 1_000_000_000 + ts.nsec;
+    };
     var next_deadline: i128 = start;
     while (true) {
         next_deadline += FRAME_NS;
@@ -283,7 +287,11 @@ pub fn runLive(
         }
         if (quit) break;
 
-        const elapsed_ns: i128 = std.time.nanoTimestamp() - start;
+        const elapsed_ns: i128 = blk: {
+            var ts: std.c.timespec = undefined;
+            _ = std.c.clock_gettime(std.c.CLOCK.MONOTONIC, &ts);
+            break :blk @as(i128, ts.sec) * 1_000_000_000 + ts.nsec - start;
+        };
         const elapsed_f: f32 = @floatFromInt(elapsed_ns);
         const n = @mod(elapsed_f / loop_ns, 1.0); // loop phase 0..1
         const blink_on = @mod(@divFloor(elapsed_ns, 500_000_000), 2) == 0; // ~2Hz
@@ -300,9 +308,13 @@ pub fn runLive(
 
         try dout.output(&screen);
 
-        const now = std.time.nanoTimestamp();
+        const now = blk: {
+            var ts: std.c.timespec = undefined;
+            _ = std.c.clock_gettime(std.c.CLOCK.MONOTONIC, &ts);
+            break :blk @as(i128, ts.sec) * 1_000_000_000 + ts.nsec;
+        };
         if (now < next_deadline) {
-            std.Thread.sleep(@intCast(next_deadline - now));
+
         } else {
             next_deadline = now;
         }

@@ -94,7 +94,7 @@ pub const RenderPipeline = struct {
         if (self.render_objects.items.len == 0) return Error.EmptyPipeline;
 
         var temp_surfaces =
-            std.ArrayList(*movy.core.RenderSurface){};
+            .empty;
         defer temp_surfaces.deinit(allocator);
 
         // Process each render object

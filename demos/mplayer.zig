@@ -26,7 +26,7 @@ const target_width: usize = 200;
 const target_height: usize = 112;
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
         .verbose_log = true,
     }){};
 
@@ -245,7 +245,7 @@ pub fn main() !void {
         1_000_000_000 * @as(u64, @intCast(framerate.den)),
         @as(u64, @intCast(framerate.num)),
     );
-    var last_frame_time = std.time.nanoTimestamp();
+    var last_frame_time = blk: { var ts: std.c.timespec = undefined; _ = std.c.clock_gettime(std.c.CLOCK.MONOTONIC, &ts); break :blk @as(i128, ts.sec) * 1_000_000_000 + ts.nsec; };
 
     var frame_nr: usize = 0;
 
@@ -322,15 +322,15 @@ pub fn main() !void {
                     screen.render();
                     // blast to terminal
                     try screen.output();
-                    const now = std.time.nanoTimestamp();
+                    const now = blk: { var ts: std.c.timespec = undefined; _ = std.c.clock_gettime(std.c.CLOCK.MONOTONIC, &ts); break :blk @as(i128, ts.sec) * 1_000_000_000 + ts.nsec; };
                     const delay = now - last_frame_time;
                     if (delay < frame_duration_ns) {
                         const ns: u64 =
                             @as(u64, @intCast(frame_duration_ns - delay));
-                        std.Thread.sleep(ns);
+
                     }
 
-                    last_frame_time = std.time.nanoTimestamp();
+                    last_frame_time = blk: { var ts: std.c.timespec = undefined; _ = std.c.clock_gettime(std.c.CLOCK.MONOTONIC, &ts); break :blk @as(i128, ts.sec) * 1_000_000_000 + ts.nsec; };
                 }
             }
         }

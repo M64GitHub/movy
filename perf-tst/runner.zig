@@ -1,7 +1,65 @@
 const std = @import("std");
 const flagz = @import("flagz");
 const json_writer = @import("json_writer");
-const html_generator = @import("html_generator");
+// const html_generator = @import("html_generator"); // stubbed for 0.16 port
+
+/// Minimal makePath using libc, for Zig 0.16 tools without Io context.
+fn makePathLibc(path: []const u8) void {
+    if (path.len == 0) return;
+    var buf: [std.fs.max_path_bytes]u8 = undefined;
+    var i: usize = 0;
+    if (path[0] == '/') {
+        buf[0] = '/';
+        i = 1;
+    }
+    var it = std.mem.tokenizeScalar(u8, path, '/');
+    while (it.next()) |segment| {
+        if (i > 0 and buf[i - 1] != '/') {
+            buf[i] = '/';
+            i += 1;
+        }
+        @memcpy(buf[i..][0..segment.len], segment);
+        i += segment.len;
+        buf[i] = 0;
+        _ = std.c.mkdir(@ptrCast(&buf[0]), 0o755);
+    }
+}
+
+/// Spawn child (inherit stdio), wait, return exit status byte. Uses libc for 0.16 compat.
+fn spawnAndWaitLibc(argv: []const []const u8, allocator: std.mem.Allocator) !u8 {
+    const c_argv = try allocator.alloc(?[*:0]const u8, argv.len + 1);
+    defer allocator.free(c_argv);
+
+    var owned = std.array_list.Managed([:0]const u8).init(allocator);
+    defer {
+        for (owned.items) |a| allocator.free(a);
+        owned.deinit();
+    }
+
+    for (argv, 0..) |a, idx| {
+        const z = try allocator.dupeZ(u8, a);
+        try owned.append(z);
+        c_argv[idx] = z.ptr;
+    }
+    c_argv[argv.len] = null;
+
+    const pid = std.c.fork();
+    if (pid == 0) {
+        // Use execve (full path or $PATH name in argv[0]) with current env
+        _ = std.c.execve(c_argv[0].?, @ptrCast(c_argv.ptr), std.c.environ);
+        std.c._exit(127);
+    }
+    if (pid < 0) return error.ForkFailed;
+
+    var status: c_int = 0;
+    _ = std.c.waitpid(@intCast(pid), &status, 0);
+
+    const s: u32 = @as(u32, @intCast(status));
+    if (std.c.W.IFEXITED(s)) {
+        return @intCast(std.c.W.EXITSTATUS(s));
+    }
+    return 1;
+}
 
 const RunnerArgs = struct {
     tests: ?[]const u8 = null, // Comma-separated test names
@@ -46,7 +104,7 @@ fn printUsage() void {
 }
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
@@ -80,27 +138,8 @@ pub fn main() !void {
     );
     defer allocator.free(output_dir);
 
-    // Create output directory
-    std.fs.cwd().makePath(output_dir) catch |err| {
-        if (err != error.PathAlreadyExists) {
-            std.debug.print(
-                "Error: Failed to create output directory '{s}': {}\n",
-                .{ output_dir, err },
-            );
-            std.debug.print("Current working directory: ", .{});
-            const cwd_path = std.fs.cwd().realpathAlloc(
-                allocator,
-                ".",
-            ) catch "<unknown>";
-            defer if (!std.mem.eql(
-                u8,
-                cwd_path,
-                "<unknown>",
-            )) allocator.free(cwd_path);
-            std.debug.print("{s}\n", .{cwd_path});
-            return err;
-        }
-    };
+    // Create output directory using libc (Zig 0.16 port, no Io needed)
+    makePathLibc(output_dir);
 
     std.debug.print("=== Performance Test Suite Runner ===\n", .{});
     std.debug.print("Timestamp: {s}\n", .{timestamp});
@@ -135,7 +174,7 @@ pub fn main() !void {
     };
 
     // Determine which tests to run
-    var tests_to_run = std.ArrayList(TestInfo){};
+    var tests_to_run: std.ArrayList(TestInfo) = .empty;
     defer tests_to_run.deinit(allocator);
 
     if (args.tests) |test_filter| {
@@ -179,7 +218,7 @@ pub fn main() !void {
     // Track test results
     var succeeded: usize = 0;
     var failed: usize = 0;
-    var failed_tests = std.ArrayList([]const u8){};
+    var failed_tests: std.ArrayList([]const u8) = .empty;
     defer failed_tests.deinit(allocator);
 
     // Run each test
@@ -194,7 +233,7 @@ pub fn main() !void {
         defer allocator.free(exe_path);
 
         // Build argument list
-        var argv = std.ArrayList([]const u8){};
+        var argv: std.ArrayList([]const u8) = .empty;
         defer {
             // Free any allocated strings in argv
             for (argv.items) |arg| {
@@ -224,52 +263,30 @@ pub fn main() !void {
             try argv.append(allocator, iter_str);
         }
 
-        // Spawn and wait for test process
-        var child = std.process.Child.init(argv.items, allocator);
-        child.stdout_behavior = .Inherit;
-        child.stderr_behavior = .Inherit;
-
-        const term = child.spawnAndWait() catch |err| {
+        // Spawn using libc fork/execvp + waitpid (Zig 0.16 port, no Io Child)
+        const exit_code = spawnAndWaitLibc(argv.items, allocator) catch |err| {
             std.debug.print("\nError spawning test: {}\n", .{err});
+            failed += 1;
+            try failed_tests.append(allocator, try allocator.dupe(u8, test_info.name));
+            continue;
+        };
+
+        if (exit_code == 0) {
+            succeeded += 1;
+            std.debug.print(
+                "\n✓ {s} completed successfully\n\n",
+                .{test_info.name},
+            );
+        } else {
             failed += 1;
             try failed_tests.append(
                 allocator,
                 try allocator.dupe(u8, test_info.name),
             );
-            continue;
-        };
-
-        switch (term) {
-            .Exited => |code| {
-                if (code == 0) {
-                    succeeded += 1;
-                    std.debug.print(
-                        "\n✓ {s} completed successfully\n\n",
-                        .{test_info.name},
-                    );
-                } else {
-                    failed += 1;
-                    try failed_tests.append(
-                        allocator,
-                        try allocator.dupe(u8, test_info.name),
-                    );
-                    std.debug.print(
-                        "\n✗ {s} failed with exit code {d}\n\n",
-                        .{ test_info.name, code },
-                    );
-                }
-            },
-            else => {
-                failed += 1;
-                try failed_tests.append(
-                    allocator,
-                    try allocator.dupe(u8, test_info.name),
-                );
-                std.debug.print(
-                    "\n✗ {s} terminated abnormally\n\n",
-                    .{test_info.name},
-                );
-            },
+            std.debug.print(
+                "\n✗ {s} failed with exit code {d}\n\n",
+                .{ test_info.name, exit_code },
+            );
         }
     }
 
@@ -295,7 +312,5 @@ pub fn main() !void {
 
     // Generate HTML visualization
     std.debug.print("\n", .{});
-    html_generator.generateHtmlReport(allocator, base_output_dir) catch |err| {
-        std.debug.print("Warning: Failed to generate HTML report: {}\n", .{err});
-    };
+    // html_generator.generateHtmlReport(...) skipped (0.16 port)
 }
