@@ -13,6 +13,12 @@
 //! -> tint, written into the owned RenderSurface (u8) that Screen / DiffOutput
 //! consume.
 //!
+//! scanline_mask - a per-pixel CRT-stripe exemption (HUD-class text over a
+//! strong scanline): pixels marked via slpx()/slrect() keep full brightness on
+//! odd rows; every other grade (vignette/warmth/flash/tint) still applies. The
+//! mask is a PER-FRAME transient - beginFrame() clears it, so drawing code
+//! re-marks while stamping each frame.
+//!
 //! Pixel model: 1 unit = 1 pixel; the terminal shows 2 pixels per text cell
 //! (upper/lower half-block), so a frame `h` pixels tall is `h/2` text rows.
 //!
@@ -56,6 +62,7 @@ pub const Frame = struct {
     solid: []V3,
     glow: []V3,
     tmp: []V3,
+    scanline_mask: []u8, // 1 = skip the scanline stripe here (see header)
     vig_x: []f32,
     vig_y: []f32,
     surface: *RenderSurface,
@@ -88,6 +95,7 @@ pub const Frame = struct {
             .solid = try allocator.alloc(V3, n),
             .glow = try allocator.alloc(V3, n),
             .tmp = try allocator.alloc(V3, n),
+            .scanline_mask = try allocator.alloc(u8, n),
             .vig_x = try allocator.alloc(f32, uw),
             .vig_y = try allocator.alloc(f32, uh),
             .surface = try RenderSurface.init(allocator, uw, uh, .{ .r = 0, .g = 0, .b = 0 }),
@@ -96,6 +104,7 @@ pub const Frame = struct {
         @memset(self.solid, BLACK);
         @memset(self.glow, BLACK);
         @memset(self.tmp, BLACK);
+        @memset(self.scanline_mask, 0);
         self.rebuildVignette();
         return self;
     }
@@ -105,6 +114,7 @@ pub const Frame = struct {
         allocator.free(self.solid);
         allocator.free(self.glow);
         allocator.free(self.tmp);
+        allocator.free(self.scanline_mask);
         allocator.free(self.vig_x);
         allocator.free(self.vig_y);
         self.surface.deinit(allocator);
@@ -140,9 +150,11 @@ pub const Frame = struct {
 
     // ---------------------------------------------------------- frame ops
 
-    /// Decay + blur the persistent glow buffer. Call ONCE at frame start,
-    /// BEFORE drawing this frame's emissions.
+    /// Decay + blur the persistent glow buffer (and clear the per-frame
+    /// scanline mask). Call ONCE at frame start, BEFORE drawing this frame's
+    /// emissions.
     pub fn beginFrame(self: *Frame) void {
+        @memset(self.scanline_mask, 0);
         const uw: usize = @intCast(self.w);
         const uh: usize = @intCast(self.h);
 
@@ -192,13 +204,15 @@ pub const Frame = struct {
         const uh: usize = @intCast(self.h);
         for (0..uh) |y| {
             const row = y * uw;
-            const scan: f32 = if (y & 1 == 1) self.scanline_mul else 1.0;
+            const odd = (y & 1) == 1;
+            const scan: f32 = if (odd) self.scanline_mul else 1.0;
             const vy = self.vig_y[y] * scan;
+            const vy_free = self.vig_y[y]; // scanline_mask pixels keep this
             for (0..uw) |x| {
                 const i = row + x;
                 const s = self.solid[i];
                 const g = self.glow[i];
-                const v = self.vig_x[x] * vy;
+                const v = self.vig_x[x] * (if (odd and self.scanline_mask[i] != 0) vy_free else vy);
 
                 var r = std.math.clamp(s.r + g.r, 0.0, 1.0) * v;
                 var gg = std.math.clamp(s.g + g.g, 0.0, 1.0) * v;
@@ -281,6 +295,30 @@ pub const Frame = struct {
         var yy = y0;
         while (yy < y1) : (yy += 1) {
             self.solid[self.idx(x, yy)] = c;
+        }
+    }
+
+    // ------------------------------------------------- scanline-mask marking
+    // Mark pixels scanline-free for THIS frame (composite skips the CRT stripe
+    // there; every other grade still applies). Cleared each beginFrame().
+
+    pub inline fn slpx(self: *Frame, x: i32, y: i32) void {
+        if (!self.inBounds(x, y)) return;
+        self.scanline_mask[self.idx(x, y)] = 1;
+    }
+
+    pub fn slrect(self: *Frame, x: i32, y: i32, w: i32, h: i32) void {
+        const x0 = @max(x, 0);
+        const y0 = @max(y, 0);
+        const x1 = @min(x + w, self.w);
+        const y1 = @min(y + h, self.h);
+        if (x0 >= x1 or y0 >= y1) return;
+        var yy = y0;
+        while (yy < y1) : (yy += 1) {
+            var xx = x0;
+            while (xx < x1) : (xx += 1) {
+                self.scanline_mask[self.idx(xx, yy)] = 1;
+            }
         }
     }
 
