@@ -21,6 +21,8 @@ pub const KeyType = enum {
     CtrlDown, // \x1b[1;5B
     CtrlHome, // \x1b[1;5H
     CtrlEnd, // \x1b[1;5F
+    CtrlChar, // Ctrl+letter (kitty CSI-u / legacy C0 byte); sequence
+    // holds the LOWERCASE letter itself, never the control byte
     ShiftLeft, // \x1b[1;2D
     ShiftRight, // \x1b[1;2C
     ShiftUp, // \x1b[1;2A
@@ -182,6 +184,7 @@ var input_buffer: [512]u8 = undefined;
 // Key.sequence stays a plain character for .Char keys. Valid until
 // the next input call, same contract as input_buffer.
 var synth_buffer: [4]u8 = undefined;
+var legacy_ctrl_buf: [1]u8 = undefined; // C0 byte -> its letter
 
 var input_len: usize = 0;
 var input_offset: usize = 0;
@@ -368,6 +371,14 @@ fn parseKittyKey(bytes: []const u8) ?ParsedKitty {
                     if (ctrl and (code == 'c' or code == 'C')) {
                         break :blk .CtrlC;
                     }
+                    // Ctrl+letter gets its own type (the letter is
+                    // synthesized into sequence below)
+                    if (ctrl and !alt and
+                        ((code >= 'a' and code <= 'z') or
+                            (code >= 'A' and code <= 'Z')))
+                    {
+                        break :blk .CtrlChar;
+                    }
                     // Functional keys (kp, media, modifiers) live in
                     // the unicode private use area.
                     if (code >= 57344 and code <= 63743) break :blk .Other;
@@ -394,6 +405,19 @@ fn parseKittyKey(bytes: []const u8) ?ParsedKitty {
                     .key = .{
                         .type = .Char,
                         .sequence = synth_buffer[0..n],
+                        .event = event,
+                    },
+                    .consumed = consumed,
+                };
+            }
+
+            if (key_type == .CtrlChar) {
+                synth_buffer[0] =
+                    std.ascii.toLower(@as(u8, @intCast(code)));
+                return .{
+                    .key = .{
+                        .type = .CtrlChar,
+                        .sequence = synth_buffer[0..1],
                         .event = event,
                     },
                     .consumed = consumed,
@@ -439,11 +463,37 @@ fn parseKittyKey(bytes: []const u8) ?ParsedKitty {
                 .consumed = consumed,
             };
         },
+        // Kitty encodes F1/F2/F4 as CSI 1;mods {P,Q,S} (F3 moved to
+        // CSI 13~ because CSI R collides with the cursor position
+        // report). Terminals send these instead of the legacy ESC O x
+        // forms while the protocol is active.
+        'P', 'Q', 'S' => {
+            if (!std.mem.eql(u8, code_str, "1")) return null;
+            const key_type: KeyType = switch (terminator) {
+                'P' => .F1,
+                'Q' => .F2,
+                'S' => .F4,
+                else => .Other,
+            };
+            return .{
+                .key = .{
+                    .type = key_type,
+                    .sequence = sequence,
+                    .event = event,
+                },
+                .consumed = consumed,
+            };
+        },
         '~' => {
             const key_type: KeyType = switch (code) {
                 3 => .Delete,
                 5 => .PageUp,
                 6 => .PageDown,
+                // 11-14: xterm legacy F1-F4; 13 doubles as kitty's F3
+                11 => .F1,
+                12 => .F2,
+                13 => .F3,
+                14 => .F4,
                 15 => .F5,
                 17 => .F6,
                 18 => .F7,
@@ -533,6 +583,10 @@ fn getKeyPosix() !?Key {
                         3 => .Delete,
                         5 => .PageUp,
                         6 => .PageDown,
+                        11 => .F1, // xterm legacy F1-F4 (13 = kitty F3)
+                        12 => .F2,
+                        13 => .F3,
+                        14 => .F4,
                         15 => .F5,
                         17 => .F6,
                         18 => .F7,
@@ -633,8 +687,17 @@ fn getKeyPosix() !?Key {
     {
         const sequence = remaining[0..1];
         input_offset += 1;
+        const b = sequence[0];
+        // C0 control bytes are Ctrl+letter (raw mode disables IXON, so
+        // ^S/^Q arrive too); ^C/^H/^I/^J/^M keep their legacy types
+        if ((b >= 0x01 and b <= 0x02) or (b >= 0x04 and b <= 0x07) or
+            b == 0x0b or b == 0x0c or (b >= 0x0e and b <= 0x1a))
+        {
+            legacy_ctrl_buf[0] = 'a' + b - 1;
+            return Key{ .type = .CtrlChar, .sequence = legacy_ctrl_buf[0..1] };
+        }
         return Key{
-            .type = switch (sequence[0]) {
+            .type = switch (b) {
                 0x03 => .CtrlC,
                 0x1b => .Escape,
                 0x0d, 0x0a => .Enter,
@@ -702,7 +765,8 @@ fn getKeyPosix() !?Key {
             };
         }
 
-        // Fallback: 3-byte sequences like arrows, Home, End
+        // Fallback: 3-byte sequences like arrows, Home, End (P/Q/S =
+        // kitty's parameterless F1/F2/F4 CSI forms)
         if (remaining.len >= 3) {
             const seq = remaining[0..3];
             input_offset += 3;
@@ -715,6 +779,9 @@ fn getKeyPosix() !?Key {
                     'H' => .Home,
                     'F' => .End,
                     'Z' => .ShiftTab,
+                    'P' => .F1,
+                    'Q' => .F2,
+                    'S' => .F4,
                     else => .Other,
                 },
                 .sequence = seq,
@@ -932,6 +999,58 @@ test "kitty arrows carry event types and modifiers" {
 
     const up = parseKittyKey("\x1b[1;1:1A").?;
     try testing.expectEqual(KeyType.Up, up.key.type);
+}
+
+test "kitty F1-F4 CSI forms parse (P/Q/S terminators, F3 as 13~)" {
+    const f1 = parseKittyKey("\x1b[1;1:1P").?;
+    try testing.expectEqual(KeyType.F1, f1.key.type);
+    try testing.expectEqual(KeyEvent.Press, f1.key.event);
+
+    const f2_rel = parseKittyKey("\x1b[1;1:3Q").?;
+    try testing.expectEqual(KeyType.F2, f2_rel.key.type);
+    try testing.expectEqual(KeyEvent.Release, f2_rel.key.event);
+
+    const f3 = parseKittyKey("\x1b[13~").?;
+    try testing.expectEqual(KeyType.F3, f3.key.type);
+
+    const f3_rel = parseKittyKey("\x1b[13;1:3~").?;
+    try testing.expectEqual(KeyType.F3, f3_rel.key.type);
+    try testing.expectEqual(KeyEvent.Release, f3_rel.key.event);
+
+    const f4 = parseKittyKey("\x1b[1;1:1S").?;
+    try testing.expectEqual(KeyType.F4, f4.key.type);
+
+    // xterm legacy tilde codes for F1/F2/F4
+    try testing.expectEqual(KeyType.F1, parseKittyKey("\x1b[11~").?.key.type);
+    try testing.expectEqual(KeyType.F2, parseKittyKey("\x1b[12~").?.key.type);
+    try testing.expectEqual(KeyType.F4, parseKittyKey("\x1b[14~").?.key.type);
+}
+
+test "kitty CSI-u Ctrl+letter parses as CtrlChar carrying the letter" {
+    // Ctrl+S (mods 5 = 1 + ctrl): sequence is the LETTER, not 0x13
+    const s = parseKittyKey("\x1b[115;5u").?;
+    try testing.expectEqual(KeyType.CtrlChar, s.key.type);
+    try testing.expectEqualStrings("s", s.key.sequence);
+    try testing.expectEqual(KeyEvent.Press, s.key.event);
+
+    // uppercase codepoints normalize to lowercase
+    const up = parseKittyKey("\x1b[79;5u").?;
+    try testing.expectEqual(KeyType.CtrlChar, up.key.type);
+    try testing.expectEqualStrings("o", up.key.sequence);
+
+    // release events ride along
+    const rel = parseKittyKey("\x1b[110;5:3u").?;
+    try testing.expectEqual(KeyType.CtrlChar, rel.key.type);
+    try testing.expectEqualStrings("n", rel.key.sequence);
+    try testing.expectEqual(KeyEvent.Release, rel.key.event);
+
+    // Ctrl+C keeps its dedicated legacy type
+    const cc = parseKittyKey("\x1b[99;5u").?;
+    try testing.expectEqual(KeyType.CtrlC, cc.key.type);
+
+    // Ctrl+Alt combos stay Other (alt chords are not claimed)
+    const ca = parseKittyKey("\x1b[115;7u").?;
+    try testing.expectEqual(KeyType.Other, ca.key.type);
 }
 
 test "kitty CSI-u special keys map to legacy key types" {
