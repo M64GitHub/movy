@@ -71,6 +71,12 @@ pub const Key = struct {
     // via enableKittyKeyboard) report Repeat/Release; legacy input
     // always arrives as Press.
     event: KeyEvent = .Press,
+    // Shift held on a .Char key. Shifted LETTERS already arrive as
+    // their shifted codepoint, so this only carries what the byte
+    // itself cannot say — Shift+SPACE above all, which legacy input
+    // physically cannot distinguish from a bare space (both are one
+    // 0x20 byte), so it stays false there.
+    shift: bool = false,
 };
 
 /// Enables the kitty keyboard protocol (progressive enhancement
@@ -406,6 +412,7 @@ fn parseKittyKey(bytes: []const u8) ?ParsedKitty {
                         .type = .Char,
                         .sequence = synth_buffer[0..n],
                         .event = event,
+                        .shift = shift,
                     },
                     .consumed = consumed,
                 };
@@ -1024,6 +1031,25 @@ test "kitty F1-F4 CSI forms parse (P/Q/S terminators, F3 as 13~)" {
     try testing.expectEqual(KeyType.F1, parseKittyKey("\x1b[11~").?.key.type);
     try testing.expectEqual(KeyType.F2, parseKittyKey("\x1b[12~").?.key.type);
     try testing.expectEqual(KeyType.F4, parseKittyKey("\x1b[14~").?.key.type);
+}
+
+test "kitty CSI-u carries Shift on plain chars (Shift+SPACE is its own key)" {
+    // a bare space: no modifier
+    const plain = parseKittyKey("\x1b[32u").?;
+    try testing.expectEqual(KeyType.Char, plain.key.type);
+    try testing.expectEqualStrings(" ", plain.key.sequence);
+    try testing.expect(!plain.key.shift);
+
+    // Shift+SPACE (mods 2 = 1 + shift): the same byte, a different key
+    const sh = parseKittyKey("\x1b[32;2u").?;
+    try testing.expectEqual(KeyType.Char, sh.key.type);
+    try testing.expectEqualStrings(" ", sh.key.sequence);
+    try testing.expect(sh.key.shift);
+
+    // release events still ride along
+    const rel = parseKittyKey("\x1b[32;2:3u").?;
+    try testing.expectEqual(KeyEvent.Release, rel.key.event);
+    try testing.expect(rel.key.shift);
 }
 
 test "kitty CSI-u Ctrl+letter parses as CtrlChar carrying the letter" {
