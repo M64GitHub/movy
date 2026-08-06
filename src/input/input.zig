@@ -77,6 +77,13 @@ pub const Key = struct {
     // physically cannot distinguish from a bare space (both are one
     // 0x20 byte), so it stays false there.
     shift: bool = false,
+    // Alt/Ctrl held on keys whose TYPE does not already encode them
+    // (F-keys above all: CSI 20;3~ is Alt+F9). Arrows keep their
+    // dedicated Ctrl*/Shift* types; Ctrl+printables keep .CtrlChar.
+    // Only kitty/xterm modifier-parameter forms can set these — bare
+    // legacy sequences carry no modifier field and stay false.
+    alt: bool = false,
+    ctrl: bool = false,
 };
 
 /// Enables the kitty keyboard protocol (progressive enhancement
@@ -487,6 +494,9 @@ fn parseKittyKey(bytes: []const u8) ?ParsedKitty {
                     .type = key_type,
                     .sequence = sequence,
                     .event = event,
+                    .shift = shift,
+                    .alt = alt,
+                    .ctrl = ctrl,
                 },
                 .consumed = consumed,
             };
@@ -516,6 +526,12 @@ fn parseKittyKey(bytes: []const u8) ?ParsedKitty {
                     .type = key_type,
                     .sequence = sequence,
                     .event = event,
+                    // xterm sends CSI 21;3~ for Alt+F10 — the same
+                    // grammar as kitty, so modifier F-keys work on
+                    // both. Bare CSI 21~ has no mods field: all false.
+                    .shift = shift,
+                    .alt = alt,
+                    .ctrl = ctrl,
                 },
                 .consumed = consumed,
             };
@@ -1031,6 +1047,43 @@ test "kitty F1-F4 CSI forms parse (P/Q/S terminators, F3 as 13~)" {
     try testing.expectEqual(KeyType.F1, parseKittyKey("\x1b[11~").?.key.type);
     try testing.expectEqual(KeyType.F2, parseKittyKey("\x1b[12~").?.key.type);
     try testing.expectEqual(KeyType.F4, parseKittyKey("\x1b[14~").?.key.type);
+}
+
+test "modifier-carrying F-keys surface alt/ctrl/shift flags" {
+    // Alt+F9 / Alt+F10 — kitty and xterm both speak CSI num;mods~
+    // (mods 3 = 1 + alt)
+    const af9 = parseKittyKey("\x1b[20;3~").?;
+    try testing.expectEqual(KeyType.F9, af9.key.type);
+    try testing.expect(af9.key.alt);
+    try testing.expect(!af9.key.ctrl and !af9.key.shift);
+
+    const af10 = parseKittyKey("\x1b[21;3~").?;
+    try testing.expectEqual(KeyType.F10, af10.key.type);
+    try testing.expect(af10.key.alt);
+
+    // Ctrl+F5 (mods 5 = 1 + ctrl), Shift+F6 (mods 2 = 1 + shift)
+    const cf5 = parseKittyKey("\x1b[15;5~").?;
+    try testing.expectEqual(KeyType.F5, cf5.key.type);
+    try testing.expect(cf5.key.ctrl and !cf5.key.alt);
+
+    const sf6 = parseKittyKey("\x1b[17;2~").?;
+    try testing.expectEqual(KeyType.F6, sf6.key.type);
+    try testing.expect(sf6.key.shift);
+
+    // the P/Q/S forms carry them too: Alt+F1 = CSI 1;3P
+    const af1 = parseKittyKey("\x1b[1;3P").?;
+    try testing.expectEqual(KeyType.F1, af1.key.type);
+    try testing.expect(af1.key.alt);
+
+    // release events still ride along with the modifier
+    const rel = parseKittyKey("\x1b[20;3:3~").?;
+    try testing.expectEqual(KeyType.F9, rel.key.type);
+    try testing.expect(rel.key.alt);
+    try testing.expectEqual(KeyEvent.Release, rel.key.event);
+
+    // bare legacy F9 carries no flags
+    const bare = parseKittyKey("\x1b[20;1~").?;
+    try testing.expect(!bare.key.alt and !bare.key.ctrl and !bare.key.shift);
 }
 
 test "kitty CSI-u carries Shift on plain chars (Shift+SPACE is its own key)" {
