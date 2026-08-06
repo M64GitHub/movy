@@ -21,7 +21,7 @@ pub const KeyType = enum {
     CtrlDown, // \x1b[1;5B
     CtrlHome, // \x1b[1;5H
     CtrlEnd, // \x1b[1;5F
-    CtrlChar, // Ctrl+letter (kitty CSI-u / legacy C0 byte); sequence
+    CtrlChar, // Ctrl+printable (kitty CSI-u / legacy C0 byte); sequence
     // holds the LOWERCASE letter itself, never the control byte
     ShiftLeft, // \x1b[1;2D
     ShiftRight, // \x1b[1;2C
@@ -377,14 +377,14 @@ fn parseKittyKey(bytes: []const u8) ?ParsedKitty {
                     if (ctrl and (code == 'c' or code == 'C')) {
                         break :blk .CtrlC;
                     }
-                    // Ctrl+letter gets its own type (the letter is
-                    // synthesized into sequence below)
-                    if (ctrl and !alt and
-                        ((code >= 'a' and code <= 'z') or
-                            (code >= 'A' and code <= 'Z')))
-                    {
+                    // Ctrl+PRINTABLE gets its own type (the character
+                    // is synthesized into sequence below). Letters were
+                    // the whole space until an app wanted Ctrl+'-' and
+                    // Ctrl+'=' — punctuation used to fall through to
+                    // .Other, which no keymap can bind, so widening this
+                    // only turns unusable events into usable ones.
+                    if (ctrl and !alt and code >= 0x20 and code < 0x7f)
                         break :blk .CtrlChar;
-                    }
                     // Functional keys (kp, media, modifiers) live in
                     // the unicode private use area.
                     if (code >= 57344 and code <= 63743) break :blk .Other;
