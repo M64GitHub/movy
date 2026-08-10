@@ -473,6 +473,16 @@ fn parseKittyKey(bytes: []const u8) ?ParsedKitty {
                     .type = key_type,
                     .sequence = sequence,
                     .event = event,
+                    // The arrow family carries its modifiers too now.
+                    // Ctrl and Shift already have their own KeyTypes, so
+                    // those flags are a restatement — ALT never had one,
+                    // and CSI 1;3A used to arrive indistinguishable from
+                    // a bare Up. (Same treatment the F-keys got when
+                    // Alt+F9/F10 were needed; combining alt with the
+                    // other two would otherwise need eight more types.)
+                    .shift = shift,
+                    .alt = alt,
+                    .ctrl = ctrl,
                 },
                 .consumed = consumed,
             };
@@ -788,6 +798,34 @@ fn getKeyPosix() !?Key {
             };
         }
 
+        // ... and ALT (mods 3 = 1 + alt), which has no KeyType of its
+        // own: the arrow stays itself and carries the flag, so a
+        // consumer that does not care about alt keeps working.
+        if (remaining.len >= 6 and
+            remaining[0] == '\x1b' and
+            remaining[1] == '[' and
+            remaining[2] == '1' and
+            remaining[3] == ';' and
+            remaining[4] == '3')
+        {
+            const seq_char = remaining[5];
+            const sequence = remaining[0..6];
+            input_offset += 6;
+            return Key{
+                .type = switch (seq_char) {
+                    'A' => .Up,
+                    'B' => .Down,
+                    'C' => .Right,
+                    'D' => .Left,
+                    'H' => .Home,
+                    'F' => .End,
+                    else => .Other,
+                },
+                .sequence = sequence,
+                .alt = true,
+            };
+        }
+
         // Fallback: 3-byte sequences like arrows, Home, End (P/Q/S =
         // kitty's parameterless F1/F2/F4 CSI forms)
         if (remaining.len >= 3) {
@@ -1022,6 +1060,21 @@ test "kitty arrows carry event types and modifiers" {
 
     const up = parseKittyKey("\x1b[1;1:1A").?;
     try testing.expectEqual(KeyType.Up, up.key.type);
+
+    // ALT has no arrow KeyType — it rides the flag, and the arrow stays
+    // itself, so a consumer that ignores alt is unaffected
+    const alt_up = parseKittyKey("\x1b[1;3A").?;
+    try testing.expectEqual(KeyType.Up, alt_up.key.type);
+    try testing.expect(alt_up.key.alt);
+    try testing.expect(!alt_up.key.ctrl and !alt_up.key.shift);
+
+    const alt_right = parseKittyKey("\x1b[1;3C").?;
+    try testing.expectEqual(KeyType.Right, alt_right.key.type);
+    try testing.expect(alt_right.key.alt);
+
+    // ... and a bare arrow says so, which is what makes the flag usable
+    try testing.expect(!up.key.alt);
+    try testing.expect(!ctrl.key.alt and ctrl.key.ctrl);
 }
 
 test "kitty F1-F4 CSI forms parse (P/Q/S terminators, F3 as 13~)" {
