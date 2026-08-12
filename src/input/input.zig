@@ -23,6 +23,13 @@ pub const KeyType = enum {
     CtrlEnd, // \x1b[1;5F
     CtrlChar, // Ctrl+printable (kitty CSI-u / legacy C0 byte); sequence
     // holds the LOWERCASE letter itself, never the control byte
+    AltChar, // Alt+printable (kitty CSI-u only — legacy input spells it
+    // as an ESC prefix, which no parser can tell from a real Escape
+    // followed by typing). Sequence holds the LOWERCASE character, and
+    // `shift` carries the other half of Alt+Shift+X. It gets its own
+    // type for the same reason CtrlChar has one: an alt chord is a
+    // COMMAND, and a consumer that routes `.Char` into a text field or
+    // a piano must never see it.
     ShiftLeft, // \x1b[1;2D
     ShiftRight, // \x1b[1;2C
     ShiftUp, // \x1b[1;2A
@@ -47,6 +54,7 @@ pub const KeyType = enum {
     End, // End (\x1b[F)
     Backspace,
     Delete,
+    Insert, // Insert (\x1b[2~)
     Tab, // Tab key (\x09)
     ShiftTab, // Tab key (\x1b[Z)
     PrintScreen,
@@ -392,6 +400,13 @@ fn parseKittyKey(bytes: []const u8) ?ParsedKitty {
                     // only turns unusable events into usable ones.
                     if (ctrl and !alt and code >= 0x20 and code < 0x7f)
                         break :blk .CtrlChar;
+                    // ... and Alt+PRINTABLE its own, for the same
+                    // reason. Only a kitty-protocol terminal reports
+                    // it (CSI 98;3u = Alt+B); shifted keys report
+                    // their BASE codepoint while the protocol is on,
+                    // so Alt+Shift+Q arrives as 'q' with shift set.
+                    if (alt and !ctrl and code >= 0x20 and code < 0x7f)
+                        break :blk .AltChar;
                     // Functional keys (kp, media, modifiers) live in
                     // the unicode private use area.
                     if (code >= 57344 and code <= 63743) break :blk .Other;
@@ -438,11 +453,36 @@ fn parseKittyKey(bytes: []const u8) ?ParsedKitty {
                 };
             }
 
+            if (key_type == .AltChar) {
+                synth_buffer[0] =
+                    std.ascii.toLower(@as(u8, @intCast(code)));
+                return .{
+                    .key = .{
+                        .type = .AltChar,
+                        .sequence = synth_buffer[0..1],
+                        .event = event,
+                        // the ONE flag that is not a restatement here:
+                        // the character is already lowercased, so
+                        // Alt+Shift+Q would otherwise be Alt+Q
+                        .shift = shift,
+                    },
+                    .consumed = consumed,
+                };
+            }
+
             return .{
                 .key = .{
                     .type = key_type,
                     .sequence = sequence,
                     .event = event,
+                    // Backspace, Delete, Enter, Escape, Tab and the
+                    // Insert below all pass through here — carrying the
+                    // modifiers means Shift+Backspace stops arriving as
+                    // a plain Backspace, which is what a pattern editor
+                    // needs to tell "delete a row" from "insert one".
+                    .shift = shift,
+                    .alt = alt,
+                    .ctrl = ctrl,
                 },
                 .consumed = consumed,
             };
@@ -513,6 +553,7 @@ fn parseKittyKey(bytes: []const u8) ?ParsedKitty {
         },
         '~' => {
             const key_type: KeyType = switch (code) {
+                2 => .Insert,
                 3 => .Delete,
                 5 => .PageUp,
                 6 => .PageDown,
@@ -613,6 +654,7 @@ fn getKeyPosix() !?Key {
                 input_offset += seq_len;
                 return Key{
                     .type = switch (num) {
+                        2 => .Insert,
                         3 => .Delete,
                         5 => .PageUp,
                         6 => .PageDown,
@@ -1183,6 +1225,48 @@ test "kitty CSI-u Ctrl+letter parses as CtrlChar carrying the letter" {
     // Ctrl+Alt combos stay Other (alt chords are not claimed)
     const ca = parseKittyKey("\x1b[115;7u").?;
     try testing.expectEqual(KeyType.Other, ca.key.type);
+}
+
+test "kitty CSI-u Alt+letter parses as AltChar carrying the letter" {
+    // Alt+B (mods 3 = 1 + alt), captured from `kitty +kitten show_key`
+    const b = parseKittyKey("\x1b[98;3u").?;
+    try testing.expectEqual(KeyType.AltChar, b.key.type);
+    try testing.expectEqualStrings("b", b.key.sequence);
+    try testing.expectEqual(KeyEvent.Press, b.key.event);
+    try testing.expect(!b.key.shift);
+
+    // its release, from the same capture
+    const rel = parseKittyKey("\x1b[98;3:3u").?;
+    try testing.expectEqual(KeyType.AltChar, rel.key.type);
+    try testing.expectEqual(KeyEvent.Release, rel.key.event);
+
+    // Alt+Shift+Q (mods 4 = 1 + shift + alt): the protocol reports the
+    // BASE codepoint, so the shift flag is the only thing telling the
+    // octave transpose from the semitone one
+    const q = parseKittyKey("\x1b[113;4u").?;
+    try testing.expectEqual(KeyType.AltChar, q.key.type);
+    try testing.expectEqualStrings("q", q.key.sequence);
+    try testing.expect(q.key.shift);
+
+    // an unmodified letter is still text
+    try testing.expectEqual(KeyType.Char, parseKittyKey("\x1b[98u").?.key.type);
+}
+
+test "kitty CSI-u carries modifiers on the named keys (and Insert exists)" {
+    // Shift+Backspace used to arrive as a plain Backspace: same type,
+    // and nothing left to tell the two row verbs apart
+    const bs = parseKittyKey("\x1b[127;2u").?;
+    try testing.expectEqual(KeyType.Backspace, bs.key.type);
+    try testing.expect(bs.key.shift);
+    const plain = parseKittyKey("\x1b[127u").?;
+    try testing.expectEqual(KeyType.Backspace, plain.key.type);
+    try testing.expect(!plain.key.shift);
+
+    // Insert had no KeyType at all, so CSI 2~ landed on Other
+    try testing.expectEqual(KeyType.Insert, parseKittyKey("\x1b[2~").?.key.type);
+    const alt_ins = parseKittyKey("\x1b[2;3~").?;
+    try testing.expectEqual(KeyType.Insert, alt_ins.key.type);
+    try testing.expect(alt_ins.key.alt);
 }
 
 test "kitty CSI-u special keys map to legacy key types" {
