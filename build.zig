@@ -6,7 +6,13 @@ const ffmpeg_include_path = "/usr/include/x86_64-linux-gnu"; // for ffmpeg
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
-    const optimize = std.builtin.OptimizeMode.ReleaseFast;
+    // The standard option — Debug unless `-Doptimize=...` says
+    // otherwise, like any Zig project. It was a hard-coded ReleaseFast
+    // for years (the render loop's speed); a dependent that wants the
+    // fast build passes its own mode through `b.dependency("movy",
+    // .{ .optimize = ... })`, and a Debug build keeps the safety checks
+    // that found DUET's leaks (duetracker s128b/s129).
+    const optimize = b.standardOptimizeOption(.{});
 
     // -- build options
     // apt-get install libavcodec-dev libavutil-dev libswresample-dev libavformat-dev libswscale-dev
