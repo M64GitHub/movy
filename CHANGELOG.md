@@ -1,5 +1,64 @@
 # Changelog
 
+## v0.3.1 - Modifier Keys, Scanline Mask & the logo-morph Banner
+
+A point release focused on input. `Key` now carries `shift` / `alt` / `ctrl` flags, Ctrl+ and Alt+ chords get their own key types, and F-key / Insert coverage is completed. `Frame` gains a per-pixel scanline exemption for HUD text, the build switches to the standard `-Doptimize` option, and the README's neon banner ships as a runnable example.
+
+### New: modifier flags on `Key` (`movy.input`)
+
+- `Key.shift`, `Key.alt`, `Key.ctrl` (all default `false`) - set on keys whose *type* does not already encode the modifier. Only kitty / xterm modifier-parameter forms (`CSI 1;3A`, `CSI 20;3~`, `CSI 32;2u`) can set them; bare legacy sequences carry no modifier field and stay `false`.
+- **Arrows / Home / End** carry `alt` - `CSI 1;3A` (Alt+Up) used to arrive indistinguishable from a bare Up. Ctrl and Shift arrows keep their dedicated `Ctrl*` / `Shift*` types (the flags are a restatement there). The `CSI 1;3x` form is also parsed on the legacy (non-kitty) path.
+- **F-keys** carry `alt` / `ctrl` / `shift` - Alt+F9 (`CSI 20;3~`), Ctrl+F5, Shift+F6, Alt+F1 (`CSI 1;3P`) - the same grammar on kitty and xterm.
+- **Named keys** (Backspace, Delete, Enter, Escape, Tab, Insert) carry them too on kitty CSI-u - Shift+Backspace no longer arrives as a plain Backspace.
+- **Shift+Space** - `Key.shift` on a `.Char` key (kitty only; legacy input physically cannot tell it from a bare space, both are one `0x20` byte).
+
+### New: `KeyType.CtrlChar` and `KeyType.AltChar`
+
+- `.CtrlChar` - Ctrl + any printable (kitty CSI-u, and on legacy terminals every C0 control byte). `sequence` holds the **lowercase character itself**, never the control byte - so Ctrl+`-` / Ctrl+`=` work, not only letters. `.CtrlC` keeps its dedicated type.
+- `.AltChar` - Alt + any printable (kitty CSI-u only - legacy input spells Alt as an ESC prefix, which no parser can tell from a real Escape followed by typing). `sequence` holds the lowercase character; `shift` carries the other half of Alt+Shift+X, because the protocol reports the base codepoint.
+- Both get their own type on purpose: a chord is a *command*, and a consumer that routes `.Char` into a text field or a piano must never see it.
+- Ctrl+Alt combos stay `.Other`.
+
+### New: more keys
+
+- `KeyType.Insert` (`CSI 2~`) - previously landed on `.Other`.
+- **F1-F4 in every spelling:** kitty's `CSI 1;mods {P,Q,S}` and `CSI 13~` (F3), the xterm legacy `CSI 11~`..`14~`, and the parameterless `CSI P` / `Q` / `S`.
+
+### New: `Frame.scanline_mask` - per-pixel CRT-stripe exemption
+
+- `slpx(x, y)` / `slrect(x, y, w, h)` mark pixels that keep full brightness on odd rows in `composite()`, so HUD-class text stays legible above a strong scanline. Every other grade (vignette / warmth / flash / tint) still applies.
+- The mask is a **per-frame transient**: `beginFrame()` clears it, so drawing code re-marks while stamping each frame.
+
+### New example: `logo-morph`
+
+The looping neon banner from the README as a runnable, multi-file example of the Frame neon-render path: the logo is rebuilt every frame from its own grayscale pixels, a flare beam sweeps across it energizing and scattering what it touches, a magenta *ignite* beat fires shockwave rings, and everything settles back to the clean logo. All the trails and bloom come from the Frame's persistent glow buffer - no per-object bookkeeping.
+
+```sh
+zig build run-logo-morph          # ESC / q quits
+zig build run-logo-morph -- shake # add a screen shake on the ignite beat
+```
+
+Needs a terminal of at least 120x20 cells. See [examples/logo-morph](./examples/logo-morph/) for the walkthrough.
+
+### Build
+
+- `build.zig` now uses the standard `b.standardOptimizeOption(.{})` - **Debug by default**, `-Doptimize=ReleaseFast` for the fast build. It was a hard-coded `ReleaseFast` for years; a Debug build keeps the safety checks (leak detection etc.) that the hard-coded mode hid. Dependents pass their own mode through `b.dependency("movy", .{ .target = target, .optimize = optimize })`.
+
+### Behavior changes
+
+- **`KeyType` grew three values** (`CtrlChar`, `AltChar`, `Insert`). An exhaustive `switch (key.type)` without an `else` arm will fail to compile until the new values are handled - add `.CtrlChar, .AltChar, .Insert =>` arms or an `else => {}`.
+- **Legacy (non-kitty) terminals:** C0 control bytes (Ctrl+A..Z, except `^C` / `^H` / `^I` / `^J` / `^M` which keep their types) now arrive as `.CtrlChar` carrying the letter, instead of `.Char` carrying the raw control byte.
+- **Build mode:** movy no longer forces `ReleaseFast` on itself. A dependent building in Debug now gets a Debug movy (slower render loop, full safety checks) - pass `.optimize = .ReleaseFast` to the dependency if you want the old behavior.
+
+### Fixes
+
+- `demos/mouse_demo` handles the new `.CtrlChar` / `.AltChar` / `.Insert` key types (its exhaustive switch no longer breaks the default `zig build`); chords are shown but not routed into the text window.
+
+### Documentation
+
+- README: new neon banner (rendered by logo-morph) with a tip linking to the example; the performance-suite section and the gallery call-to-action were trimmed.
+- `examples/README.md` lists logo-morph.
+
 ## v0.3.0 - Frame Rendering & the Neon-Render Layer
 
 A new, game-focused rendering path lands alongside the existing surface-compositing pipeline. Draw into a single float framebuffer and get glow/bloom plus a CRT post-fx stack essentially for free, then push it to the terminal at 60fps with the new diffing output.

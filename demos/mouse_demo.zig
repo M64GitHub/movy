@@ -250,6 +250,7 @@ pub fn main() !void {
                         .Tab,
                         .ShiftTab,
                         .Delete,
+                        .Insert,
                         => {
                             const message = try std.fmt.bufPrint(
                                 &message_buffer,
@@ -283,6 +284,18 @@ pub fn main() !void {
                                 &message_buffer,
                                 "{s} pressed",
                                 .{@tagName(key.type)},
+                            );
+                            message_len = message.len;
+                        },
+                        // Chords are commands, not text: show them, but never
+                        // route them into the text window like .Char below.
+                        .CtrlChar, .AltChar => {
+                            const mod: []const u8 =
+                                if (key.type == .CtrlChar) "Ctrl" else "Alt";
+                            const message = try std.fmt.bufPrint(
+                                &message_buffer,
+                                "{s}+{s} pressed",
+                                .{ mod, key.sequence },
                             );
                             message_len = message.len;
                         },
