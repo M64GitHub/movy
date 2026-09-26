@@ -5,6 +5,7 @@
 - **[RenderEngine.md](./RenderEngine.md)** - The compositor: combining multiple surfaces with z-ordering, clipping, and alpha blending
 - **[Screen.md](./Screen.md)** - The terminal rendering canvas: compositing layers, managing sprites and surfaces, and outputting to the terminal
 - **[Animation.md](./Animation.md)** - Animation utilities: IndexAnimator for frame cycling, TrigWave for wave motion, easing functions for smooth transitions
+- **[GlyphLayer.md](./GlyphLayer.md)** - Text inside the pixel scene: glyphs whose backgrounds come from the pixels underneath, Frame grading and glyph glow, and seeing glyphs headlessly
 - **[Colors.md](./Colors.md)** - Color constants and utilities: Bootstrap-inspired palette, HTML color parsing, brightness and darkness adjustment
 
 ## Code Examples
@@ -27,6 +28,7 @@ zig build run-rotate_animation       # Continuous 360-degree rotation
 zig build run-rotate_angles          # Compare rotation at different angles
 zig build run-rotate_interactive     # User-controlled rotation with keys
 zig build run-framerate_template     # Frame-based game loop template
+zig build run-glyph-decrypt          # GlyphLayer text effect over a Frame scene
 ```
 
 Each example corresponds to code snippets and concepts shown in the

@@ -26,6 +26,7 @@ The engine provides:
 * **Frame-based rendering** - a float framebuffer with a persistent glow/bloom buffer and a built-in CRT post-fx stack (vignette, scanlines, flash, tint), giving a neon look essentially for free. Ideal for games and shader-toy-style demos.
 * **Sprite and surface abstraction** for transparent drawing and dynamic frame animations.
 * **Half-block rendering** for double vertical resolution.
+* **Glyph layer** - text that lives *inside* the pixel scene: characters at cell resolution whose backgrounds come from the pixels underneath, so glow, gradients and trails show through behind them.
 * **Animation control** via IndexAnimators, waveform generators, and easing functions - driving frame indices, colors, positions, and other parameters.
 * **High-throughput output** - `DiffOutput` re-paints only the terminal rows that changed, with an optional background writer thread, for smooth 60fps even under tmux / ssh.
 * **Keyboard, mouse, and kitty-protocol input** - including true key press / repeat / release events on supporting terminals.
@@ -44,6 +45,10 @@ The result is a **modular visual engine** - expressive, composable, and built fo
 ![frame-game](./demos/frame-game/screenshot.png)
 
 (frame-game - a neon platformer built on the new **Frame** rendering path - play it with `zig build run-frame-game`, read it in [demos/frame-game](./demos/frame-game/))
+
+![glyph-decrypt](./examples/glyph-decrypt/screenshot.png)
+
+(glyph-decrypt - text on the new **GlyphLayer** scrambling and locking in while a scanner beam and a drifting color field shine through behind it - run it with `zig build run-glyph-decrypt`, read about it in [doc/GlyphLayer.md](./doc/GlyphLayer.md))
 
 
 ## Core Concepts
@@ -94,7 +99,33 @@ A single float framebuffer with a built-in post-processing stack. Instead of com
 
 - **DiffOutput** is a faster, drop-in replacement for `screen.output()`. It compares each terminal row against the previous frame and re-sends only the rows that changed (unchanged rows cost zero bytes), and in `.threaded` mode hands the blocking write to a background writer thread - so the render loop never stalls, dropping a frame instead of freezing. This is what keeps things smooth at 60fps, especially under tmux / ssh.
 
-- **GlyphLayer** is an optional text layer at cell resolution, separate from the pixels. Each cell holds a codepoint, an fg color and a background mode: `.pixels` (the cell's background is the average of the two pixels under it, so text sits *inside* the scene) or `.solid`. Attach it to the surface that gets encoded (`screen.output_surface.setGlyphs(layer)`) and `DiffOutput` / `toAnsi()` resolve it over the final pixels - empty cells stay half-block pixels. On the Frame path, `frame.setGlyphs(layer)` grades the glyph colors with the scene (vignette / flash / tint, without touching your authored colors), and `glyphGlow()` / `gcell()` feed glyph light into the glow buffer for bloom and trails. It is not composited by the RenderEngine; `char_map` text still draws on top of it. See the [glyph-decrypt example](./examples/glyph-decrypt/main.zig) (`zig build run-glyph-decrypt`).
+### Glyph Layer - text inside the scene
+
+Text written into a `RenderSurface` (`putStrXY` and friends) replaces the pixels it sits on. A **`GlyphLayer`** keeps text separate: an optional layer of characters at terminal-cell resolution, resolved over the pixels only when the frame is written to the terminal. Each cell holds a character, a text color and a background mode:
+
+- **`.pixels`** - the cell's background is the average of the two pixels underneath, so gradients, glow and trails show through behind the text, and text you place once sits inside an animated scene without being redrawn.
+- **`.solid`** - the cell uses its own background color.
+
+Empty cells stay half-block pixels. Attach the layer to the surface that gets encoded, and `DiffOutput` / `screen.output()` do the rest:
+
+```zig
+const glyphs = try movy.GlyphLayer.init(allocator, screen.w, screen.h / 2);
+defer glyphs.deinit();
+screen.output_surface.setGlyphs(glyphs);   // resolved at output
+try frame.setGlyphs(glyphs);               // optional: grade glyphs with the Frame
+
+// per frame, between frame.beginFrame() and frame.composite():
+glyphs.clear();
+_ = glyphs.putStr(10, 5, "text in the scene", .{ .r = 200, .g = 240, .b = 255 });
+frame.glyphGlow(0.025);                    // text blooms into the glow buffer
+```
+
+- On the Frame path, `frame.setGlyphs()` grades glyph colors with the scene (vignette, warmth, flash, tint) without touching the colors you set, and `glyphGlow()` / `gcell()` feed glyph light into the glow buffer for bloom and trails.
+- The layer is not composited by the RenderEngine - there is one per screen, on `screen.output_surface`. `char_map` text still draws on top of it, so UI and HUD text stays in front.
+- **Performance:** programs without a glyph layer run the unchanged pixel encoder (no per-cell cost), and `DiffOutput` includes glyphs in its changed-row check - static text over a static background costs zero bytes.
+- **Headless:** `Frame.savePng()` cannot draw text, so `tools/ansi2html.py` renders a frame's ANSI output to HTML / PNG instead.
+
+The full guide is [doc/GlyphLayer.md](./doc/GlyphLayer.md); the [glyph-decrypt example](./examples/glyph-decrypt/main.zig) is a complete text effect (`zig build run-glyph-decrypt`).
 
 ### Sprite Rendering
 
@@ -145,6 +176,9 @@ Tests currently cover:
 - Sprite: splitting functions
 - Indexanimator
 - RenderSurface: scaling
+- GlyphLayer: drawing, clipping, output colors, `toAnsi()` resolving
+- DiffOutput: glyph encoding, background modes, precedence, changed-row detection
+- Frame: glyph grading and glyph glow
 
 ```bash
 zig build test
@@ -155,6 +189,7 @@ zig build test
 - **[Guides](./doc/README.md)** - Documentation on core concepts like RenderSurface and RenderEngine, written for developers new to movy
 - **[Examples](./examples/)** - Code examples demonstrating specific features (alpha blending, PNG loading, sprite animations, rotation / scaling, ...)
 - **[Demos](./demos/README.md)** - Programs showcasing visual effects, animations, and interaction
+- **[Tools](./tools/)** - `ansi2html.py` renders movy's terminal output to HTML / PNG for headless visual checks
 - **[Release Notes](./RELEASE_NOTES.md)** - What's new in the latest release (see [CHANGELOG.md](./CHANGELOG.md) for the full history)
 
 The sections are being updated frequently.

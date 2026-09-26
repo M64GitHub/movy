@@ -141,7 +141,7 @@ def main():
         chrome = find_chrome()
         if not chrome:
             sys.exit("no Chrome/Chromium found; set CHROME=/path/to/chrome")
-        width = int(cols * args.font * 0.62) + 16
+        width = int(cols * args.font * 0.602) + 2  # Menlo advance is ~0.6em
         height = rows * line_px + 8
         subprocess.run(
             [

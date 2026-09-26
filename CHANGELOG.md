@@ -10,6 +10,11 @@
 - `Frame.setGlyphs()` grades glyph colors in `composite()` (vignette, warmth, flash, tint; no scanline) into the layer's `fg_out` / `bg_out`, never into the authored colors, so persistent text is not graded twice. `Frame.glyphGlow(strength)` and `Frame.gcell(x, y, color)` add glyph light to the glow buffer.
 - `DiffOutput.initSize()` creates a DiffOutput for a surface size without a `Screen`.
 
+### Docs
+
+- New guide [doc/GlyphLayer.md](./doc/GlyphLayer.md): the workflow, background modes, persistence and precedence, Frame grading and glyph glow, performance, the headless dev loop, and a quick reference.
+- README: a *Glyph Layer* section with a code sample, and the glyph-decrypt screenshot.
+
 ### New example: `glyph-decrypt`
 
 A decrypt-style text reveal on a GlyphLayer over a Frame scene: characters scramble, lock in with a flash of glow, hold, and dissolve, while a drifting color field and a scanner beam show through behind them. `zig build run-glyph-decrypt -- shot 0.5 out.ans` writes one frame's ANSI headlessly.
