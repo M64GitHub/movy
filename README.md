@@ -209,7 +209,7 @@ The sections are being updated frequently.
 
 | Project | Description | Preview |
 |---------|-------------|---------|
-| [PIXEL LOVE (pxlv)](https://m64.io/pxlv/) | Terminal demo — 4th place at Assembly 2026 (AI Coding compo). 177×98 px at 60 fps for exactly five minutes; every pixel an ANSI character, all demo code written by Claude Code on movy |<img width="1770" height="980" alt="PIXEL LOVE — a terminal demo running on movy" src="https://m64.io/pxlv/pxlv-screenshot.png" /> |
+| [PIXEL LOVE (pxlv)](https://m64.io/pxlv/) | Terminal demo - 4th place at Assembly 2026 (AI Coding compo). 177×98 px at 60 fps for exactly five minutes; every pixel an ANSI character, all demo code written by Claude Code on movy |<img width="1770" height="980" alt="PIXEL LOVE - a terminal demo running on movy" src="https://m64.io/pxlv/pxlv-screenshot.png" /> |
 | [1ST-SHOT](https://github.com/M64GitHub/1st-shot) | Terminal bullet-hell shooter with SID audio |<img width="1920" height="1080" alt="1st-shot" src="https://github.com/user-attachments/assets/7d720751-f6f4-4451-a509-772ea66cd622" /> |
 | [movycat](https://github.com/M64GitHub/movycat) | Terminal video player |<img width="1300" height="460" alt="459688245-d07e6ecd-2ee4-41f2-a82c-66096de14aed" src="https://github.com/user-attachments/assets/9b67e47b-30bd-4b04-bbd1-99869bba59e3" /> |
 | *Your project here?* |  | Post in the [Community Showcase Discussion](https://github.com/M64GitHub/movy/discussions/10)! |

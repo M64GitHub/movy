@@ -23,7 +23,7 @@ pub const KeyType = enum {
     CtrlEnd, // \x1b[1;5F
     CtrlChar, // Ctrl+printable (kitty CSI-u / legacy C0 byte); sequence
     // holds the LOWERCASE letter itself, never the control byte
-    AltChar, // Alt+printable (kitty CSI-u only — legacy input spells it
+    AltChar, // Alt+printable (kitty CSI-u only - legacy input spells it
     // as an ESC prefix, which no parser can tell from a real Escape
     // followed by typing). Sequence holds the LOWERCASE character, and
     // `shift` carries the other half of Alt+Shift+X. It gets its own
@@ -81,14 +81,14 @@ pub const Key = struct {
     event: KeyEvent = .Press,
     // Shift held on a .Char key. Shifted LETTERS already arrive as
     // their shifted codepoint, so this only carries what the byte
-    // itself cannot say — Shift+SPACE above all, which legacy input
+    // itself cannot say - Shift+SPACE above all, which legacy input
     // physically cannot distinguish from a bare space (both are one
     // 0x20 byte), so it stays false there.
     shift: bool = false,
     // Alt/Ctrl held on keys whose TYPE does not already encode them
     // (F-keys above all: CSI 20;3~ is Alt+F9). Arrows keep their
     // dedicated Ctrl*/Shift* types; Ctrl+printables keep .CtrlChar.
-    // Only kitty/xterm modifier-parameter forms can set these — bare
+    // Only kitty/xterm modifier-parameter forms can set these - bare
     // legacy sequences carry no modifier field and stay false.
     alt: bool = false,
     ctrl: bool = false,
@@ -395,7 +395,7 @@ fn parseKittyKey(bytes: []const u8) ?ParsedKitty {
                     // Ctrl+PRINTABLE gets its own type (the character
                     // is synthesized into sequence below). Letters were
                     // the whole space until an app wanted Ctrl+'-' and
-                    // Ctrl+'=' — punctuation used to fall through to
+                    // Ctrl+'=' - punctuation used to fall through to
                     // .Other, which no keymap can bind, so widening this
                     // only turns unusable events into usable ones.
                     if (ctrl and !alt and code >= 0x20 and code < 0x7f)
@@ -476,7 +476,7 @@ fn parseKittyKey(bytes: []const u8) ?ParsedKitty {
                     .sequence = sequence,
                     .event = event,
                     // Backspace, Delete, Enter, Escape, Tab and the
-                    // Insert below all pass through here — carrying the
+                    // Insert below all pass through here - carrying the
                     // modifiers means Shift+Backspace stops arriving as
                     // a plain Backspace, which is what a pattern editor
                     // needs to tell "delete a row" from "insert one".
@@ -515,7 +515,7 @@ fn parseKittyKey(bytes: []const u8) ?ParsedKitty {
                     .event = event,
                     // The arrow family carries its modifiers too now.
                     // Ctrl and Shift already have their own KeyTypes, so
-                    // those flags are a restatement — ALT never had one,
+                    // those flags are a restatement - ALT never had one,
                     // and CSI 1;3A used to arrive indistinguishable from
                     // a bare Up. (Same treatment the F-keys got when
                     // Alt+F9/F10 were needed; combining alt with the
@@ -577,7 +577,7 @@ fn parseKittyKey(bytes: []const u8) ?ParsedKitty {
                     .type = key_type,
                     .sequence = sequence,
                     .event = event,
-                    // xterm sends CSI 21;3~ for Alt+F10 — the same
+                    // xterm sends CSI 21;3~ for Alt+F10 - the same
                     // grammar as kitty, so modifier F-keys work on
                     // both. Bare CSI 21~ has no mods field: all false.
                     .shift = shift,
@@ -1103,7 +1103,7 @@ test "kitty arrows carry event types and modifiers" {
     const up = parseKittyKey("\x1b[1;1:1A").?;
     try testing.expectEqual(KeyType.Up, up.key.type);
 
-    // ALT has no arrow KeyType — it rides the flag, and the arrow stays
+    // ALT has no arrow KeyType - it rides the flag, and the arrow stays
     // itself, so a consumer that ignores alt is unaffected
     const alt_up = parseKittyKey("\x1b[1;3A").?;
     try testing.expectEqual(KeyType.Up, alt_up.key.type);
@@ -1145,7 +1145,7 @@ test "kitty F1-F4 CSI forms parse (P/Q/S terminators, F3 as 13~)" {
 }
 
 test "modifier-carrying F-keys surface alt/ctrl/shift flags" {
-    // Alt+F9 / Alt+F10 — kitty and xterm both speak CSI num;mods~
+    // Alt+F9 / Alt+F10 - kitty and xterm both speak CSI num;mods~
     // (mods 3 = 1 + alt)
     const af9 = parseKittyKey("\x1b[20;3~").?;
     try testing.expectEqual(KeyType.F9, af9.key.type);

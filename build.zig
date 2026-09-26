@@ -6,7 +6,7 @@ const ffmpeg_include_path = "/usr/include/x86_64-linux-gnu"; // for ffmpeg
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
-    // The standard option — Debug unless `-Doptimize=...` says
+    // The standard option - Debug unless `-Doptimize=...` says
     // otherwise, like any Zig project. It was a hard-coded ReleaseFast
     // for years (the render loop's speed); a dependent that wants the
     // fast build passes its own mode through `b.dependency("movy",
