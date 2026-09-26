@@ -1,20 +1,16 @@
 //! glyph-decrypt - text that lives inside a neon pixel scene.
 //!
-//! Shows movy's GlyphLayer on the Frame path: a synthwave grid and a scanner
-//! beam are drawn as half-block pixels (with glow), and the text is a
-//! GlyphLayer on top. Each character scrambles through random glyphs, then
-//! locks in with a flash of light; `.pixels` glyph backgrounds let the grid
-//! and the glow show through behind the text, and glyphGlow() gives the text a
-//! bloom halo. The bottom bar uses `.solid` backgrounds for contrast.
+//! Shows movy's GlyphLayer on the Frame path: a slowly drifting color field
+//! and a scanner beam are drawn as half-block pixels (with glow), and the text
+//! is a GlyphLayer on top. Each character scrambles through random glyphs,
+//! then locks in with a flash of light; `.pixels` glyph backgrounds let the
+//! colors and the glow show through behind the text, and glyphGlow() gives the
+//! text a bloom halo. The bottom bar uses `.solid` backgrounds for contrast.
 //!
 //!   zig build run-glyph-decrypt                      -> run it (ESC / q quits)
 //!   zig build run-glyph-decrypt -- shot 0.5 out.ans  -> headless: simulate up
 //!       to loop phase 0.5 and write that frame's ANSI (toAnsi) to out.ans
 //!       (view it: tools/ansi2html.py out.ans out.html --png out.png)
-//!
-//! The ground grid is evaluated per pixel like a fragment shader (drawGrid):
-//! antialiased lines that scroll smoothly between pixel rows and fade into a
-//! haze where they get denser than the pixels can show.
 
 const std = @import("std");
 const movy = @import("movy");
@@ -30,13 +26,12 @@ const LOOP_SECONDS: f32 = 9.0;
 const FPS: f32 = 60.0;
 const FRAME_NS: i128 = 16_666_667;
 
-const HORIZON: i32 = 30; // pixel row of the grid's horizon
 
 const LINES = [_]struct { row: usize, text: []const u8, col: Rgb }{
-    .{ .row = 2, .text = "G L Y P H   L A Y E R", .col = .{ .r = 255, .g = 120, .b = 220 } },
-    .{ .row = 5, .text = "text that lives inside the scene", .col = .{ .r = 200, .g = 240, .b = 255 } },
-    .{ .row = 7, .text = "half-block pixels below, glyphs on top", .col = .{ .r = 150, .g = 210, .b = 255 } },
-    .{ .row = 9, .text = "the grid and the glow shine through", .col = .{ .r = 150, .g = 210, .b = 255 } },
+    .{ .row = 7, .text = "G L Y P H   L A Y E R", .col = .{ .r = 255, .g = 120, .b = 220 } },
+    .{ .row = 10, .text = "text that lives inside the scene", .col = .{ .r = 200, .g = 240, .b = 255 } },
+    .{ .row = 12, .text = "half-block pixels below, glyphs on top", .col = .{ .r = 150, .g = 210, .b = 255 } },
+    .{ .row = 14, .text = "the colors and the glow shine through", .col = .{ .r = 150, .g = 210, .b = 255 } },
 };
 const SCRAMBLE = "01<>/\\|[]{}#%&*+=?!ABCDEFXYZ$@~^";
 
@@ -67,40 +62,28 @@ fn toRgb(c: V3) Rgb {
     return c.toRgb();
 }
 
-/// Background: gradient sky, sun bands, a scrolling perspective grid, and a
-/// scanner beam that sweeps while the text decrypts.
+/// Background: a slowly drifting color field (a few overlapping low-frequency
+/// waves blended through a dark palette - no edges, so nothing to alias), and
+/// a scanner beam that sweeps while the text decrypts.
 fn drawScene(f: *movy.Frame, n: f32, t: f32) void {
     const uw: usize = @intCast(f.w);
-    // sky gradient (solid)
-    var y: i32 = 0;
-    while (y < CANVAS_H) : (y += 1) {
-        const k = @as(f32, @floatFromInt(y)) / @as(f32, @floatFromInt(CANVAS_H));
-        const sky = if (y < HORIZON)
-            v3(0.03, 0.0, 0.08).lerp(v3(0.20, 0.02, 0.22), k * k * 1.6)
-        else
-            v3(0.02, 0.0, 0.05);
-        const row = @as(usize, @intCast(y)) * uw;
-        @memset(f.solid[row..][0..uw], sky);
-    }
-
-    // sun: a banded disc sitting on the horizon
-    const cx: f32 = @as(f32, @floatFromInt(CANVAS_W)) * 0.5;
-    const sun_r: f32 = 8.0;
-    y = HORIZON - 9;
-    while (y < HORIZON) : (y += 1) {
-        const dy = (@as(f32, @floatFromInt(y)) - @as(f32, @floatFromInt(HORIZON))) * 1.9;
-        if (@abs(dy) > sun_r * 1.9) continue;
-        const band = @mod(@as(f32, @floatFromInt(y)) + t * 3.0, 3.0) < 1.0 and y > HORIZON - 5;
-        if (band) continue;
-        const half = @sqrt(@max(0.0, sun_r * sun_r * 3.6 - dy * dy)) * 1.1;
-        var x: i32 = @intFromFloat(cx - half);
-        while (@as(f32, @floatFromInt(x)) < cx + half) : (x += 1) {
-            const kk = @as(f32, @floatFromInt(HORIZON - y)) / 9.0;
-            f.px(x, y, v3(1.0, 0.35, 0.25).lerp(v3(1.0, 0.85, 0.3), kk));
+    const uh: usize = @intCast(f.h);
+    const inv_w = 1.0 / @as(f32, @floatFromInt(uw));
+    const inv_h = 1.0 / @as(f32, @floatFromInt(uh));
+    for (0..uh) |y| {
+        const v = @as(f32, @floatFromInt(y)) * inv_h;
+        const wy = @sin(v * 3.1 - t * 0.23);
+        const row = y * uw;
+        for (0..uw) |x| {
+            const u = @as(f32, @floatFromInt(x)) * inv_w;
+            // three drifting waves, one of them warped by another
+            const p = @sin(u * 4.2 + t * 0.31 + wy) +
+                @sin(v * 4.8 - t * 0.19 + @sin(u * 2.3 + t * 0.17) * 1.4) +
+                @sin((u * 0.8 + v) * 3.4 + t * 0.27);
+            const k = p * (1.0 / 6.0) + 0.5; // 0..1
+            f.solid[row + x] = field(k, u, v);
         }
     }
-
-    drawGrid(f, t);
 
     // scanner beam during the reveal
     if (n < REVEAL_END + 0.05) {
@@ -113,57 +96,20 @@ fn drawScene(f: *movy.Frame, n: f32, t: f32) void {
     }
 }
 
-// Ground grid: world lines on a plane seen from above the horizon.
-const GRID_CAM_H: f32 = 20.0; // depth scale: larger = lines farther apart near us
-const GRID_U: f32 = 1.0; // sideways scale: larger = verticals closer together
-const GRID_LINE_PX: f32 = 1.1; // line half-width in pixels
-const GRID_COL = v3(0.9, 0.1, 0.8);
-const FLOOR = v3(0.02, 0.0, 0.05);
-const GRID_HAZE: f32 = 0.3; // brightness where lines blur together at the horizon
+const FIELD_DEEP = v3(0.02, 0.01, 0.07); // indigo
+const FIELD_MID = v3(0.20, 0.03, 0.22); // magenta
+const FIELD_HIGH = v3(0.02, 0.17, 0.24); // teal
 
-/// Antialiased coverage of a grid line: `d` is the world distance to the
-/// nearest line, `deriv` how much world one pixel spans, `slant` the line's
-/// horizontal pixels per pixel row (0 for horizontal/vertical lines; a slanted
-/// line's perpendicular distance is shorter than the measured one). Where lines
-/// get denser than ~2px they fade to their average coverage instead of aliasing.
-fn lineCov(d: f32, deriv: f32, slant: f32) f32 {
-    const px = (d / deriv) / @sqrt(1.0 + slant * slant);
-    const cov = std.math.clamp(1.0 - px / GRID_LINE_PX, 0.0, 1.0);
-    const avg = @min(GRID_LINE_PX * deriv, GRID_HAZE);
-    return cov + (avg - cov) * smoothstep(0.25, 0.6, deriv);
-}
-
-/// A perspective grid evaluated per pixel (like a fragment shader): soft,
-/// sub-pixel-smooth scrolling, fading into a glowing haze at the horizon.
-fn drawGrid(f: *movy.Frame, t: f32) void {
-    const uw: usize = @intCast(f.w);
-    const cx: f32 = @as(f32, @floatFromInt(CANVAS_W)) * 0.5;
-    const depth_rows: f32 = @floatFromInt(CANVAS_H - HORIZON);
-    const scroll = t * 1.6;
-
-    var y: i32 = HORIZON;
-    while (y < CANVAS_H) : (y += 1) {
-        const dy = @as(f32, @floatFromInt(y - HORIZON)) + 0.5; // pixel center
-        const depth = GRID_CAM_H / dy;
-        const dz = GRID_CAM_H / (dy * dy); // world depth per pixel row
-        const wz = depth + scroll;
-        const cov_z = lineCov(@abs(wz - @round(wz)), dz, 0.0);
-        const dwx = GRID_U / dy; // world x per pixel
-        const fog = 0.35 + 0.65 * smoothstep(0.0, depth_rows, dy);
-        const row = @as(usize, @intCast(y)) * uw;
-        for (0..uw) |x| {
-            const wx = (@as(f32, @floatFromInt(x)) + 0.5 - cx) * dwx;
-            // line j sits at x = cx + j * dy / GRID_U: it slants j / GRID_U px per row
-            const cov_x = lineCov(@abs(wx - @round(wx)), dwx, @round(wx) / GRID_U);
-            const c = GRID_COL.scale(@max(cov_x, cov_z) * fog);
-            f.solid[row + x] = FLOOR.add(c);
-            f.glow[row + x] = f.glow[row + x].add(c.scale(0.03));
-        }
-    }
-
-    // horizon: a soft glow band instead of a hard line
-    f.ghline(0, HORIZON, CANVAS_W, v3(1.0, 0.3, 0.9).scale(0.07));
-    f.ghline(0, HORIZON - 1, CANVAS_W, v3(1.0, 0.3, 0.9).scale(0.03));
+/// The color field's palette: indigo -> magenta -> teal along k, darkened
+/// toward the edges so the text block stays in front.
+fn field(k: f32, u: f32, v: f32) V3 {
+    const c = if (k < 0.5)
+        FIELD_DEEP.lerp(FIELD_MID, smoothstep(0.1, 0.5, k))
+    else
+        FIELD_MID.lerp(FIELD_HIGH, smoothstep(0.5, 0.9, k));
+    const du = u - 0.5;
+    const dv = v - 0.5;
+    return c.scale(1.0 - 1.2 * (du * du + dv * dv));
 }
 
 /// Text: every char scrambles, locks in with a flash, holds, then dissolves.

@@ -12,7 +12,7 @@
 
 ### New example: `glyph-decrypt`
 
-A decrypt-style text reveal on a GlyphLayer over a synthwave Frame scene: characters scramble, lock in with a flash of glow, hold, and dissolve, while the grid and a scanner beam show through behind them. `zig build run-glyph-decrypt -- shot 0.5 out.ans` writes one frame's ANSI headlessly.
+A decrypt-style text reveal on a GlyphLayer over a Frame scene: characters scramble, lock in with a flash of glow, hold, and dissolve, while a drifting color field and a scanner beam show through behind them. `zig build run-glyph-decrypt -- shot 0.5 out.ans` writes one frame's ANSI headlessly.
 
 ### New tool: `tools/ansi2html.py`
 
