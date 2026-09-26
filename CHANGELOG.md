@@ -14,6 +14,10 @@
 
 A decrypt-style text reveal on a GlyphLayer over a synthwave Frame scene: characters scramble, lock in with a flash of glow, hold, and dissolve, while the grid and a scanner beam show through behind them. `zig build run-glyph-decrypt -- shot 0.5 out.ans` writes one frame's ANSI headlessly.
 
+### New tool: `tools/ansi2html.py`
+
+Renders a movy ANSI stream (`toAnsi()` or `DiffOutput`: truecolor SGR plus cursor movement) to HTML, and with `--png` to a screenshot via headless Chrome - the headless way to look at GlyphLayer text, which `Frame.savePng()` cannot draw.
+
 ## v0.3.1 - Modifier Keys, Scanline Mask & the logo-morph Banner
 
 A point release focused on input. `Key` now carries `shift` / `alt` / `ctrl` flags, Ctrl+ and Alt+ chords get their own key types, and F-key / Insert coverage is completed. `Frame` gains a per-pixel scanline exemption for HUD text, the build switches to the standard `-Doptimize` option, and the README's neon banner ships as a runnable example.

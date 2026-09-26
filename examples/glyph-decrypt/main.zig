@@ -10,6 +10,11 @@
 //!   zig build run-glyph-decrypt                      -> run it (ESC / q quits)
 //!   zig build run-glyph-decrypt -- shot 0.5 out.ans  -> headless: simulate up
 //!       to loop phase 0.5 and write that frame's ANSI (toAnsi) to out.ans
+//!       (view it: tools/ansi2html.py out.ans out.html --png out.png)
+//!
+//! The ground grid is evaluated per pixel like a fragment shader (drawGrid):
+//! antialiased lines that scroll smoothly between pixel rows and fade into a
+//! haze where they get denser than the pixels can show.
 
 const std = @import("std");
 const movy = @import("movy");
@@ -19,7 +24,7 @@ const Rgb = movy.core.types.Rgb;
 const v3 = movy.color.v3;
 
 const CANVAS_W: i32 = 100; // columns
-const CANVAS_H: i32 = 44; // pixels = 22 text rows
+const CANVAS_H: i32 = 52; // pixels = 26 text rows
 const ROWS: usize = @intCast(@divTrunc(CANVAS_H, 2));
 const LOOP_SECONDS: f32 = 9.0;
 const FPS: f32 = 60.0;
@@ -95,30 +100,7 @@ fn drawScene(f: *movy.Frame, n: f32, t: f32) void {
         }
     }
 
-    // perspective grid: crisp solid lines plus a little glow; receding
-    // horizontal lines scroll toward us
-    const grid_col = v3(0.9, 0.1, 0.8);
-    const depth_rows = CANVAS_H - HORIZON;
-    var k: i32 = 0;
-    while (k < 9) : (k += 1) {
-        const z = @mod(@as(f32, @floatFromInt(k)) + t * 1.2, 9.0) / 9.0; // 0 far .. 1 near
-        const yy = HORIZON + @as(i32, @intFromFloat(z * z * @as(f32, @floatFromInt(depth_rows))));
-        f.hline(0, yy, CANVAS_W, grid_col.scale(0.25 + 0.55 * z));
-        f.ghline(0, yy, CANVAS_W, grid_col.scale(0.03 * z));
-    }
-    f.hline(0, HORIZON, CANVAS_W, v3(1.0, 0.4, 0.9));
-    f.ghline(0, HORIZON, CANVAS_W, v3(1.0, 0.3, 0.9).scale(0.06));
-    // converging verticals
-    var j: i32 = -10;
-    while (j <= 10) : (j += 1) {
-        const spread = @as(f32, @floatFromInt(j)) * 11.0;
-        var yy: i32 = HORIZON + 1;
-        while (yy < CANVAS_H) : (yy += 1) {
-            const d = @as(f32, @floatFromInt(yy - HORIZON)) / @as(f32, @floatFromInt(depth_rows));
-            const x = @as(i32, @intFromFloat(cx + spread * (0.08 + d)));
-            f.px(x, yy, grid_col.scale(0.25 + 0.55 * d));
-        }
-    }
+    drawGrid(f, t);
 
     // scanner beam during the reveal
     if (n < REVEAL_END + 0.05) {
@@ -129,6 +111,59 @@ fn drawScene(f: *movy.Frame, n: f32, t: f32) void {
             f.gvline(@as(i32, @intFromFloat(bx)) + dx, 0, CANVAS_H, v3(0.2, 0.8, 1.0).scale(0.12 * fall));
         }
     }
+}
+
+// Ground grid: world lines on a plane seen from above the horizon.
+const GRID_CAM_H: f32 = 20.0; // depth scale: larger = lines farther apart near us
+const GRID_U: f32 = 1.0; // sideways scale: larger = verticals closer together
+const GRID_LINE_PX: f32 = 1.1; // line half-width in pixels
+const GRID_COL = v3(0.9, 0.1, 0.8);
+const FLOOR = v3(0.02, 0.0, 0.05);
+const GRID_HAZE: f32 = 0.3; // brightness where lines blur together at the horizon
+
+/// Antialiased coverage of a grid line: `d` is the world distance to the
+/// nearest line, `deriv` how much world one pixel spans, `slant` the line's
+/// horizontal pixels per pixel row (0 for horizontal/vertical lines; a slanted
+/// line's perpendicular distance is shorter than the measured one). Where lines
+/// get denser than ~2px they fade to their average coverage instead of aliasing.
+fn lineCov(d: f32, deriv: f32, slant: f32) f32 {
+    const px = (d / deriv) / @sqrt(1.0 + slant * slant);
+    const cov = std.math.clamp(1.0 - px / GRID_LINE_PX, 0.0, 1.0);
+    const avg = @min(GRID_LINE_PX * deriv, GRID_HAZE);
+    return cov + (avg - cov) * smoothstep(0.25, 0.6, deriv);
+}
+
+/// A perspective grid evaluated per pixel (like a fragment shader): soft,
+/// sub-pixel-smooth scrolling, fading into a glowing haze at the horizon.
+fn drawGrid(f: *movy.Frame, t: f32) void {
+    const uw: usize = @intCast(f.w);
+    const cx: f32 = @as(f32, @floatFromInt(CANVAS_W)) * 0.5;
+    const depth_rows: f32 = @floatFromInt(CANVAS_H - HORIZON);
+    const scroll = t * 1.6;
+
+    var y: i32 = HORIZON;
+    while (y < CANVAS_H) : (y += 1) {
+        const dy = @as(f32, @floatFromInt(y - HORIZON)) + 0.5; // pixel center
+        const depth = GRID_CAM_H / dy;
+        const dz = GRID_CAM_H / (dy * dy); // world depth per pixel row
+        const wz = depth + scroll;
+        const cov_z = lineCov(@abs(wz - @round(wz)), dz, 0.0);
+        const dwx = GRID_U / dy; // world x per pixel
+        const fog = 0.35 + 0.65 * smoothstep(0.0, depth_rows, dy);
+        const row = @as(usize, @intCast(y)) * uw;
+        for (0..uw) |x| {
+            const wx = (@as(f32, @floatFromInt(x)) + 0.5 - cx) * dwx;
+            // line j sits at x = cx + j * dy / GRID_U: it slants j / GRID_U px per row
+            const cov_x = lineCov(@abs(wx - @round(wx)), dwx, @round(wx) / GRID_U);
+            const c = GRID_COL.scale(@max(cov_x, cov_z) * fog);
+            f.solid[row + x] = FLOOR.add(c);
+            f.glow[row + x] = f.glow[row + x].add(c.scale(0.03));
+        }
+    }
+
+    // horizon: a soft glow band instead of a hard line
+    f.ghline(0, HORIZON, CANVAS_W, v3(1.0, 0.3, 0.9).scale(0.07));
+    f.ghline(0, HORIZON - 1, CANVAS_W, v3(1.0, 0.3, 0.9).scale(0.03));
 }
 
 /// Text: every char scrambles, locks in with a flash, holds, then dissolves.
