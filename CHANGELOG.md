@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### New: `GlyphLayer` - text that lives inside the pixel scene
+
+- `movy.GlyphLayer` is an optional, cell-resolution text layer (codepoint + fg + background mode per cell), kept separate from the pixels. `.pixels` cells take their background from the average of the two pixels underneath, so glow, gradients and trails show through behind text; `.solid` cells use their own background. Empty cells render as half-block pixels as before.
+- `RenderSurface.glyphs` / `setGlyphs()` - attach a layer to the surface that gets encoded (`screen.output_surface`). `DiffOutput` and `toAnsi()` resolve it at output time; it is not composited by the RenderEngine (debug builds panic in `Screen.render()` if a layer is attached to an input surface). Precedence: pixels < glyphs < `char_map` text.
+- `DiffOutput` includes glyph cells in its dirty-row check, so static text over static pixels costs zero bytes, and it keeps skipping fg/bg codes that are already active. Surfaces without a layer run a separately compiled encoder loop - no per-cell cost for pixel-only programs.
+- `Frame.setGlyphs()` grades glyph colors in `composite()` (vignette, warmth, flash, tint; no scanline) into the layer's `fg_out` / `bg_out`, never into the authored colors, so persistent text is not graded twice. `Frame.glyphGlow(strength)` and `Frame.gcell(x, y, color)` add glyph light to the glow buffer.
+- `DiffOutput.initSize()` creates a DiffOutput for a surface size without a `Screen`.
+
+### New example: `glyph-decrypt`
+
+A decrypt-style text reveal on a GlyphLayer over a synthwave Frame scene: characters scramble, lock in with a flash of glow, hold, and dissolve, while the grid and a scanner beam show through behind them. `zig build run-glyph-decrypt -- shot 0.5 out.ans` writes one frame's ANSI headlessly.
+
 ## v0.3.1 - Modifier Keys, Scanline Mask & the logo-morph Banner
 
 A point release focused on input. `Key` now carries `shift` / `alt` / `ctrl` flags, Ctrl+ and Alt+ chords get their own key types, and F-key / Insert coverage is completed. `Frame` gains a per-pixel scanline exemption for HUD text, the build switches to the standard `-Doptimize` option, and the README's neon banner ships as a runnable example.

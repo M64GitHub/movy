@@ -15,6 +15,7 @@ pub const Sprite = @import("graphic/Sprite.zig").Sprite;
 pub const SpritePool = @import("graphic/SpritePool.zig").SpritePool;
 pub const BlockLine = @import("graphic/BlockLine.zig").BlockLine;
 pub const RenderSurface = @import("core/RenderSurface.zig").RenderSurface;
+pub const GlyphLayer = @import("core/GlyphLayer.zig").GlyphLayer;
 
 // Core submodules - foundational elements for movy
 pub const core = @import("core/core.zig");
@@ -53,6 +54,9 @@ pub const ui = @import("ui/ui.zig");
 // Test references - pull in tests from individual modules
 test {
     _ = @import("core/RenderSurface.zig");
+    _ = @import("core/GlyphLayer.zig");
+    _ = @import("screen/DiffOutput.zig");
+    _ = @import("render/Frame.zig");
     _ = @import("graphic/Sprite.zig");
     _ = @import("animation/IndexAnimator.zig");
     _ = @import("render/RenderEngine.zig");

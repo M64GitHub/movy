@@ -174,6 +174,26 @@ pub fn build(b: *std.Build) void {
         ).dependOn(&run_lm.step);
     }
 
+    // -- glyph-decrypt: text on a GlyphLayer over a Frame neon scene
+    {
+        const gd_mod = b.addModule("example_glyph_decrypt", .{
+            .root_source_file = b.path("examples/glyph-decrypt/main.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
+        gd_mod.addImport("movy", movy_mod);
+        const gd_exe = b.addExecutable(.{ .name = "glyph-decrypt", .root_module = gd_mod });
+        gd_exe.linkLibC();
+        b.installArtifact(gd_exe);
+        const run_gd = b.addRunArtifact(gd_exe);
+        run_gd.step.dependOn(b.getInstallStep());
+        if (b.args) |args| run_gd.addArgs(args);
+        b.step(
+            "run-glyph-decrypt",
+            "Run glyph-decrypt (GlyphLayer text over a Frame scene; ESC/q quits)",
+        ).dependOn(&run_gd.step);
+    }
+
     // -- Games
     const games = [_][]const u8{};
 

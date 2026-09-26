@@ -94,6 +94,8 @@ A single float framebuffer with a built-in post-processing stack. Instead of com
 
 - **DiffOutput** is a faster, drop-in replacement for `screen.output()`. It compares each terminal row against the previous frame and re-sends only the rows that changed (unchanged rows cost zero bytes), and in `.threaded` mode hands the blocking write to a background writer thread - so the render loop never stalls, dropping a frame instead of freezing. This is what keeps things smooth at 60fps, especially under tmux / ssh.
 
+- **GlyphLayer** is an optional text layer at cell resolution, separate from the pixels. Each cell holds a codepoint, an fg color and a background mode: `.pixels` (the cell's background is the average of the two pixels under it, so text sits *inside* the scene) or `.solid`. Attach it to the surface that gets encoded (`screen.output_surface.setGlyphs(layer)`) and `DiffOutput` / `toAnsi()` resolve it over the final pixels - empty cells stay half-block pixels. On the Frame path, `frame.setGlyphs(layer)` grades the glyph colors with the scene (vignette / flash / tint, without touching your authored colors), and `glyphGlow()` / `gcell()` feed glyph light into the glow buffer for bloom and trails. It is not composited by the RenderEngine; `char_map` text still draws on top of it. See the [glyph-decrypt example](./examples/glyph-decrypt/main.zig) (`zig build run-glyph-decrypt`).
+
 ### Sprite Rendering
 
 - Sprites hold a **SpriteFrameSet**: an array of frames, each with its own **RenderSurface**.

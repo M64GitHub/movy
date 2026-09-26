@@ -31,6 +31,15 @@
 //!     screen.render();
 //!     try dout.output(&screen);        // movy.DiffOutput
 //!
+//! Glyphs: setGlyphs(layer) makes composite() grade the layer's colors like
+//! the pixels (vignette, warmth, flash, tint - no scanline: a glyph is a whole
+//! cell) into its fg_out / bg_out, leaving the authored colors untouched.
+//! glyphGlow() / gcell() emit glyph light into the glow buffer, so text blooms
+//! and leaves trails like everything else. The layer itself is attached to
+//! screen.output_surface (it is resolved at output, not composited):
+//!     frame.setGlyphs(glyphs);                  // once
+//!     screen.output_surface.setGlyphs(glyphs);  // once
+//!
 //! Tuning (glow_decay/glow_blur/scanline_mul + flash/flash_col/tint) are public
 //! fields you may set any time. vignette_amt is baked into a lookup table at
 //! init(); change it later with setVignette().
@@ -41,6 +50,7 @@ const movy = @import("../movy.zig");
 const V3 = movy.color.V3;
 const Rgb = movy.core.types.Rgb;
 const RenderSurface = movy.RenderSurface;
+const GlyphLayer = movy.GlyphLayer;
 
 const BLACK = V3{ .r = 0, .g = 0, .b = 0 };
 const WHITE = V3{ .r = 1, .g = 1, .b = 1 };
@@ -66,6 +76,8 @@ pub const Frame = struct {
     vig_x: []f32,
     vig_y: []f32,
     surface: *RenderSurface,
+    /// Optional glyph layer graded with the pixels (see setGlyphs).
+    glyphs: ?*GlyphLayer = null,
 
     // --- grading state (public; set per frame as you like) ---
     warmth: f32 = 0, // 0 = unchanged; 1 = full R<->B swap (warm/cool flip)
@@ -214,39 +226,85 @@ pub const Frame = struct {
                 const g = self.glow[i];
                 const v = self.vig_x[x] * (if (odd and self.scanline_mask[i] != 0) vy_free else vy);
 
-                var r = std.math.clamp(s.r + g.r, 0.0, 1.0) * v;
-                var gg = std.math.clamp(s.g + g.g, 0.0, 1.0) * v;
-                var b = std.math.clamp(s.b + g.b, 0.0, 1.0) * v;
-
-                // warmth: a symmetric R<->B channel mix (an involution at w=1),
-                // graded BEFORE the flash so a white flash stays white. Use it
-                // for warm/cool mood shifts or a polarity/phase palette swap.
-                if (self.warmth > 0.001) {
-                    const w = self.warmth;
-                    const wr = r + (b - r) * w;
-                    const wb = b + (r - b) * w;
-                    r = wr;
-                    b = wb;
-                }
-
-                if (self.flash > 0.005) {
-                    r += (self.flash_col.r - r) * self.flash;
-                    gg += (self.flash_col.g - gg) * self.flash;
-                    b += (self.flash_col.b - b) * self.flash;
-                }
-
-                r *= self.tint.r;
-                gg *= self.tint.g;
-                b *= self.tint.b;
-
-                self.surface.color_map[i] = .{
-                    .r = @intFromFloat(std.math.clamp(r, 0.0, 1.0) * 255.0),
-                    .g = @intFromFloat(std.math.clamp(gg, 0.0, 1.0) * 255.0),
-                    .b = @intFromFloat(std.math.clamp(b, 0.0, 1.0) * 255.0),
-                };
+                self.surface.color_map[i] = self.grade(
+                    std.math.clamp(s.r + g.r, 0.0, 1.0) * v,
+                    std.math.clamp(s.g + g.g, 0.0, 1.0) * v,
+                    std.math.clamp(s.b + g.b, 0.0, 1.0) * v,
+                );
                 self.surface.shadow_map[i] = 255; // opaque
             }
         }
+        if (self.glyphs) |gl| self.gradeGlyphs(gl);
+    }
+
+    /// warmth -> flash -> tint -> quantize, for an already vignetted color.
+    inline fn grade(self: *const Frame, r_in: f32, g_in: f32, b_in: f32) Rgb {
+        var r = r_in;
+        var gg = g_in;
+        var b = b_in;
+
+        // warmth: a symmetric R<->B channel mix (an involution at w=1),
+        // graded BEFORE the flash so a white flash stays white. Use it
+        // for warm/cool mood shifts or a polarity/phase palette swap.
+        if (self.warmth > 0.001) {
+            const w = self.warmth;
+            const wr = r + (b - r) * w;
+            const wb = b + (r - b) * w;
+            r = wr;
+            b = wb;
+        }
+
+        if (self.flash > 0.005) {
+            r += (self.flash_col.r - r) * self.flash;
+            gg += (self.flash_col.g - gg) * self.flash;
+            b += (self.flash_col.b - b) * self.flash;
+        }
+
+        r *= self.tint.r;
+        gg *= self.tint.g;
+        b *= self.tint.b;
+
+        return .{
+            .r = @intFromFloat(std.math.clamp(r, 0.0, 1.0) * 255.0),
+            .g = @intFromFloat(std.math.clamp(gg, 0.0, 1.0) * 255.0),
+            .b = @intFromFloat(std.math.clamp(b, 0.0, 1.0) * 255.0),
+        };
+    }
+
+    inline fn gradeRgb(self: *const Frame, c: Rgb, v: f32) Rgb {
+        const k = v / 255.0;
+        return self.grade(
+            @as(f32, @floatFromInt(c.r)) * k,
+            @as(f32, @floatFromInt(c.g)) * k,
+            @as(f32, @floatFromInt(c.b)) * k,
+        );
+    }
+
+    /// Grade occupied glyph cells into fg_out / bg_out. The vignette is
+    /// sampled at the cell's upper pixel; no scanline (a glyph is a cell).
+    fn gradeGlyphs(self: *Frame, gl: *GlyphLayer) void {
+        for (0..gl.h) |cy| {
+            const vy = self.vig_y[cy * 2];
+            const row = cy * gl.w;
+            for (gl.char_map[row..][0..gl.w], 0..) |ch, cx| {
+                if (ch == 0) continue;
+                const i = row + cx;
+                const v = self.vig_x[cx] * vy;
+                gl.fg_out[i] = self.gradeRgb(gl.fg_map[i], v);
+                if (gl.bg_mode[i] == .solid) gl.bg_out[i] = self.gradeRgb(gl.bg_map[i], v);
+            }
+        }
+    }
+
+    /// Grade this Frame's glyph layer in composite() (null detaches). The
+    /// layer must be w cells wide and h/2 tall. Gives it its own out buffers.
+    pub fn setGlyphs(self: *Frame, glyphs: ?*GlyphLayer) !void {
+        if (glyphs) |gl| {
+            std.debug.assert(gl.w == @as(usize, @intCast(self.w)) and
+                gl.h == @as(usize, @intCast(self.h)) / 2);
+            try gl.ensureOutBuffers();
+        }
+        self.glyphs = glyphs;
     }
 
     // ------------------------------------------------------- solid drawing
@@ -387,6 +445,32 @@ pub const Frame = struct {
         }
     }
 
+    /// Add glow to both pixels of text cell (cx, cy) - e.g. a single glyph
+    /// flaring up.
+    pub inline fn gcell(self: *Frame, cx: i32, cy: i32, c: V3) void {
+        self.gpx(cx, cy * 2, c);
+        self.gpx(cx, cy * 2 + 1, c);
+    }
+
+    /// Every occupied glyph cell of the layer set with setGlyphs() emits its
+    /// authored fg * strength into the glow buffer (spaces don't). Call
+    /// between beginFrame() and composite(); with the glow's blur + decay
+    /// that gives text a bloom halo, and moving text a light trail.
+    pub fn glyphGlow(self: *Frame, strength: f32) void {
+        const gl = self.glyphs orelse return;
+        const uw: usize = @intCast(self.w);
+        for (0..gl.h) |cy| {
+            const row = cy * gl.w;
+            const up = cy * 2 * uw;
+            for (gl.char_map[row..][0..gl.w], 0..) |ch, cx| {
+                if (ch == 0 or ch == ' ') continue;
+                const c = V3.fromRgb(gl.fg_map[row + cx]).scale(strength);
+                self.glow[up + cx] = self.glow[up + cx].add(c);
+                self.glow[up + uw + cx] = self.glow[up + uw + cx].add(c);
+            }
+        }
+    }
+
     /// Additive soft ring of radius r (1.5px band) - explosion ripples, etc.
     pub fn gring(self: *Frame, cx: f32, cy: f32, r: f32, c: V3) void {
         if (r <= 0) return;
@@ -444,3 +528,25 @@ pub const Frame = struct {
         if (err != 0) return error.PngEncodeFailed;
     }
 };
+
+test "Frame grades glyphs into fg_out, never the authored colors" {
+    const a = std.testing.allocator;
+    const f = try Frame.init(a, 4, 4);
+    defer f.deinit();
+    const gl = try GlyphLayer.init(a, 4, 2);
+    defer gl.deinit();
+    try f.setGlyphs(gl);
+    f.setVignette(0);
+    gl.put(1, 0, 'a', .{ .r = 200, .g = 100, .b = 50 });
+    gl.putSolid(2, 1, 'b', .{ .r = 255 }, .{ .g = 200 });
+    f.tint = .{ .r = 0.5, .g = 0.5, .b = 0.5 };
+    f.composite();
+    f.composite(); // twice: must not compound
+    try std.testing.expectEqual(@as(u8, 200), gl.fg_map[1].r);
+    try std.testing.expectEqual(@as(u8, 100), gl.fg_out[1].r);
+    try std.testing.expectEqual(@as(u8, 100), gl.bg_out[gl.idx(2, 1)].g);
+
+    f.glyphGlow(1.0);
+    try std.testing.expect(f.glow[1].r > 0.7 and f.glow[1 + 4].r > 0.7);
+    try std.testing.expectEqual(@as(f32, 0), f.glow[0].r);
+}

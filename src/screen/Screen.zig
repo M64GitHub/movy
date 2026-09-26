@@ -99,6 +99,20 @@ pub const Screen = struct {
         self.output_surface.clearColored(self.bg_color);
     }
 
+    /// Glyph layers are resolved only on output_surface; RenderEngine does
+    /// not composite them. Catch one attached to an input surface in debug
+    /// builds instead of dropping it silently.
+    inline fn checkGlyphs(self: *Screen) void {
+        if (@import("builtin").mode != .Debug) return;
+        for (self.output_surfaces.items) |s| {
+            if (s.glyphs != null and s != self.output_surface) std.debug.panic(
+                "movy: a GlyphLayer is attached to an input surface; glyph layers " ++
+                    "are only honored on screen.output_surface (see GlyphLayer.zig)",
+                .{},
+            );
+        }
+    }
+
     /// Composites all added surfaces into the output surface.
     pub fn render(self: *Screen) void {
         if (self.output_surfaces.items.len == 0) return;
@@ -109,6 +123,7 @@ pub const Screen = struct {
             self.output_surface.clearColored(self.bg_color);
         }
 
+        self.checkGlyphs();
         movy.render.RenderEngine.render(
             self.output_surfaces.items,
             self.output_surface,
@@ -125,6 +140,7 @@ pub const Screen = struct {
             self.output_surface.clearColored(self.bg_color);
         }
 
+        self.checkGlyphs();
         movy.render.RenderEngine.renderWithAlphaToBg(
             self.output_surfaces.items,
             self.output_surface,
@@ -140,6 +156,7 @@ pub const Screen = struct {
     pub fn renderOnTop(self: *Screen) void {
         if (self.output_surfaces.items.len == 0) return;
 
+        self.checkGlyphs();
         movy.render.RenderEngine.renderOver(
             self.output_surfaces.items,
             self.output_surface,

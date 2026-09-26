@@ -49,6 +49,10 @@ pub const RenderSurface = struct {
     x: i32, // X position in terminal coordinates
     y: i32, // Y position in terminal coordinates
     z: i32, // Z-order for layering
+    /// Optional text layer, resolved over the pixels by toAnsi / DiffOutput.
+    /// Only honored on the surface that gets encoded (screen.output_surface);
+    /// not owned - the caller deinits it. See GlyphLayer.zig.
+    glyphs: ?*movy.GlyphLayer = null,
 
     /// Creates a new RenderSurface with specified width, height, and color
     /// Fills the RenderSurface with a uniform color, sets all pixels to opaque,
@@ -66,6 +70,7 @@ pub const RenderSurface = struct {
         self.x = 0;
         self.y = 0;
         self.z = 0;
+        self.glyphs = null;
         self.color_map = try allocator.alloc(movy.core.types.Rgb, w * h);
         errdefer allocator.free(self.color_map);
         self.shadow_map = try allocator.alloc(u8, w * h);
@@ -89,6 +94,13 @@ pub const RenderSurface = struct {
         allocator.free(self.char_map);
         allocator.free(self.rendered_str);
         allocator.destroy(self);
+    }
+
+    /// Attach (or detach, with null) a glyph layer. It must be w cells wide
+    /// and h/2 cells tall. The surface does not own it.
+    pub fn setGlyphs(self: *RenderSurface, glyphs: ?*movy.GlyphLayer) void {
+        if (glyphs) |gl| std.debug.assert(gl.w == self.w and gl.h == self.h / 2);
+        self.glyphs = glyphs;
     }
 
     /// Loads an RGBA32 PNG into a new RenderSurface
@@ -476,6 +488,8 @@ pub const RenderSurface = struct {
 
         // Stop 1 row early if height is odd to avoid accessing y+1 out of bounds
         const max_y = if (self.h % 2 == 1) self.h - 1 else self.h;
+        const glyphs = self.glyphs;
+        if (glyphs) |gl| std.debug.assert(gl.w == self.w and gl.h == self.h / 2);
 
         for (0..max_y) |y| {
             if (y % 2 != 0) continue; // Step by 2-half-block pairs
@@ -519,6 +533,28 @@ pub const RenderSurface = struct {
                         ) catch unreachable;
                         tmpstr_idx += char_bytes;
                     }
+                } else if (glyphs != null and glyphs.?.char_map[(y / 2) * self.w + x] != 0) {
+                    // GlyphLayer cell: its fg, bg from the mode (pixels / solid)
+                    const gl = glyphs.?;
+                    const ci = (y / 2) * self.w + x;
+                    tmpstr_idx += formatFgColor(
+                        self.rendered_str[tmpstr_idx..],
+                        gl.fg_out[ci],
+                    );
+                    if (gl.resolveBg(ci, self.color_map, self.shadow_map, idx, idx + self.w)) |bg| {
+                        tmpstr_idx += formatBgColor(self.rendered_str[tmpstr_idx..], bg);
+                    } else {
+                        const s = "\x1b[49m";
+                        @memcpy(self.rendered_str[tmpstr_idx..][0..s.len], s);
+                        tmpstr_idx += s.len;
+                    }
+                    tmpstr_idx += std.unicode.utf8Encode(
+                        gl.char_map[ci],
+                        self.rendered_str[tmpstr_idx..][0..4],
+                    ) catch blk: {
+                        self.rendered_str[tmpstr_idx] = '?';
+                        break :blk 1;
+                    };
                 } else { // No char? Render pixels in half-blocks
                     const upper = self.color_map[idx];
                     const lower = self.color_map[x + (y + 1) * self.w];
@@ -1306,7 +1342,7 @@ pub const RenderSurface = struct {
         }
     }
 
-    fn isDoubleWidth(ch: u21) bool {
+    pub fn isDoubleWidth(ch: u21) bool {
         return (ch >= 0x1100 and ch <= 0x115F) or
             (ch >= 0x2E80 and ch <= 0xA4CF) or
             (ch >= 0x1F300 and ch <= 0x1F64F); // Emoji & CJK
