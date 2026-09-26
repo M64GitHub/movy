@@ -1,5 +1,5 @@
 ![License](https://img.shields.io/badge/License-MIT-85adf2?style=flat)
-![Version](https://img.shields.io/badge/Version-0.3.1-85adf2?style=flat)
+![Version](https://img.shields.io/badge/Version-0.4.0-85adf2?style=flat)
 ![Zig](https://img.shields.io/badge/Zig-0.15.2-orange?style=flat)
 
 <img width="1925"  alt="movy-morph5-shake" src="https://github.com/user-attachments/assets/9f16e20c-7ce5-45a1-b41a-63c7a9067295" />

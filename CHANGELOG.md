@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.4.0 - The Glyph Layer
+
+Text joins the pixel scene. A new, optional `GlyphLayer` holds characters at terminal-cell resolution, kept separate from the half-block pixels and resolved over them at output time, so glow, gradients and trails show through behind text. It plugs into `DiffOutput`, `toAnsi()` and the `Frame` post-fx stack, costs nothing for programs that don't use it, and ships with the `glyph-decrypt` example, a full guide and a headless ANSI-to-PNG tool.
 
 ### New: `GlyphLayer` - text that lives inside the pixel scene
 

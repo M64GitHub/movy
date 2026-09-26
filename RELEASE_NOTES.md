@@ -1,160 +1,161 @@
-# movy v0.3.1 - Modifier Keys, Scanline Mask & the logo-morph Banner
+# movy v0.4.0 - The Glyph Layer
 
-A point release that rounds out the **input layer** introduced in 0.3.0. Keys now
-tell you which modifiers were held, Ctrl+ and Alt+ chords arrive as their own key
-types (so they can never leak into a text field), and F-key / Insert coverage is
-complete across kitty, xterm and legacy terminals. On the render side, `Frame`
-gains a per-pixel **scanline exemption** for HUD text, the build now honors the
-standard `-Doptimize` option, and the README's neon banner ships as the runnable
-**`logo-morph`** example.
+Text joins the pixel scene. Until now, text in movy lived *inside* the pixel
+buffer: a character took its colors from the two pixels it covered and replaced
+them. The new **`GlyphLayer`** keeps text separate - characters at
+terminal-cell resolution, resolved over the half-block pixels only when the
+frame is written to the terminal. Glow, gradients and trails now show through
+behind text, and text can light up the scene in return.
+
+It works with `DiffOutput`, `toAnsi()` and the `Frame` post-fx stack, costs
+nothing for programs that don't use it, and ships with the **`glyph-decrypt`**
+example, a full guide in [doc/GlyphLayer.md](./doc/GlyphLayer.md), and a
+headless ANSI-to-PNG tool.
+
+![glyph-decrypt](./examples/glyph-decrypt/screenshot.png)
 
 > The full version history lives in [CHANGELOG.md](./CHANGELOG.md).
 
 ---
 
-## Modifier flags on `Key`
+## `GlyphLayer` - text inside the scene
 
-`movy.input.Key` gained three booleans, all `false` by default:
+A GlyphLayer is a grid of cells, one per terminal cell. Each cell holds a
+character, a text color and a background mode:
+
+- **`.pixels`** - the background is the average of the two pixels under the
+  cell, resolved every frame. Text you place once sits inside an animated scene
+  without being redrawn.
+- **`.solid`** - the cell uses its own background color.
+
+Empty cells stay half-block pixels, exactly as before.
 
 ```zig
-pub const Key = struct {
-    type: KeyType,
-    sequence: []const u8,
-    event: KeyEvent = .Press,
-    shift: bool = false, // new
-    alt: bool = false,   // new
-    ctrl: bool = false,  // new
-};
+const glyphs = try movy.GlyphLayer.init(allocator, screen.w, screen.h / 2);
+defer glyphs.deinit();
+screen.output_surface.setGlyphs(glyphs);
+
+glyphs.put(10, 5, 'A', .{ .r = 255, .g = 120, .b = 220 });          // over the pixels
+_ = glyphs.putStr(10, 7, "text in the scene", .{ .r = 200, .g = 240, .b = 255 });
+_ = glyphs.putStrSolid(10, 9, " SCORE 1200 ", .{}, .{ .r = 255, .g = 120, .b = 220 });
 ```
 
-They are set on keys whose **type** does not already encode the modifier, so an
-existing consumer that ignores them keeps working - an Alt+Up is still `.Up`, it
-just says `alt = true` now.
+Drawing calls: `put`, `putSolid`, `putStr`, `putStrSolid` (UTF-8, `\n`
+returns to the start column), `setFg`, `erase`, `clear`. They all clip at the
+edges. Double-width codepoints become `◉`, the same rule `putUtf8XY` uses, so a
+row never shifts.
 
-- **Arrows / Home / End** carry `alt`. `CSI 1;3A` (Alt+Up) used to be
-  indistinguishable from a bare Up; it is also parsed on the legacy path. Ctrl and
-  Shift arrows keep their dedicated `Ctrl*` / `Shift*` types.
-- **F-keys** carry `alt` / `ctrl` / `shift` - Alt+F9, Ctrl+F5, Shift+F6, Alt+F1 -
-  with the same grammar on kitty and xterm.
-- **Named keys** (Backspace, Delete, Enter, Escape, Tab, Insert) carry them on
-  kitty CSI-u, so Shift+Backspace no longer arrives as a plain Backspace.
-- **Shift+Space** sets `shift` on a `.Char` key (kitty only - legacy input cannot
-  tell it from a bare space; both are a single `0x20` byte).
+### Where it lives
 
-Only kitty / xterm modifier-parameter forms can set the flags. Bare legacy
-sequences carry no modifier field and stay `false`.
+The layer is attached to the surface that gets written to the terminal -
+`screen.output_surface` - through the new `RenderSurface.glyphs` field and
+`setGlyphs()`. It is resolved at output, not composited by the RenderEngine:
 
-## `CtrlChar` and `AltChar` - chords are commands, not text
+- **Precedence**, highest first: `char_map` text (UI / HUD) > glyphs > pixels.
+  Existing text keeps working and always stays on top.
+- **One layer per screen.** Draw several text "layers" into it in order; the
+  last write wins.
+- **Pixels cannot cover glyphs** - a sprite flying over text passes behind it.
+  Erase the cells it covers if it should be in front.
+- **Debug builds catch mistakes:** `Screen.render()` panics with a clear
+  message if a glyph layer is attached to an input surface, where it would
+  otherwise be dropped silently.
 
-Two new `KeyType`s. In both, `sequence` holds the **lowercase character
-itself** - never a control byte - so you can bind Ctrl+`-` and Ctrl+`=`, not
-just letters.
+---
 
-- **`.CtrlChar`** - Ctrl + any printable. Kitty CSI-u on modern terminals; on
-  legacy terminals every C0 control byte (Ctrl+A..Z) maps here too. `.CtrlC`
-  keeps its own type.
-- **`.AltChar`** - Alt + any printable, kitty CSI-u only (legacy input spells Alt
-  as an ESC prefix, which no parser can tell from a real Escape followed by
-  typing). `shift` carries the other half of Alt+Shift+X, since the protocol
-  reports the base codepoint.
+## `DiffOutput` and `toAnsi()` resolve glyphs
 
-They get their own types on purpose: a chord is a *command*, and a consumer that
-routes `.Char` into a text field or a piano must never see it.
+Both encoders resolve glyph cells over the final composited pixels.
 
-```zig
-if (try movy.input.get()) |ev| switch (ev) {
-    .key => |key| switch (key.type) {
-        .Char => typeInto(&editor, key.sequence), // text only - chords never land here
-        .CtrlChar => switch (key.sequence[0]) {
-            's' => try save(),
-            '-' => zoomOut(),
-            '=' => zoomIn(),
-            else => {},
-        },
-        .AltChar => if (key.shift) transposeOctave(key.sequence[0])
-                    else transposeSemitone(key.sequence[0]),
-        .Up, .Down => if (key.alt) jumpPattern(key.type) else moveCursor(key.type),
-        .F9 => if (key.alt) toggleDebugHud(),
-        .Backspace => if (key.shift) deleteRow() else insertRow(),
-        else => {},
-    },
-    .mouse => {},
-};
-```
+- **Changed-row detection includes glyphs.** A row is re-sent only when its
+  pixels or its glyphs changed, so static text over a static background costs
+  zero bytes, and static text over an animated background costs the same as the
+  background alone.
+- **Color codes that are already active are not re-sent**, so a run of
+  same-colored text costs little more than its characters.
+- **No layer, no cost.** `DiffOutput` is compiled in two versions; surfaces
+  without a glyph layer run the unchanged pixel loop with no per-cell glyph
+  test. At 200x50 cells with every row changing, the pixel-only path measures
+  the same as in 0.3.1 (98.0 us/frame on both).
+- **`DiffOutput.initSize(allocator, w, h, mode)`** - new: a DiffOutput for a
+  surface size, without a `Screen`.
 
-## More keys
+---
 
-- **`KeyType.Insert`** (`CSI 2~`) - previously fell through to `.Other`.
-- **F1-F4 in every spelling:** kitty's `CSI 1;mods {P,Q,S}` and `CSI 13~` for F3,
-  the xterm legacy `CSI 11~`..`14~`, and the parameterless `CSI P` / `Q` / `S`.
+## `Frame` integration - grading and glyph light
 
-## `Frame.scanline_mask` - keep HUD text above the scanline
-
-A strong `scanline_mul` looks great on the playfield and terrible on small text.
-The Frame now has a per-pixel **scanline exemption**: pixels you mark keep full
-brightness on odd rows in `composite()`, while every other grade (vignette /
-warmth / flash / tint) still applies.
+Tell the Frame about the layer, and glyphs become part of the neon look:
 
 ```zig
-frame.beginFrame();                 // also clears the mask
-frame.rect(x, y, 40, 8, hud_bg);    // draw the HUD as usual
-frame.slrect(x, y, 40, 8);          // ...and exempt it from the CRT stripe
-// slpx(x, y) marks a single pixel
+try frame.setGlyphs(glyphs);                     // grade glyphs in composite()
+screen.output_surface.setGlyphs(glyphs);         // resolve them at output
+
+frame.beginFrame();
+// ... draw pixels, put glyphs ...
+frame.glyphGlow(0.025);                          // text blooms into the glow buffer
+frame.gcell(x, y, movy.color.v3(0.5, 0.9, 1.0)); // one cell flares up
 frame.composite();
 ```
 
-The mask is a **per-frame transient** - `beginFrame()` clears it, so drawing code
-simply re-marks while it stamps each frame.
+- **Grading:** `composite()` runs glyph colors through vignette, warmth, flash
+  and tint, like the pixels (no scanline: a glyph is a whole cell). It writes
+  into the layer's separate output colors (`fg_out` / `bg_out`) and never into
+  the colors you set, so text you keep across frames is not graded again every
+  frame. A white flash now flashes the text too.
+- **Glyph light:** `glyphGlow(strength)` adds every glyph's color to the
+  persistent glow buffer; its blur and decay turn that into a bloom halo, and
+  moving text leaves a light trail. `gcell(x, y, color)` lights up a single
+  cell. Keep strengths low (around `0.02 - 0.05`): the glow accumulates.
 
-## New example: `logo-morph`
+---
 
-The looping neon banner at the top of the README is a live movy program, and now
-it lives in the repo. The logo is rebuilt every frame from its own grayscale
-pixels; a flare beam sweeps across it, energizing and scattering what it touches;
-a magenta *ignite* beat fires expanding shockwave rings; then everything settles
-back to the clean logo and the loop repeats. Every trail and bloom you see is the
-Frame's persistent glow buffer blurring and decaying on its own - there is no
-per-object trail bookkeeping anywhere.
+## New example: `glyph-decrypt`
+
+A decrypt-style text reveal, TerminalTextEffects-style, in movy's neon look:
+characters scramble through random glyphs, lock in left to right with a flash
+of light, hold, and dissolve, while a scanner beam and a slowly drifting color
+field show through behind them. A status bar shows the `.solid` background
+mode.
 
 ```sh
-zig build run-logo-morph          # ESC / q quits
-zig build run-logo-morph -- shake # add a screen shake on the ignite beat
+zig build run-glyph-decrypt                       # ESC / q quits (needs 100x26)
+zig build run-glyph-decrypt -- shot 0.3 out.ans   # headless: write one frame's ANSI
 ```
 
-Needs at least a 120x20-cell terminal. The
-[examples/logo-morph](./examples/logo-morph/) walkthrough explains the phase-driven
-timeline and how each piece maps onto the Frame API.
+---
 
-## Build: the standard optimize option
+## New tool: `tools/ansi2html.py`
 
-`build.zig` now uses `b.standardOptimizeOption(.{})` like any Zig project -
-**Debug by default**, `-Doptimize=ReleaseFast` for the fast build. It had been a
-hard-coded `ReleaseFast` for years; a Debug build keeps the safety checks (leak
-detection above all) that the hard-coded mode hid.
+`Frame.savePng()` has no font, so it cannot show glyphs. `tools/ansi2html.py`
+renders movy's terminal output - `toAnsi()` and `DiffOutput` streams alike - to
+HTML, and with `--png` to a screenshot via headless Chrome:
 
-If you depend on movy, pass your own mode through as usual:
-
-```zig
-const movy_dep = b.dependency("movy", .{ .target = target, .optimize = optimize });
-exe.root_module.addImport("movy", movy_dep.module("movy"));
+```sh
+tools/ansi2html.py out.ans out.html --png out.png
 ```
+
+---
+
+## Docs
+
+- New guide: [doc/GlyphLayer.md](./doc/GlyphLayer.md) - the workflow,
+  background modes, persistence and precedence, Frame grading and glyph glow,
+  performance, the headless dev loop, and a quick reference.
+- README: a *Glyph Layer* section with a code sample, and the glyph-decrypt
+  screenshot.
 
 ---
 
 ## Behavior changes
 
-- **`KeyType` grew three values** - `CtrlChar`, `AltChar`, `Insert`. If you
-  `switch (key.type)` exhaustively (no `else` arm), the compiler will stop you
-  until they are handled: add `.CtrlChar, .AltChar, .Insert => ...` arms, or an
-  `else => {}`. Switches that already have `else` are unaffected.
-- **Legacy (non-kitty) terminals:** C0 control bytes (Ctrl+A..Z, except `^C` /
-  `^H` / `^I` / `^J` / `^M`, which keep their types) now arrive as `.CtrlChar`
-  carrying the letter, instead of `.Char` carrying the raw control byte. If you
-  matched on the raw byte, match on `.CtrlChar` + the letter instead.
-- **Build mode:** movy no longer forces `ReleaseFast` on itself. A dependent
-  building in Debug now gets a Debug movy (slower render loop, full safety
-  checks). Pass `.optimize = .ReleaseFast` to the dependency to keep the old
-  behavior.
+None that should affect existing code:
 
-No other API changes - the compositing path, `Frame`, `DiffOutput` and the
+- **`RenderSurface` has a new field**, `glyphs: ?*GlyphLayer`, defaulting to
+  `null` and set to `null` by `init()`. Code that never attaches a layer
+  renders byte-for-byte as before.
+- **`RenderSurface.isDoubleWidth()` is now public** (the GlyphLayer uses it).
+- **`Frame.composite()`** moved its grading into a shared helper; the math and
+  the output are unchanged.
+
+The compositing path, the RenderEngine, `char_map` text, sprites, input and the
 existing demos are untouched.
