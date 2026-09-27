@@ -6,6 +6,7 @@
 - **[Screen.md](./Screen.md)** - The terminal rendering canvas: compositing layers, managing sprites and surfaces, and outputting to the terminal
 - **[Animation.md](./Animation.md)** - Animation utilities: IndexAnimator for frame cycling, TrigWave for wave motion, easing functions for smooth transitions
 - **[GlyphLayer.md](./GlyphLayer.md)** - Text inside the pixel scene: glyphs whose backgrounds come from the pixels underneath, Frame grading and glyph glow, and seeing glyphs headlessly
+- **[VideoExport.md](./VideoExport.md)** - A movy program records itself: fixed-clock PNG frames of pixels, text and glyphs with a baked font, `tools/makevideo.sh` to mp4 (with audio), and baking fonts
 - **[Colors.md](./Colors.md)** - Color constants and utilities: Bootstrap-inspired palette, HTML color parsing, brightness and darkness adjustment
 
 ## Code Examples

@@ -1,8 +1,10 @@
 # Changelog
 
-## v0.4.0 - The Glyph Layer
+## v0.4.0 - The Glyph Layer & VideoExport
 
 Text joins the pixel scene. A new, optional `GlyphLayer` holds characters at terminal-cell resolution, kept separate from the half-block pixels and resolved over them at output time, so glow, gradients and trails show through behind text. It plugs into `DiffOutput`, `toAnsi()` and the `Frame` post-fx stack, costs nothing for programs that don't use it, and ships with the `glyph-decrypt` example, a full guide and a headless ANSI-to-PNG tool.
+
+And movy programs can now record themselves: `VideoExport` renders frames on a fixed clock into PNGs - pixels, text and glyphs, with a baked font - and `tools/makevideo.sh` turns them into an mp4 with sound. The new `glyph-reel` showcase uses both.
 
 ### New: `GlyphLayer` - text that lives inside the pixel scene
 
@@ -12,8 +14,26 @@ Text joins the pixel scene. A new, optional `GlyphLayer` holds characters at ter
 - `Frame.setGlyphs()` grades glyph colors in `composite()` (vignette, warmth, flash, tint; no scanline) into the layer's `fg_out` / `bg_out`, never into the authored colors, so persistent text is not graded twice. `Frame.glyphGlow(strength)` and `Frame.gcell(x, y, color)` add glyph light to the glow buffer.
 - `DiffOutput.initSize()` creates a DiffOutput for a surface size without a `Screen`.
 
+### New: `VideoExport` - a movy program records itself
+
+- `movy.VideoExport` rasterizes what the terminal would show into an RGB image and writes numbered PNGs (`frame_000000.png`, ...). The cell rules mirror `DiffOutput`: `char_map` text > GlyphLayer glyphs (graded `fg_out`, `.pixels` / `.solid` background) > two half-block pixels; transparent pixels show a configurable `background`.
+- Fixed clock: `time()` returns `frame_n / fps` - drive the program with it and every frame is rendered, none dropped, independent of export speed.
+- Text is drawn from fonts baked into cell-sized 8-bit alpha bitmaps: **JetBrains Mono** (default, `video_export.default_font`, SIL OFL 1.1) and **DejaVu Sans Mono** (the closest match to macOS Menlo), each at 19x38 px (1080p: 100x28 cells -> 1900x1064, square 19x19 half-block pixels, pads to 1920x1080 without rescaling) and 10x20 px. ASCII plus common extras (`·`, arrows, box drawing, shapes, accented letters). Block elements (U+2580..259F) and braille are drawn procedurally to fill the cell.
+- `init()` creates the output directory and removes stale `frame_NNNNNN.png` files, so a shorter export never leaves old frames for ffmpeg to pick up.
+- API: `init(allocator, cols, rows, opts)`, `writeFrame(surface)`, `rasterize(surface)`, `savePng(path)`, `time()`; `video_export.atlas(font, cell)` for the baked fonts. No new dependencies (movy's bundled lodepng; `exe.linkLibC()`).
+
+### New tools: `tools/makevideo.sh`, `tools/bakefont.py`
+
+- `makevideo.sh FRAMES_DIR OUT.mp4 [--audio FILE] [--offset MS] [--fps N] [--size WxH | --native] [--crf N]` - frames (+ optional audio track, AAC) to H.264 via ffmpeg, padded to 1920x1080 by default. `--offset` shifts the audio against the video in milliseconds, sample-accurate.
+- `bakefont.py FONT.ttf NAME CELL_W CELL_H OUT_DIR` - bakes any monospace TTF into a VideoExport font (Python 3 + Pillow, any OS): auto-fit point size, terminal placement, a preview sheet to check.
+
+### New example: `glyph-reel`
+
+The v0.4.0 showcase, a ~40s timeline on the GlyphLayer and Frame paths: the news decrypts behind a scanner beam, the logo rises from below the frame, a `.solid` bar fades in, a glyph storm throws text off the wave crests, VideoExport decrypts behind a reverse beam with a `REC` timecode, a v0.3.0 recap, and a closing card. `export` records it with VideoExport (`zig build run-glyph-reel -- export`, then `tools/makevideo.sh export glyph-reel.mp4`). Also `once` (play once, hold the card), `wide` (120x20 banner), `pal <aurora|decrypt|ember>`, and `shot <sec>` for headless frames.
+
 ### Docs
 
+- New guide [doc/VideoExport.md](./doc/VideoExport.md): the workflow, options and fonts, cell rules, stale frames, audio sync, performance, and a quick reference.
 - New guide [doc/GlyphLayer.md](./doc/GlyphLayer.md): the workflow, background modes, persistence and precedence, Frame grading and glyph glow, performance, the headless dev loop, and a quick reference.
 - README: a *Glyph Layer* section with a code sample, and the glyph-decrypt screenshot.
 

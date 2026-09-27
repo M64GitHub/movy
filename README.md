@@ -189,7 +189,7 @@ zig build test
 - **[Guides](./doc/README.md)** - Documentation on core concepts like RenderSurface and RenderEngine, written for developers new to movy
 - **[Examples](./examples/)** - Code examples demonstrating specific features (alpha blending, PNG loading, sprite animations, rotation / scaling, ...)
 - **[Demos](./demos/README.md)** - Programs showcasing visual effects, animations, and interaction
-- **[Tools](./tools/)** - `ansi2html.py` renders movy's terminal output to HTML / PNG for headless visual checks
+- **[Tools](./tools/)** - `ansi2html.py` renders movy's terminal output to HTML / PNG for headless visual checks; `makevideo.sh` turns a `VideoExport` frame dump (+ audio) into an mp4; `bakefont.py` bakes fonts for VideoExport
 - **[Release Notes](./RELEASE_NOTES.md)** - What's new in the latest release (see [CHANGELOG.md](./CHANGELOG.md) for the full history)
 
 The sections are being updated frequently.

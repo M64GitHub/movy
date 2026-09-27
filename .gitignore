@@ -4,3 +4,5 @@ zig-out
 perf-results
 
 
+/export/
+*.mp4

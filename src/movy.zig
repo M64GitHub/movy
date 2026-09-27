@@ -43,6 +43,11 @@ pub const Screen = @import("screen/Screen.zig").Screen;
 // drop-in for Screen.output() (essential under tmux / ssh)
 pub const DiffOutput = @import("screen/DiffOutput.zig").DiffOutput;
 
+// A movy program records itself: rasterizes the terminal image (pixels, text,
+// glyphs) with a baked font into numbered PNGs for tools/makevideo.sh
+pub const VideoExport = @import("export/VideoExport.zig").VideoExport;
+pub const video_export = @import("export/VideoExport.zig");
+
 // Top level utility submodules - supporting functionality
 pub const color = @import("core/colors.zig");
 pub const input = @import("input/input.zig");
@@ -57,6 +62,7 @@ test {
     _ = @import("core/GlyphLayer.zig");
     _ = @import("screen/DiffOutput.zig");
     _ = @import("render/Frame.zig");
+    _ = @import("export/VideoExport.zig");
     _ = @import("graphic/Sprite.zig");
     _ = @import("animation/IndexAnimator.zig");
     _ = @import("render/RenderEngine.zig");

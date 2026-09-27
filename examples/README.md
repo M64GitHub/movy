@@ -19,6 +19,19 @@ zig build run-<example_name>
   zig build run-logo-morph -- shake # add a screen shake on the ignite beat
   ```
 
+- **[glyph-reel](./glyph-reel/)** - the v0.4.0 showcase: a ~40s timeline on the
+  **GlyphLayer** + **Frame** paths - beam-decrypted news, the logo rising from
+  below, a glyph storm, **VideoExport**, a v0.3.0 recap and a closing card. It
+  records itself to an mp4. See its [README](./glyph-reel/README.md) for the
+  timeline and the video steps.
+  ```bash
+  zig build run-glyph-reel                # loops; ESC / q quits
+  zig build run-glyph-reel -- once        # play once and hold the card
+  zig build run-glyph-reel -- wide        # 120x20 banner instead of 100x28 (16:9)
+  zig build run-glyph-reel -- pal ember   # palettes: aurora (default), decrypt, ember
+  zig build run-glyph-reel -- export      # 60fps PNGs -> export/, then tools/makevideo.sh
+  ```
+
 - **basic_surface** - Creating surfaces, adding text, and basic output
   ```bash
   zig build run-basic_surface

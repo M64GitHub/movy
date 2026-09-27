@@ -194,6 +194,26 @@ pub fn build(b: *std.Build) void {
         ).dependOn(&run_gd.step);
     }
 
+    // -- glyph-reel: the v0.4.0 showcase (GlyphLayer + Frame, ~33s timeline)
+    {
+        const gr_mod = b.addModule("example_glyph_reel", .{
+            .root_source_file = b.path("examples/glyph-reel/main.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
+        gr_mod.addImport("movy", movy_mod);
+        const gr_exe = b.addExecutable(.{ .name = "glyph-reel", .root_module = gr_mod });
+        gr_exe.linkLibC();
+        b.installArtifact(gr_exe);
+        const run_gr = b.addRunArtifact(gr_exe);
+        run_gr.step.dependOn(b.getInstallStep());
+        if (b.args) |args| run_gr.addArgs(args);
+        b.step(
+            "run-glyph-reel",
+            "Run glyph-reel (the v0.4.0 showcase; once / wide / pal <name>; ESC/q quits)",
+        ).dependOn(&run_gr.step);
+    }
+
     // -- Games
     const games = [_][]const u8{};
 
