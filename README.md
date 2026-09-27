@@ -2,16 +2,18 @@
 ![Version](https://img.shields.io/badge/Version-0.4.0-85adf2?style=flat)
 ![Zig](https://img.shields.io/badge/Zig-0.15.2-orange?style=flat)
 
-<img width="900" height="300" alt="banner_900" src="https://github.com/user-attachments/assets/90463305-271b-4aae-947e-08e4ee2e86b8" />
+<img width="800" height="267" alt="trailer_800_128" src="https://github.com/user-attachments/assets/d0c23084-9d54-40cb-afc2-a4f317839ec0" />
 
 **movy** is a terminal-based graphics and animation engine that brings pixel-level rendering, visual effects, and interactivity to text mode.
 
 > [!TIP]
-> **The neon banner above is a live movy program** - a looping logo reveal rendered
-> on the new **Frame** path. See how it's made (and run it yourself) in
-> **[examples/logo-morph](./examples/logo-morph/)**:
+> **The banner above is a live movy program that recorded itself** - text on the new
+> **GlyphLayer** decrypting over a neon **Frame** scene, exported frame by frame with
+> **VideoExport**. For GitHub, the 60fps frames were cut into a 21s trailer and turned
+> into a GIF with 128 colors, so the real thing is smoother and richer in color. See how
+> it's made (and run it yourself) in **[examples/glyph-reel](./examples/glyph-reel/)**:
 > ```sh
-> zig build run-logo-morph
+> zig build run-glyph-reel
 > ```
 
 ## Overview
